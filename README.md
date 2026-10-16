@@ -102,6 +102,50 @@ automatically if someone else saved the character in the meantime, so they
 merge rather than overwrite; `edit` reports the conflict instead, since a
 whole edited document can't be re-applied safely.
 
+### Fight screen
+
+```sh
+campaign-edit fight --new "Goblin ambush"   # start a combat
+campaign-edit fight                         # the latest one still running
+campaign-edit fight goblin                  # one by name or ID prefix
+export CAMPAIGN_COMBAT_SERVER=http://127.0.0.1:3001   # the default
+```
+
+A full-screen view of a combat: the initiative order (with HP, AC and the
+effects on each combatant), the sheet of whoever is acting, the log, and a
+command line. Everyone on the screen has a number, and a line reads
+`[WHO] ACTION [ARGS]`, where `WHO` is a number and defaults to whoever has
+the turn:
+
+```
+add vex                     Vex joins the combat (from their sheet)
+add Goblin 7                Goblin (7 HP) joins the combat
+roll · start · next         initiative for everyone without; begin; end the turn
+damage 3 7                  Vex deals 7 damage to Goblin
+damage 2 3 8                Vex deals 8 damage to Grog and Goblin
+2 heal 1 5                  Grog heals Vex for 5
+cast hunter's mark 3        Vex casts Hunter's Mark on Goblin (concentration)
+cast cure wounds 2 at 2     spends Vex's 2nd-level slot
+effect Prone 3 for 1        Vex puts Prone on Goblin for 1 round
+use favored foe             Vex uses Favored Foe (only ever on oneself)
+init 3 17 · init 3          set Goblin's initiative, or roll it
+drop hunter's mark · remove 3 · undo · pause · resume · end · quit
+```
+
+Every action but `use` takes any combatants as targets. As you type, the
+line below says who does what to whom ("Vex deals ? damage to Goblin — how
+much?"), the acting combatant and the targets light up in the initiative
+order, and the sheet panel shows whoever acts. Tab completes the action,
+spell, feature, effect or character; typing a name where a combatant goes
+completes it to their number. ↑/↓ pick among the suggestions, Esc clears
+the line, PgUp/PgDn scroll the log, Ctrl-C quits.
+
+Casting spends the caster's slot on their sheet (a pact slot when that's
+what works) and, for concentration spells, puts the spell into play as an
+effect on its targets. Changes show at once and are confirmed by the
+server; if the connection drops the screen keeps working, queues what you
+do and sends it once it has reconnected.
+
 ## Character API
 
 | Method | Path | Body | Response |

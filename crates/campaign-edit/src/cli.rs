@@ -62,9 +62,29 @@ pub enum TopCommand {
     /// the DM) admitting and revoking devices.
     #[command(subcommand)]
     Auth(AuthCommand),
+    /// Run a combat on a full-screen view: initiative order, the acting
+    /// character's sheet, the log, and a command line with completion.
+    Fight(FightArgs),
     /// A character name or ID, followed by a character command.
     #[command(external_subcommand)]
     Character(Vec<String>),
+}
+
+#[derive(Debug, Args)]
+pub struct FightArgs {
+    /// The combat, by name or ID prefix. Defaults to the most recently
+    /// active one that hasn't ended.
+    pub combat: Option<String>,
+    /// Start a new combat with this name instead.
+    #[arg(long, value_name = "NAME", conflicts_with = "combat")]
+    pub new: Option<String>,
+    /// Combat service URL.
+    #[arg(
+        long,
+        env = "CAMPAIGN_COMBAT_SERVER",
+        default_value = "http://127.0.0.1:3001"
+    )]
+    pub combat_server: String,
 }
 
 #[derive(Debug, Subcommand)]
