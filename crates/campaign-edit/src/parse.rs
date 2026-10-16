@@ -76,7 +76,11 @@ pub fn resolve_character(query: &str, characters: &[CharacterSummary]) -> Result
     };
     match candidates.as_slice() {
         [one] => Ok(one.id),
-        [] => bail!("no character matches '{query}' (see `campaign-edit list`)"),
+        // Any word that isn't a command ends up here, so say both.
+        [] => bail!(
+            "'{query}' isn't a command or a character \
+             (`campaign-edit --help` lists the commands, `campaign-edit list` the characters)"
+        ),
         many => {
             let names: Vec<_> = many
                 .iter()
@@ -148,7 +152,11 @@ mod tests {
             resolve_character("a", &party()).is_err(),
             "aaa.. and abb.. ids"
         );
-        assert!(resolve_character("vex", &party()).is_err());
+        let err = resolve_character("vex", &party()).unwrap_err().to_string();
+        assert!(
+            err.contains("'vex' isn't a command or a character"),
+            "{err}"
+        );
     }
 
     #[test]

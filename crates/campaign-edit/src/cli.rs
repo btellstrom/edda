@@ -5,6 +5,15 @@
 //! as an external subcommand, which we then parse with [`CharacterArgs`].
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap_complete::engine::ArgValueCompleter;
+
+use crate::complete;
+
+/// Where the services are unless told otherwise.
+pub const CHARACTER_SERVER: &str = "http://127.0.0.1:3000";
+pub const COMBAT_SERVER: &str = "http://127.0.0.1:3001";
+pub const AUTH_SERVER: &str = "http://127.0.0.1:3002";
+pub const MONSTER_SERVER: &str = "http://127.0.0.1:3003";
 
 const CHARACTER_HELP: &str = "\
 Character commands:
@@ -32,7 +41,7 @@ pub struct Cli {
     #[arg(
         long,
         env = "CAMPAIGN_SERVER",
-        default_value = "http://127.0.0.1:3000",
+        default_value = CHARACTER_SERVER,
         global = true
     )]
     pub server: String,
@@ -42,7 +51,7 @@ pub struct Cli {
     #[arg(
         long,
         env = "CAMPAIGN_AUTH_SERVER",
-        default_value = "http://127.0.0.1:3002",
+        default_value = AUTH_SERVER,
         global = true
     )]
     pub auth_server: String,
@@ -51,7 +60,7 @@ pub struct Cli {
     #[arg(
         long,
         env = "CAMPAIGN_MONSTER_SERVER",
-        default_value = "http://127.0.0.1:3003",
+        default_value = MONSTER_SERVER,
         global = true
     )]
     pub monster_server: String,
@@ -96,17 +105,27 @@ pub enum MonsterCommand {
     #[command(visible_alias = "ls")]
     List { search: Option<String> },
     /// Show a stat block, by name (a unique prefix will do).
-    Show { monster: String },
+    Show {
+        #[arg(add = ArgValueCompleter::new(complete::monsters))]
+        monster: String,
+    },
     /// Add the campaign's own from a JSON file: one stat block or a list.
     /// `export` gives a starting point.
     Add { file: std::path::PathBuf },
     /// Print a stat block as JSON, e.g. to base a new monster on.
-    Export { monster: String },
+    Export {
+        #[arg(add = ArgValueCompleter::new(complete::monsters))]
+        monster: String,
+    },
     /// Edit a stat block in $EDITOR. Editing a shared one saves a copy as
     /// the campaign's own.
-    Edit { monster: String },
+    Edit {
+        #[arg(add = ArgValueCompleter::new(complete::monsters))]
+        monster: String,
+    },
     /// Delete one of the campaign's own.
     Delete {
+        #[arg(add = ArgValueCompleter::new(complete::monsters))]
         monster: String,
         #[arg(long)]
         yes: bool,
@@ -117,6 +136,7 @@ pub enum MonsterCommand {
 pub struct FightArgs {
     /// The combat, by name or ID prefix. Defaults to the most recently
     /// active one that hasn't ended.
+    #[arg(add = ArgValueCompleter::new(complete::combats))]
     pub combat: Option<String>,
     /// Start a new combat with this name instead.
     #[arg(long, value_name = "NAME", conflicts_with = "combat")]
@@ -125,7 +145,7 @@ pub struct FightArgs {
     #[arg(
         long,
         env = "CAMPAIGN_COMBAT_SERVER",
-        default_value = "http://127.0.0.1:3001"
+        default_value = COMBAT_SERVER
     )]
     pub combat_server: String,
 }
@@ -138,10 +158,16 @@ pub enum AuthCommand {
     Campaigns,
     /// Switch to another campaign this device is in, by name (a unique
     /// prefix is enough) or ID prefix.
-    Use { campaign: String },
+    Use {
+        #[arg(add = ArgValueCompleter::new(complete::campaigns))]
+        campaign: String,
+    },
     /// Forget a campaign on this device. The device stays registered in
     /// it (the DM can revoke it); joining again brings it back.
-    Forget { campaign: String },
+    Forget {
+        #[arg(add = ArgValueCompleter::new(complete::campaigns))]
+        campaign: String,
+    },
     /// DM: show a short code for a new device to join with, and wait for
     /// it. The code works once and for ten minutes.
     Invite {

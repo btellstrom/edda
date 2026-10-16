@@ -28,6 +28,7 @@ client: ## build campaign-edit natively (target/release/campaign-edit)
 
 install: ## install campaign-edit into ~/.cargo/bin
 	$(CARGO) install --locked --path crates/campaign-edit
+	@echo 'Tab completion (bash): add  source <(COMPLETE=bash campaign-edit)  to ~/.bashrc'
 
 srd: ## download the SRD monsters into data/monsters (loaded by make up)
 	tools/fetch-srd-monsters.sh

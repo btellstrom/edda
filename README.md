@@ -117,6 +117,21 @@ cargo install --path crates/campaign-edit   # or: cargo run -p campaign-edit -- 
 export CAMPAIGN_SERVER=http://127.0.0.1:3000  # the default; or pass --server
 ```
 
+Tab completion asks campaign-edit itself, so besides commands and options
+it completes the campaign's characters (and their commands), monsters,
+combats, this device's campaigns and file names. Add one line to your
+shell's startup file:
+
+```sh
+echo 'source <(COMPLETE=bash campaign-edit)' >> ~/.bashrc     # bash
+echo 'source <(COMPLETE=zsh campaign-edit)' >> ~/.zshrc       # zsh
+echo 'COMPLETE=fish campaign-edit | source' > ~/.config/fish/completions/campaign-edit.fish
+```
+
+Names come from the servers as you press Tab (giving up after 1.5 s, when
+only commands and options complete); names with spaces come escaped
+(`goblin\ boss`).
+
 Each device first joins a campaign (see [Authentication](#authentication)):
 
 ```sh

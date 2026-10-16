@@ -1,5 +1,6 @@
 mod auth;
 mod cli;
+mod complete;
 mod display;
 mod edit;
 mod editor;
@@ -19,6 +20,7 @@ use uuid::Uuid;
 use cli::{CharacterArgs, CharacterCommand, Cli, PactCommand, SlotsCommand, TopCommand};
 
 fn main() -> ExitCode {
+    complete::answer_if_asked();
     let cli = Cli::parse();
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -114,10 +116,22 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
 
     // Parse before touching the network so `help` and usage errors are instant.
     let mut command = CharacterArgs::command().bin_name(format!("campaign-edit {query}"));
-    let matches = command
+    let args = command
         .try_get_matches_from_mut(rest)
-        .unwrap_or_else(|e| e.exit());
-    let args = CharacterArgs::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+        .and_then(|matches| CharacterArgs::from_arg_matches(&matches));
+    let args = match args {
+        Ok(args) => args,
+        // A word that's neither a command nor a character (say, a command
+        // this version doesn't have) would otherwise be reported as a
+        // character with a bad subcommand: say what's really wrong.
+        Err(e) if e.use_stderr() => {
+            if let Ok(characters) = client.list().await {
+                parse::resolve_character(query, &characters)?;
+            }
+            e.exit()
+        }
+        Err(e) => e.exit(),
+    };
 
     let id = parse::resolve_character(query, &client.list().await?)?;
     let command = args

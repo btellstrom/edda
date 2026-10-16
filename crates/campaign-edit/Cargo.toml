@@ -10,7 +10,8 @@ campaign-auth = { version = "0.1.0", path = "../campaign-auth" }
 campaign-client = { version = "0.1.0", path = "../campaign-client" }
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
-clap = { version = "4.6.7", features = ["derive", "env"] }
+clap = { version = "4.6.7", features = ["derive", "env", "string"] }
+clap_complete = { version = "4.6.11", features = ["unstable-dynamic"] }
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures-util = "0.3.34"
 rand = "0.10.3"
