@@ -10,8 +10,10 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use campaign_auth::{protocol::Claims, server::Authenticated};
 use campaign_types::combat::{
-    ClientMessage, CombatSnapshot, CombatSummary, CommandEnvelope, LoggedEvent, ServerMessage,
+    ClientMessage, CombatSnapshot, CombatStatus, CombatSummary, CommandEnvelope, LoggedEvent,
+    ServerMessage,
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -38,20 +40,19 @@ pub fn router() -> Router<AppState> {
 
 #[derive(Deserialize)]
 struct NewCombat {
-    campaign: String,
     name: String,
 }
 
+/// Creates a combat in the caller's campaign.
 async fn create(
     State(hub): State<AppState>,
+    Authenticated(claims): Authenticated,
     Json(body): Json<NewCombat>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if body.name.trim().is_empty() || body.campaign.trim().is_empty() {
-        return Err(ApiError::BadRequest(
-            "campaign and name must not be empty".into(),
-        ));
+    if body.name.trim().is_empty() {
+        return Err(ApiError::BadRequest("name must not be empty".into()));
     }
-    let snapshot = hub.create(&body.campaign, &body.name).await?;
+    let snapshot = hub.create(&claims.campaign.to_string(), &body.name).await?;
     let location = format!("/combats/{}", snapshot.id);
     Ok((
         StatusCode::CREATED,
@@ -60,20 +61,33 @@ async fn create(
     ))
 }
 
-/// Most recently active first; filter with `?campaign=...&status=paused`.
+#[derive(Deserialize)]
+struct ListQuery {
+    status: Option<CombatStatus>,
+}
+
+/// The caller's campaign's combats, most recently active first; filter with
+/// `?status=paused`.
 async fn list(
     State(hub): State<AppState>,
-    Query(filter): Query<ListFilter>,
+    Authenticated(claims): Authenticated,
+    Query(query): Query<ListQuery>,
 ) -> Result<Json<Vec<CombatSummary>>, ApiError> {
+    let filter = ListFilter {
+        campaign: Some(claims.campaign.to_string()),
+        status: query.status,
+    };
     Ok(Json(hub.store().list(&filter).await?))
 }
 
 /// Current state: round, whose turn it is, initiative order and effects.
 async fn snapshot(
     State(hub): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
 ) -> Result<Json<CombatSnapshot>, ApiError> {
-    Ok(Json(hub.combat(id).await?.snapshot(hub.store()).await?))
+    let combat = hub.combat_in(id, claims.campaign).await?;
+    Ok(Json(combat.snapshot(hub.store()).await?))
 }
 
 #[derive(Deserialize)]
@@ -85,9 +99,11 @@ struct LogQuery {
 /// The complete log, or the part after `?after=<seq>`.
 async fn log(
     State(hub): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
     Query(query): Query<LogQuery>,
 ) -> Result<Json<Vec<LoggedEvent>>, ApiError> {
+    hub.combat_in(id, claims.campaign).await?;
     let events = hub.store().events(id, query.after).await?;
     Ok(Json(events.ok_or(ApiError::NotFound)?))
 }
@@ -96,9 +112,12 @@ async fn log(
 /// returns its original events rather than applying it twice.
 async fn command(
     State(hub): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
     Json(envelope): Json<CommandEnvelope>,
 ) -> Result<Json<Vec<LoggedEvent>>, ApiError> {
+    hub.combat_in(id, claims.campaign).await?;
+    let envelope = attributed(envelope, &claims);
     let command_id = envelope.command_id;
     match hub.execute(id, envelope).await? {
         Outcome::Applied(events) => Ok(Json(events)),
@@ -108,17 +127,31 @@ async fn command(
 
 async fn websocket(
     State(hub): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
     upgrade: WebSocketUpgrade,
 ) -> Result<Response, ApiError> {
     // Resolve the combat first so an unknown id is a plain 404.
-    let combat = hub.combat(id).await?;
-    Ok(upgrade.on_upgrade(move |socket| session(socket, hub, combat, id)))
+    let combat = hub.combat_in(id, claims.campaign).await?;
+    Ok(upgrade.on_upgrade(move |socket| session(socket, hub, combat, id, claims)))
+}
+
+/// The log records who sent a command as the authenticated device's name,
+/// whatever the client claimed.
+fn attributed(mut envelope: CommandEnvelope, claims: &Claims) -> CommandEnvelope {
+    envelope.actor = Some(claims.name.clone());
+    envelope
 }
 
 /// One connected client: snapshot first, then every event as it happens,
 /// while executing whatever commands the client sends.
-async fn session(socket: WebSocket, hub: AppState, combat: Arc<LiveCombat>, id: Uuid) {
+async fn session(
+    socket: WebSocket,
+    hub: AppState,
+    combat: Arc<LiveCombat>,
+    id: Uuid,
+    claims: Claims,
+) {
     let (mut sink, mut incoming) = socket.split();
     let Ok((snapshot, mut events)) = combat.subscribe(hub.store()).await else {
         return;
@@ -145,7 +178,7 @@ async fn session(socket: WebSocket, hub: AppState, combat: Arc<LiveCombat>, id: 
                 Err(RecvError::Closed) => break,
             },
             message = incoming.next() => match message {
-                Some(Ok(Message::Text(text))) => match handle(&hub, id, &text).await {
+                Some(Ok(Message::Text(text))) => match handle(&hub, id, &text, &claims).await {
                     Some(reply) => reply,
                     None => continue,
                 },
@@ -161,7 +194,7 @@ async fn session(socket: WebSocket, hub: AppState, combat: Arc<LiveCombat>, id: 
 
 /// Executes a client's command. Accepted commands need no direct reply:
 /// their events reach this client through the broadcast like everyone else.
-async fn handle(hub: &Hub, id: Uuid, text: &str) -> Option<ServerMessage> {
+async fn handle(hub: &Hub, id: Uuid, text: &str, claims: &Claims) -> Option<ServerMessage> {
     let ClientMessage::Command(envelope) = match serde_json::from_str(text) {
         Ok(message) => message,
         Err(e) => {
@@ -172,7 +205,7 @@ async fn handle(hub: &Hub, id: Uuid, text: &str) -> Option<ServerMessage> {
         }
     };
     let command_id = envelope.command_id;
-    match hub.execute(id, envelope).await {
+    match hub.execute(id, attributed(envelope, claims)).await {
         Ok(Outcome::Applied(_)) => None,
         Ok(Outcome::AlreadyApplied) => Some(ServerMessage::AlreadyApplied { command_id }),
         Err(e) => Some(ServerMessage::Rejected {

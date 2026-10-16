@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
+use campaign_auth::server::Authenticated;
 use campaign_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
 use uuid::Uuid;
 
@@ -53,8 +54,11 @@ fn expected_version(headers: &HeaderMap) -> Result<Option<u64>, ApiError> {
         })
 }
 
-async fn list(State(state): State<AppState>) -> Result<Json<Vec<CharacterSummary>>, ApiError> {
-    let characters = state.characters.list().await?;
+async fn list(
+    State(state): State<AppState>,
+    Authenticated(claims): Authenticated,
+) -> Result<Json<Vec<CharacterSummary>>, ApiError> {
+    let characters = state.characters.list(claims.campaign).await?;
     Ok(Json(
         characters.iter().map(CharacterSummary::from).collect(),
     ))
@@ -62,9 +66,10 @@ async fn list(State(state): State<AppState>) -> Result<Json<Vec<CharacterSummary
 
 async fn create(
     State(state): State<AppState>,
+    Authenticated(claims): Authenticated,
     Json(sheet): Json<CharacterSheet>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let character = state.characters.create(sheet).await?;
+    let character = state.characters.create(claims.campaign, sheet).await?;
     let location = format!("/characters/{}", character.id);
     Ok((
         StatusCode::CREATED,
@@ -75,33 +80,43 @@ async fn create(
 
 async fn fetch(
     State(state): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, ApiError> {
-    Ok(tagged(state.characters.get(id).await?))
+    Ok(tagged(state.characters.get(claims.campaign, id).await?))
 }
 
 async fn replace(
     State(state): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
     headers: HeaderMap,
     Json(sheet): Json<CharacterSheet>,
 ) -> Result<impl IntoResponse, ApiError> {
     let expected = expected_version(&headers)?;
-    Ok(tagged(state.characters.replace(id, expected, sheet).await?))
+    let saved = state
+        .characters
+        .replace(claims.campaign, id, expected, sheet)
+        .await?;
+    Ok(tagged(saved))
 }
 
 async fn remove(
     State(state): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    state.characters.delete(id).await?;
+    state.characters.delete(claims.campaign, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn apply_action(
     State(state): State<AppState>,
+    Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
     Json(action): Json<CharacterAction>,
 ) -> Result<impl IntoResponse, ApiError> {
-    Ok(tagged(state.characters.apply(id, &action).await?))
+    Ok(tagged(
+        state.characters.apply(claims.campaign, id, &action).await?,
+    ))
 }

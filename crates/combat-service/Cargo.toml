@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = { version = "0.8.9", features = ["ws"] }
+campaign-auth = { version = "0.1.0", path = "../campaign-auth", features = ["server"] }
 campaign-client = { version = "0.1.0", path = "../campaign-client", default-features = false }
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }

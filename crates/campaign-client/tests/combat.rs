@@ -1,55 +1,59 @@
-//! End-to-end tests against a real combat service.
+//! End-to-end tests against real combat and auth services.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
+use campaign_auth::{DeviceKey, protocol::Session, server::TokenVerifier};
 use campaign_client::combat::{CombatClient, Received, Replica, live::CombatConnection};
 use campaign_types::combat::{
     CombatCommand, CombatEvent, CombatState, CombatStatus, Combatant, CommandEnvelope, NewEffect,
     ServerMessage,
 };
+use combat_service::sync::HpSyncConfig;
 use uuid::Uuid;
 
-/// Tests share one Postgres database (each works in its own campaign and
-/// combats, so they don't interfere). Start one with `podman compose up -d`
-/// or point `TEST_DATABASE_URL` elsewhere.
-fn database_url() -> String {
-    std::env::var("TEST_DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/combat_test".to_string())
-}
+mod support;
 
-/// A unique campaign name, so listings only show this test's combats.
-fn campaign() -> String {
-    format!("test-{}", Uuid::new_v4())
-}
+use support::{Auth, Party, database_url};
 
 /// One instance of the combat service. Starting several gives several
-/// instances sharing the database, as behind a load balancer.
+/// instances sharing the database, as behind a load balancer. Tests share
+/// the database; each works in its own campaign, so they don't interfere.
 struct Server {
-    client: CombatClient,
+    url: String,
 }
 
 impl Server {
-    async fn start() -> Self {
-        Self::start_with(combat_service::Config::default()).await
+    async fn start(auth: &Auth) -> Self {
+        Self::start_with(auth, combat_service::Config::default()).await
     }
 
-    async fn start_with(config: combat_service::Config) -> Self {
-        let pool = combat_service::connect(&database_url())
+    async fn start_with(auth: &Auth, config: combat_service::Config) -> Self {
+        let pool = combat_service::connect(&database_url("combat_test"))
             .await
             .expect("Postgres must be running for these tests (see README)");
-        let app = combat_service::app(pool, config).await.unwrap();
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        tokio::spawn(axum::serve(listener, app).into_future());
+        let verifier = TokenVerifier::new(auth.key);
+        let app = combat_service::app(pool, verifier, config).await.unwrap();
         Self {
-            client: CombatClient::new(format!("http://{addr}")),
+            url: support::serve(app).await,
         }
     }
+
+    fn client(&self, session: &Session) -> CombatClient {
+        CombatClient::new(&self.url).with_token(&session.token)
+    }
+}
+
+/// An auth service, a campaign with its DM logged in, and a combat service.
+async fn setup() -> (Auth, Party, Server) {
+    let auth = Auth::start().await;
+    let party = auth.campaign().await;
+    let server = Server::start(&auth).await;
+    (auth, party, server)
 }
 
 async fn run(client: &CombatClient, combat: Uuid, command: CombatCommand) -> Vec<CombatEvent> {
     let events = client
-        .command(combat, &CommandEnvelope::new(command).by("DM"))
+        .command(combat, &CommandEnvelope::new(command))
         .await
         .unwrap();
     events.into_iter().map(|e| e.event).collect()
@@ -73,10 +77,9 @@ async fn next(conn: &mut CombatConnection) -> ServerMessage {
 
 #[tokio::test]
 async fn full_encounter_with_complete_log() {
-    let server = Server::start().await;
-    let api = &server.client;
-    let campaign = campaign();
-    let combat = api.create(&campaign, "Goblin ambush").await.unwrap().id;
+    let (_auth, party, server) = setup().await;
+    let api = &server.client(&party.dm);
+    let combat = api.create("Goblin ambush").await.unwrap().id;
 
     let vex = add(api, combat, "Vex", 4).await;
     let grog = add(api, combat, "Grog", 0).await;
@@ -167,7 +170,7 @@ async fn full_encounter_with_complete_log() {
     let tail = api.log(combat, snapshot.seq - 2).await.unwrap();
     assert_eq!(tail.len(), 2);
 
-    let combats = api.list(Some(&campaign), None).await.unwrap();
+    let combats = api.list(None).await.unwrap();
     assert_eq!(
         (combats[0].status, combats[0].round),
         (CombatStatus::Active, 1)
@@ -176,13 +179,14 @@ async fn full_encounter_with_complete_log() {
 
 #[tokio::test]
 async fn changes_are_pushed_to_every_connected_client() {
-    let server = Server::start().await;
-    let api = &server.client;
-    let combat = api.create(&campaign(), "Live").await.unwrap().id;
+    let (auth, party, server) = setup().await;
+    let api = &server.client(&party.dm);
+    let combat = api.create("Live").await.unwrap().id;
     let goblin = add(api, combat, "Goblin", 0).await;
 
+    let vex = party.player(&auth, "Vex").await;
     let mut dm = api.connect(combat).await.unwrap();
-    let mut player = api.connect(combat).await.unwrap();
+    let mut player = server.client(&vex).connect(combat).await.unwrap();
     let ServerMessage::Snapshot(snapshot) = next(&mut player).await else {
         panic!("first message must be a snapshot");
     };
@@ -275,9 +279,9 @@ async fn changes_are_pushed_to_every_connected_client() {
 
 #[tokio::test]
 async fn resent_commands_are_applied_once() {
-    let server = Server::start().await;
-    let api = &server.client;
-    let combat = api.create(&campaign(), "Retry").await.unwrap().id;
+    let (_auth, party, server) = setup().await;
+    let api = &server.client(&party.dm);
+    let combat = api.create("Retry").await.unwrap().id;
     let goblin = add(api, combat, "Goblin", 0).await;
 
     let hit = CommandEnvelope::new(CombatCommand::Damage {
@@ -304,9 +308,9 @@ async fn resent_commands_are_applied_once() {
 
 #[tokio::test]
 async fn concurrent_commands_are_serialized() {
-    let server = Server::start().await;
-    let api = &server.client;
-    let combat = api.create(&campaign(), "Melee").await.unwrap().id;
+    let (_auth, party, server) = setup().await;
+    let api = &server.client(&party.dm);
+    let combat = api.create("Melee").await.unwrap().id;
     let ogre = Combatant::new("Ogre", 100);
     let ogre_id = ogre.id;
     run(api, combat, CombatCommand::AddCombatant { combatant: ogre }).await;
@@ -349,8 +353,8 @@ async fn concurrent_commands_are_serialized() {
 
 #[tokio::test]
 async fn unknown_combats_are_not_found() {
-    let server = Server::start().await;
-    let api = &server.client;
+    let (_auth, party, server) = setup().await;
+    let api = &server.client(&party.dm);
     let missing = Uuid::new_v4();
     assert!(matches!(
         api.snapshot(missing).await,
@@ -365,21 +369,17 @@ async fn unknown_combats_are_not_found() {
 
 #[tokio::test]
 async fn instances_share_combats() {
-    let a = Server::start().await;
-    let b = Server::start().await;
-    let combat = a.client.create(&campaign(), "Split").await.unwrap().id;
+    let (auth, party, a) = setup().await;
+    let b = Server::start(&auth).await;
+    let (a, b) = (a.client(&party.dm), b.client(&party.dm));
+    let combat = a.create("Split").await.unwrap().id;
     let ogre = Combatant::new("Ogre", 100);
     let ogre_id = ogre.id;
-    run(
-        &b.client,
-        combat,
-        CombatCommand::AddCombatant { combatant: ogre },
-    )
-    .await;
+    run(&b, combat, CombatCommand::AddCombatant { combatant: ogre }).await;
 
     // Clients connected to different instances see each other's changes.
-    let mut on_a = a.client.connect(combat).await.unwrap();
-    let mut on_b = b.client.connect(combat).await.unwrap();
+    let mut on_a = a.connect(combat).await.unwrap();
+    let mut on_b = b.connect(combat).await.unwrap();
     let ServerMessage::Snapshot(snapshot) = next(&mut on_a).await else {
         panic!("first message must be a snapshot");
     };
@@ -409,7 +409,7 @@ async fn instances_share_combats() {
     // Concurrent commands spread over both instances are serialised.
     let hits: Vec<_> = (0..24)
         .map(|i| {
-            let api = if i % 2 == 0 { &a.client } else { &b.client }.clone();
+            let api = if i % 2 == 0 { &a } else { &b }.clone();
             tokio::spawn(async move {
                 let hit = CombatCommand::Damage {
                     combatant: ogre_id,
@@ -424,7 +424,7 @@ async fn instances_share_combats() {
     for hit in hits {
         hit.await.unwrap();
     }
-    for api in [&a.client, &b.client] {
+    for api in [&a, &b] {
         let snapshot = api.snapshot(combat).await.unwrap();
         assert_eq!(
             snapshot
@@ -462,11 +462,12 @@ async fn instances_share_combats() {
 
 #[tokio::test]
 async fn paused_combats_resume_days_later_on_any_instance() {
-    let (ours, theirs) = (campaign(), campaign());
+    let auth = Auth::start().await;
+    let (ours, theirs) = (auth.campaign().await, auth.campaign().await);
     let (combat, paused) = {
-        let session = Server::start().await;
-        let api = &session.client;
-        let combat = api.create(&ours, "Bridge fight").await.unwrap().id;
+        let session = Server::start(&auth).await;
+        let api = &session.client(&ours.dm);
+        let combat = api.create("Bridge fight").await.unwrap().id;
         let a = add(api, combat, "A", 0).await;
         let b = add(api, combat, "B", 0).await;
         for (combatant, total) in [(a, 15), (b, 10)] {
@@ -485,23 +486,14 @@ async fn paused_combats_resume_days_later_on_any_instance() {
     assert_eq!(paused.state.status, CombatStatus::Paused);
 
     // Meanwhile another campaign fights on another instance.
-    let other = Server::start().await;
-    let elsewhere = other
-        .client
-        .create(&theirs, "Tavern brawl")
-        .await
-        .unwrap()
-        .id;
-    let x = add(&other.client, elsewhere, "X", 0).await;
+    let other = Server::start(&auth).await;
+    let other = &other.client(&theirs.dm);
+    let elsewhere = other.create("Tavern brawl").await.unwrap().id;
+    let x = add(other, elsewhere, "X", 0).await;
+    run(other, elsewhere, CombatCommand::RollInitiativeForAll).await;
+    run(other, elsewhere, CombatCommand::Start).await;
     run(
-        &other.client,
-        elsewhere,
-        CombatCommand::RollInitiativeForAll,
-    )
-    .await;
-    run(&other.client, elsewhere, CombatCommand::Start).await;
-    run(
-        &other.client,
+        other,
         elsewhere,
         CombatCommand::Damage {
             combatant: x,
@@ -511,20 +503,17 @@ async fn paused_combats_resume_days_later_on_any_instance() {
     .await;
 
     // Days later, on a fresh instance: find the paused combat and carry on.
-    let later = Server::start().await;
-    let api = &later.client;
-    let waiting = api
-        .list(Some(&ours), Some(CombatStatus::Paused))
-        .await
-        .unwrap();
+    let later = Server::start(&auth).await;
+    let api = &later.client(&ours.dm);
+    let waiting = api.list(Some(CombatStatus::Paused)).await.unwrap();
     assert_eq!(waiting.iter().map(|c| c.id).collect::<Vec<_>>(), [combat]);
     assert!(
-        api.list(Some(&ours), Some(CombatStatus::Active))
+        api.list(Some(CombatStatus::Active))
             .await
             .unwrap()
             .is_empty()
     );
-    let theirs_listed = api.list(Some(&theirs), None).await.unwrap();
+    let theirs_listed = later.client(&theirs.dm).list(None).await.unwrap();
     assert_eq!(
         theirs_listed.iter().map(|c| c.id).collect::<Vec<_>>(),
         [elsewhere]
@@ -546,7 +535,8 @@ async fn paused_combats_resume_days_later_on_any_instance() {
 
 #[tokio::test]
 async fn hit_points_are_written_back_to_character_sheets() {
-    let characters = character_service().await;
+    let (auth, party, _) = setup().await;
+    let characters = character_service(&auth).await.with_token(&party.dm.token);
     let sheet = campaign_types::CharacterSheet {
         name: "Vex".into(),
         hit_points: campaign_types::HitPoints {
@@ -557,18 +547,31 @@ async fn hit_points_are_written_back_to_character_sheets() {
         ..Default::default()
     };
     let vex = characters.create(&sheet).await.unwrap();
+    // The combat service writes back as itself, with a key registered with
+    // the auth service.
+    let service_key = DeviceKey::generate();
+    auth.store
+        .add_service("combat-service", service_key.public())
+        .await
+        .unwrap();
     let config = combat_service::Config {
-        character_service: Some(characters.base_url().to_string()),
+        hp_sync: Some(HpSyncConfig {
+            character_service: characters.base_url().to_string(),
+            auth_service: auth.url.clone(),
+            auth_key: auth.key,
+            key: Arc::new(service_key),
+        }),
     };
-    let a = Server::start_with(config.clone()).await;
-    let b = Server::start_with(config).await;
+    let a = Server::start_with(&auth, config.clone()).await;
+    let b = Server::start_with(&auth, config).await;
+    let (a, b) = (a.client(&party.dm), b.client(&party.dm));
 
-    let combat = a.client.create(&campaign(), "Ambush").await.unwrap().id;
+    let combat = a.create("Ambush").await.unwrap().id;
     let combatant = Combatant::from_character(&vex);
     let id = combatant.id;
-    run(&a.client, combat, CombatCommand::AddCombatant { combatant }).await;
+    run(&a, combat, CombatCommand::AddCombatant { combatant }).await;
     run(
-        &b.client,
+        &b,
         combat,
         CombatCommand::Damage {
             combatant: id,
@@ -579,7 +582,7 @@ async fn hit_points_are_written_back_to_character_sheets() {
     wait_for_hp(&characters, vex.id, (22, 0)).await;
 
     run(
-        &a.client,
+        &a,
         combat,
         CombatCommand::SetTemporaryHitPoints {
             combatant: id,
@@ -588,7 +591,7 @@ async fn hit_points_are_written_back_to_character_sheets() {
     )
     .await;
     run(
-        &b.client,
+        &b,
         combat,
         CombatCommand::Damage {
             combatant: id,
@@ -598,7 +601,7 @@ async fn hit_points_are_written_back_to_character_sheets() {
     .await;
     wait_for_hp(&characters, vex.id, (20, 0)).await;
     run(
-        &a.client,
+        &a,
         combat,
         CombatCommand::Heal {
             combatant: id,
@@ -609,17 +612,15 @@ async fn hit_points_are_written_back_to_character_sheets() {
     wait_for_hp(&characters, vex.id, (24, 0)).await;
 }
 
-async fn character_service() -> campaign_client::Client {
+async fn character_service(auth: &Auth) -> campaign_client::Client {
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)
         .connect("sqlite::memory:")
         .await
         .unwrap();
     character_service::migrate(&pool).await.unwrap();
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    tokio::spawn(axum::serve(listener, character_service::app(pool)).into_future());
-    campaign_client::Client::new(format!("http://{addr}"))
+    let app = character_service::app(pool, TokenVerifier::new(auth.key));
+    campaign_client::Client::new(support::serve(app).await)
 }
 
 /// Write-back happens in the background, shortly after each command.
@@ -634,4 +635,65 @@ async fn wait_for_hp(characters: &campaign_client::Client, id: Uuid, expected: (
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     panic!("sheet never reached {expected:?}; last saw {last:?}");
+}
+
+#[tokio::test]
+async fn combats_are_private_to_their_campaign() {
+    let (auth, party, server) = setup().await;
+    let api = &server.client(&party.dm);
+    let combat = api.create("Secret lair").await.unwrap().id;
+
+    let anonymous = CombatClient::new(&server.url);
+    assert!(matches!(
+        anonymous.list(None).await,
+        Err(campaign_client::ClientError::Unauthorized(_))
+    ));
+    assert!(anonymous.connect(combat).await.is_err());
+
+    let rival = auth.campaign().await;
+    let rival = server.client(&rival.dm);
+    assert!(rival.list(None).await.unwrap().is_empty());
+    assert!(matches!(
+        rival.snapshot(combat).await,
+        Err(campaign_client::ClientError::NotFound)
+    ));
+    assert!(matches!(
+        rival.log(combat, 0).await,
+        Err(campaign_client::ClientError::NotFound)
+    ));
+    assert!(matches!(
+        rival
+            .command(combat, &CommandEnvelope::new(CombatCommand::End))
+            .await,
+        Err(campaign_client::ClientError::NotFound)
+    ));
+    assert!(rival.connect(combat).await.is_err());
+}
+
+#[tokio::test]
+async fn the_log_names_the_device_not_whoever_the_client_claims() {
+    let (auth, party, server) = setup().await;
+    let combat = server.client(&party.dm).create("Trust").await.unwrap().id;
+    let vex = server.client(&party.player(&auth, "Vex's laptop").await);
+    let goblin = add(&vex, combat, "Goblin", 0).await;
+    let lie = CommandEnvelope::new(CombatCommand::Damage {
+        combatant: goblin,
+        amount: 3,
+    })
+    .by("DM");
+    let events = vex.command(combat, &lie).await.unwrap();
+    assert_eq!(events[0].actor.as_deref(), Some("Vex's laptop"));
+
+    let mut conn = vex.connect(combat).await.unwrap();
+    next(&mut conn).await; // snapshot
+    let lie = CommandEnvelope::new(CombatCommand::Heal {
+        combatant: goblin,
+        amount: 1,
+    })
+    .by("DM");
+    conn.send(&lie).await.unwrap();
+    let ServerMessage::Event(event) = next(&mut conn).await else {
+        panic!("expected an event");
+    };
+    assert_eq!(event.actor.as_deref(), Some("Vex's laptop"));
 }

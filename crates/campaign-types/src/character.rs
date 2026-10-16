@@ -8,6 +8,8 @@ use crate::{resources::Resource, spellcasting::Spellcasting};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Character {
     pub id: Uuid,
+    /// The campaign it belongs to; only that campaign's devices can see it.
+    pub campaign: Uuid,
     #[serde(flatten)]
     pub sheet: CharacterSheet,
     /// Incremented on every change. Send it back in `If-Match` when replacing
@@ -455,6 +457,7 @@ mod tests {
             .slots
             .insert(3, crate::Pool { max: 2, used: 1 });
         let character = Character {
+            campaign: Uuid::nil(),
             id: Uuid::nil(),
             sheet,
             version: 7,

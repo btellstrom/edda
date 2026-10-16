@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.9"
+campaign-auth = { version = "0.1.0", path = "../campaign-auth", features = ["server"] }
+campaign-client = { version = "0.1.0", path = "../campaign-client", default-features = false }
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
 serde = { version = "1.0.229", features = ["derive"] }
@@ -18,5 +20,6 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 uuid = { version = "1.28.0", features = ["v4", "serde"] }
 
 [dev-dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 http-body-util = "0.1.5"
 tower = { version = "0.5.3", features = ["util"] }

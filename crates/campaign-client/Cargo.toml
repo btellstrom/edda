@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+campaign-auth = { version = "0.1.0", path = "../campaign-auth" }
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
 futures-util = { version = "0.3.34", default-features = false, features = ["sink"], optional = true }
 reqwest = { version = "0.13.5", features = ["json", "query"] }
@@ -21,8 +22,12 @@ default = ["websocket"]
 websocket = ["dep:tokio-tungstenite", "dep:futures-util", "dep:tokio"]
 
 [dev-dependencies]
+auth-service = { path = "../auth-service" }
 axum = "0.8.9"
+campaign-auth = { path = "../campaign-auth", features = ["server"] }
 character-service = { path = "../character-service" }
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 combat-service = { path = "../combat-service" }
+reqwest = { version = "0.13.5", features = ["json"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["sqlite", "runtime-tokio"] }
 tokio = { version = "1.53.3", features = ["macros", "net", "rt", "rt-multi-thread", "time"] }

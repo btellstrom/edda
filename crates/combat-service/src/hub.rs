@@ -48,6 +48,8 @@ pub struct Hub {
 
 pub struct LiveCombat {
     id: Uuid,
+    /// The campaign it belongs to; fixed at creation.
+    campaign: String,
     /// The state commands are decided against. Held while a command runs.
     core: Mutex<View>,
     /// What this instance has broadcast so far. Subscribers start from a
@@ -126,6 +128,16 @@ impl Hub {
         Ok(combat)
     }
 
+    /// The combat, if it belongs to `campaign`. Another campaign's combat
+    /// is reported as not found, so its existence isn't revealed.
+    pub async fn combat_in(&self, id: Uuid, campaign: Uuid) -> Result<Arc<LiveCombat>, ApiError> {
+        let combat = self.combat(id).await?;
+        if combat.campaign != campaign.to_string() {
+            return Err(ApiError::NotFound);
+        }
+        Ok(combat)
+    }
+
     pub async fn execute(&self, id: Uuid, envelope: CommandEnvelope) -> Result<Outcome, ApiError> {
         let outcome = self
             .combat(id)
@@ -197,6 +209,7 @@ impl LiveCombat {
         };
         Self {
             id,
+            campaign: view.state.campaign.clone(),
             core: Mutex::new(view.clone()),
             feed: Mutex::new(view),
             events: broadcast::channel(SUBSCRIBER_BUFFER).0,

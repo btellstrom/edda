@@ -8,6 +8,8 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | Crate | Purpose |
 | --- | --- |
 | `crates/campaign-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
+| `crates/campaign-auth` | Device keys, signed device certificates and tokens. Shared by the services and clients. |
+| `crates/auth-service` | Campaigns, the devices admitted to them, and login (axum + Postgres). |
 | `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
 | `crates/combat-service` | Live, event-sourced combat encounters (axum + Postgres + WebSocket). Runs as any number of instances. |
 | `crates/campaign-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
@@ -24,7 +26,16 @@ podman run -d --name campaign-postgres -e POSTGRES_PASSWORD=postgres \
   docker.io/library/postgres:17-alpine
 ```
 
+Start the auth service first: the others fetch its token key on startup
+(or set `AUTH_PUBLIC_KEY` to it, which is better when the network between
+them isn't trusted; `AUTH_SERVICE_URL` says where to fetch it from).
+
 ```sh
+cargo run -p auth-service
+# DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/auth,
+#   BIND_ADDR to 127.0.0.1:3002
+cargo run -p auth-service -- new-campaign "Vox Machina"   # prints the DM's setup code
+
 cargo run -p character-service
 # DATABASE_URL defaults to sqlite://characters.db, BIND_ADDR to 127.0.0.1:3000
 cargo run -p combat-service
@@ -32,6 +43,10 @@ cargo run -p combat-service
 #   (created on first start), BIND_ADDR to 127.0.0.1:3001,
 # CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty turns HP write-back off)
 ```
+
+On first start the combat service creates its own key (`SERVICE_KEY_FILE`,
+default `combat-service.key`) and logs the command that lets it write hit
+points back: `auth-service add-service combat-service <KEY>`.
 
 Run more combat-service instances against the same database (with
 different `BIND_ADDR`s, behind any load balancer) and clients may connect to
@@ -42,6 +57,17 @@ whichever they like.
 ```sh
 cargo install --path crates/campaign-edit   # or: cargo run -p campaign-edit -- <args>
 export CAMPAIGN_SERVER=http://127.0.0.1:3000  # the default; or pass --server
+```
+
+Each device first joins a campaign (see [Authentication](#authentication)):
+
+```sh
+campaign-edit auth setup <CODE> --name "DM laptop"   # the DM, with the setup code
+campaign-edit auth key                               # a player: send this to the DM
+campaign-edit auth approve <KEY> --name "Vex's laptop"   # the DM approves it
+campaign-edit auth join <CAMPAIGN ID>                # the player, once approved
+campaign-edit auth devices                           # who's in, certificates checked
+campaign-edit auth revoke "Vex's laptop"             # the DM locks a device out
 ```
 
 Top-level commands manage the roster; anything else is a character (name,
@@ -85,7 +111,10 @@ whole edited document can't be re-applied safely.
 | `DELETE` | `/characters/{id}` | | `204` |
 | `POST` | `/characters/{id}/actions` | action | `200` updated character |
 
-Errors are `{"error": "..."}` with `400` (malformed request), `404` (not found),
+Every route but `/health` needs `Authorization: Bearer <token>` and only
+sees the token's campaign: another campaign's characters are `404`.
+Errors are `{"error": "..."}` with `400` (malformed request), `401` (no or
+invalid token), `404` (not found),
 `409` (out of slots or uses), `412`/`428` (see below) or `422` (invalid sheet
 or action).
 
@@ -155,8 +184,9 @@ everything except `manual` features, plus all spell slots and current HP.
 cargo test --workspace
 ```
 
-The combat tests need the Postgres above; they use (and create) the
-database `combat_test`, or whatever `TEST_DATABASE_URL` points at.
+The auth and combat tests need the Postgres above; they use (and create) the
+databases `auth_test` and `combat_test` on it. Point `TEST_POSTGRES_URL` at
+another server if needed.
 
 ## Combat service
 
@@ -169,16 +199,19 @@ in `campaign-types::combat`, so clients run exactly the same code.
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| `GET` | `/combats?campaign=…&status=…` | | summaries (campaign, status, round, last activity), most recently active first; both filters optional |
-| `POST` | `/combats` | `{"campaign": ..., "name": ...}` | `201` snapshot |
+| `GET` | `/combats?status=…` | | the campaign's combats (status, round, last activity), most recently active first |
+| `POST` | `/combats` | `{"name": ...}` | `201` snapshot |
 | `GET` | `/combats/{id}` | | snapshot: round, current turn, initiative order, effects, and `seq` |
 | `GET` | `/combats/{id}/log?after=N` | | the complete log (or the part after `seq` N) |
 | `POST` | `/combats/{id}/commands` | command envelope | the events it produced |
 | `GET` | `/combats/{id}/ws` | | WebSocket: live events, and commands in |
 
-A command envelope carries a client-chosen `command_id` (events are tagged
-with it, and resending it is a no-op), an optional `actor` for the log, and
-the command:
+Every route but `/health` needs a token, sent as `Authorization: Bearer`
+(on the WebSocket handshake too), and only sees the token's campaign. A
+command envelope carries a client-chosen `command_id` (events are tagged
+with it, and resending it is a no-op), and the command. The log's `actor`
+is always the sending device's name from its token, whatever the client
+puts there:
 
 ```json
 { "command_id": "…", "actor": "Vex", "command": { "type": "damage", "combatant": "…", "amount": 5 } }
@@ -212,7 +245,7 @@ wait for the server.
 **Pausing.** `pause` interrupts an active combat, e.g. at the end of a
 session; until `resume` only `end` is accepted. Nothing about a combat lives
 only in memory, so it can be resumed days later, on any instance, exactly
-where it stopped: `GET /combats?campaign=…&status=paused` finds it. Other
+where it stopped: `GET /combats?status=paused` finds it. Other
 combats, in the same campaign or others, run independently meanwhile.
 
 **Several instances.** The database is the only authority. Each command
@@ -235,3 +268,56 @@ character service is unreachable the write-back is retried every 30
 seconds; only one instance syncs a combat at a time and it always writes
 the latest values, so sheets never go backwards. The write-back is one-way:
 editing a sheet's HP during a combat doesn't change the combatant.
+
+## Authentication
+
+Every device (the DM's laptop, a player's phone) has its own Ed25519 key,
+generated on the device and never sent anywhere: `campaign-edit` keeps it in
+`~/.config/campaign-manager/device.key` (or `$CAMPAIGN_CONFIG_DIR`).
+Nobody has passwords.
+
+**Certificates.** A device belongs to a campaign when a DM device of that
+campaign has signed a certificate for it: *this key, this campaign, this
+role, this name, signed by that DM key*. The auth service only accepts a
+certificate signed by the DM device presenting it, and keeps it on record;
+`campaign-edit auth devices` checks every certificate itself. A campaign's
+first DM device is set up with a one-time code printed by `auth-service
+new-campaign`, and signs its own certificate. If every DM device is lost,
+the server's admin can print a new code with `auth-service setup-code
+<CAMPAIGN>`; whoever runs the server can always do that.
+
+**Logging in** is challenge–response. The device asks for a challenge (a
+random nonce, single-use, valid for a minute) and signs it together with the
+campaign and the auth service's own key, so the signature is useless
+anywhere else. In return it gets a token valid for 15 minutes: a PASETO
+v4.public token, Ed25519-signed by the auth service, saying which device it
+is, its campaign, role and name. The other services check tokens with the
+auth service's public key alone, without calling it. Devices remember the
+auth service's key from the first time they use it and refuse to log in to
+any other.
+
+**Signatures** always cover `"campaign-manager/v1/<purpose>\0"` followed
+by the value's canonical binary (postcard) encoding, so a signature made
+for one purpose (say, logging in) can never pass as another (a
+certificate).
+
+**Roles.** DM devices admit and revoke devices; the campaign always keeps at
+least one. Players use the services. Services (registered with `auth-service
+add-service`) may log in to any campaign, so the combat service can write
+hit points back. Beyond that, every member of a campaign can do everything
+in it for now.
+
+| Method | Path | Body | Response |
+| --- | --- | --- | --- |
+| `GET` | `/public-key` | | the key tokens are signed with |
+| `POST` | `/setup/lookup` | `{"code"}` | the campaign a setup code is for |
+| `POST` | `/setup` | `{"code", "cert"}` (self-signed, DM) | `201` campaign |
+| `POST` | `/login/challenge` | `{"campaign", "key"}` | challenge |
+| `POST` | `/login` | `{"challenge", "signature"}` | `{"token", "claims"}` |
+| `GET` | `/campaign` | | the token's campaign |
+| `GET` | `/devices` | | every device, with its certificate |
+| `POST` | `/devices` | signed certificate (DM only) | `201` device |
+| `DELETE` | `/devices/{key}` | (DM only) | the revoked device |
+
+Revoking a device stops it logging in; a token it already has stays valid
+until it expires (at most 15 minutes), and an open WebSocket stays open.

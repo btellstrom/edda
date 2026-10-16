@@ -8,15 +8,18 @@ pub mod routes;
 pub mod store;
 pub mod sync;
 
-use axum::Router;
+use std::sync::Arc;
+
+use axum::{Extension, Router};
+use campaign_auth::server::TokenVerifier;
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
-    /// Where to write combatants' hit points back to. `None` turns the
-    /// write-back off.
-    pub character_service: Option<String>,
+    /// Where and as whom to write combatants' hit points back to character
+    /// sheets. `None` turns the write-back off.
+    pub hp_sync: Option<sync::HpSyncConfig>,
 }
 
 /// Connects to the database, creating it if needed, and applies migrations.
@@ -41,15 +44,21 @@ pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
 }
 
 /// The service, with its background tasks started on the current runtime.
-pub async fn app(pool: PgPool, config: Config) -> Result<Router, sqlx::Error> {
+/// Accepts tokens that `verifier` vouches for.
+pub async fn app(
+    pool: PgPool,
+    verifier: TokenVerifier,
+    config: Config,
+) -> Result<Router, sqlx::Error> {
     let store = store::Store::new(pool);
     let hp_sync = config
-        .character_service
-        .map(|url| sync::HpSync::new(store.clone(), campaign_client::Client::new(url)));
+        .hp_sync
+        .map(|config| sync::HpSync::new(store.clone(), config));
     let hub = hub::Hub::start(store, hp_sync).await?;
     Ok(Router::new()
         .merge(routes::router())
         .with_state(hub)
+        .layer(Extension(Arc::new(verifier)))
         // Permissive CORS so browser frontends served from other origins can
         // talk to the API during development. Tighten before deploying.
         .layer(CorsLayer::permissive())

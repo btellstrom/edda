@@ -15,36 +15,48 @@ use crate::{ClientError, send};
 pub struct CombatClient {
     base_url: String,
     http: reqwest::Client,
+    token: Option<String>,
 }
 
 impl CombatClient {
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
-            http: reqwest::Client::new(),
+            http: crate::http_client(None),
+            token: None,
         }
     }
 
-    /// Most recently active first, optionally only one campaign's and/or
-    /// those in one status (e.g. paused combats waiting to be resumed).
+    /// Sends `token` (from [`crate::auth::AuthClient::login`]) with every
+    /// request, and when connecting.
+    pub fn with_token(mut self, token: &str) -> Self {
+        self.http = crate::http_client(Some(token));
+        self.token = Some(token.to_string());
+        self
+    }
+
+    /// The logged-in campaign's combats, most recently active first,
+    /// optionally only those in one status (e.g. paused combats waiting to
+    /// be resumed).
     pub async fn list(
         &self,
-        campaign: Option<&str>,
         status: Option<CombatStatus>,
     ) -> Result<Vec<CombatSummary>, ClientError> {
         #[derive(Serialize)]
-        struct Filter<'a> {
-            #[serde(skip_serializing_if = "Option::is_none")]
-            campaign: Option<&'a str>,
+        struct Filter {
             #[serde(skip_serializing_if = "Option::is_none")]
             status: Option<CombatStatus>,
         }
-        let filter = Filter { campaign, status };
-        send(self.http.get(self.url("/combats")).query(&filter)).await
+        let request = self
+            .http
+            .get(self.url("/combats"))
+            .query(&Filter { status });
+        send(request).await
     }
 
-    pub async fn create(&self, campaign: &str, name: &str) -> Result<CombatSnapshot, ClientError> {
-        let body = json!({ "campaign": campaign, "name": name });
+    /// Creates a combat in the logged-in campaign.
+    pub async fn create(&self, name: &str) -> Result<CombatSnapshot, ClientError> {
+        let body = json!({ "name": name });
         send(self.http.post(self.url("/combats")).json(&body)).await
     }
 
@@ -76,7 +88,7 @@ impl CombatClient {
         let url = self
             .url(&format!("/combats/{id}/ws"))
             .replacen("http", "ws", 1);
-        live::CombatConnection::open(&url).await
+        live::CombatConnection::open(&url, self.token.as_deref()).await
     }
 
     fn url(&self, path: &str) -> String {
@@ -92,7 +104,10 @@ pub mod live {
         stream::{SplitSink, SplitStream},
     };
     use tokio::net::TcpStream;
-    use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite::Message};
+    use tokio_tungstenite::{
+        MaybeTlsStream, WebSocketStream,
+        tungstenite::{self, Message, client::IntoClientRequest},
+    };
 
     use crate::ClientError;
 
@@ -110,10 +125,18 @@ pub mod live {
     pub struct MessageReceiver(SplitStream<Socket>);
 
     impl CombatConnection {
-        pub(super) async fn open(url: &str) -> Result<Self, ClientError> {
-            let (socket, _) = tokio_tungstenite::connect_async(url)
+        pub(super) async fn open(url: &str, token: Option<&str>) -> Result<Self, ClientError> {
+            let ws_error = |e: tungstenite::Error| ClientError::WebSocket(e.to_string());
+            let mut request = url.into_client_request().map_err(ws_error)?;
+            if let Some(token) = token {
+                let value = format!("Bearer {token}")
+                    .parse()
+                    .expect("tokens are plain ASCII");
+                request.headers_mut().insert("authorization", value);
+            }
+            let (socket, _) = tokio_tungstenite::connect_async(request)
                 .await
-                .map_err(|e| ClientError::WebSocket(e.to_string()))?;
+                .map_err(ws_error)?;
             let (sink, stream) = socket.split();
             Ok(Self {
                 sender: CommandSender(sink),

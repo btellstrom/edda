@@ -6,14 +6,21 @@
 //! down, say) is retried later by whichever instance gets there first.
 //! Only one instance syncs a given combat at a time, and it always writes
 //! the latest HP, so sheets never go backwards.
+//!
+//! The service logs in to the auth service with its own key (registered
+//! there with `auth-service add-service`) to get a token for each
+//! campaign it writes to.
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use campaign_client::{Client, ClientError};
+use campaign_auth::{DeviceKey, PublicKey, protocol::Session};
+use campaign_client::{Client, ClientError, auth::AuthClient};
 use campaign_types::{
     HitPoints,
     combat::{CombatState, LoggedEvent},
 };
+use chrono::Utc;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{error::ApiError, store::Store};
@@ -21,9 +28,23 @@ use crate::{error::ApiError, store::Store};
 /// How often combats whose write-back failed are retried.
 const RETRY_INTERVAL: Duration = Duration::from_secs(30);
 
+/// Where and as whom to write hit points back.
+#[derive(Debug, Clone)]
+pub struct HpSyncConfig {
+    pub character_service: String,
+    pub auth_service: String,
+    /// The auth service's token key, checked when logging in.
+    pub auth_key: PublicKey,
+    /// This service's own key.
+    pub key: Arc<DeviceKey>,
+}
+
 pub struct HpSync {
     store: Store,
-    characters: Client,
+    config: HpSyncConfig,
+    auth: AuthClient,
+    /// A token per campaign, reused until shortly before it expires.
+    sessions: Mutex<HashMap<Uuid, Session>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -35,8 +56,31 @@ enum SyncError {
 }
 
 impl HpSync {
-    pub fn new(store: Store, characters: Client) -> Self {
-        Self { store, characters }
+    pub fn new(store: Store, config: HpSyncConfig) -> Self {
+        Self {
+            store,
+            auth: AuthClient::new(&config.auth_service),
+            config,
+            sessions: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// A character service client authorised for `campaign`.
+    async fn characters(&self, campaign: Uuid) -> Result<Client, ClientError> {
+        let mut sessions = self.sessions.lock().await;
+        let fresh = |s: &Session| s.claims.expires_at > Utc::now() + chrono::Duration::minutes(1);
+        let session = match sessions.get(&campaign).filter(|s| fresh(s)) {
+            Some(session) => session.clone(),
+            None => {
+                let session = self
+                    .auth
+                    .login(campaign, &self.config.key, Some(self.config.auth_key))
+                    .await?;
+                sessions.insert(campaign, session.clone());
+                session
+            }
+        };
+        Ok(Client::new(&self.config.character_service).with_token(&session.token))
     }
 
     /// Syncs `combat` until it is up to date, unless another instance is
@@ -96,9 +140,36 @@ impl HpSync {
             return Ok(false);
         };
 
-        for (character, hp) in hp_changes(&log, synced) {
-            let written = self
-                .characters
+        let changes = hp_changes(&log, synced);
+        let campaign = CombatState::replay(log.iter().map(|e| &e.event)).campaign;
+        if !changes.is_empty() {
+            match campaign.parse() {
+                Ok(campaign) => self.write(combat, campaign, &changes).await?,
+                Err(_) => {
+                    tracing::warn!(%combat, %campaign, "combat has no valid campaign; not syncing");
+                }
+            }
+        }
+
+        sqlx::query("UPDATE combat_hp_sync SET synced_seq = $1 WHERE combat_id = $2")
+            .bind(i64::try_from(latest).unwrap_or(i64::MAX))
+            .bind(combat)
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::from)?;
+        tx.commit().await.map_err(ApiError::from)?;
+        Ok(true)
+    }
+
+    async fn write(
+        &self,
+        combat: Uuid,
+        campaign: Uuid,
+        changes: &HashMap<Uuid, HitPoints>,
+    ) -> Result<(), SyncError> {
+        let characters = self.characters(campaign).await?;
+        for (&character, &hp) in changes {
+            let written = characters
                 .modify(character, |sheet| {
                     let sheet_hp = &mut sheet.hit_points;
                     // The sheet's maximum may have changed since the
@@ -116,15 +187,7 @@ impl HpSync {
                 Err(e) => return Err(e.into()),
             }
         }
-
-        sqlx::query("UPDATE combat_hp_sync SET synced_seq = $1 WHERE combat_id = $2")
-            .bind(i64::try_from(latest).unwrap_or(i64::MAX))
-            .bind(combat)
-            .execute(&mut *tx)
-            .await
-            .map_err(ApiError::from)?;
-        tx.commit().await.map_err(ApiError::from)?;
-        Ok(true)
+        Ok(())
     }
 }
 

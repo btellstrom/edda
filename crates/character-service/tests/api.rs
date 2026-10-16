@@ -6,9 +6,60 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use sqlx::sqlite::SqlitePoolOptions;
-use tower::ServiceExt;
+use std::sync::Arc;
 
-async fn test_app() -> Router {
+use campaign_auth::{
+    DeviceKey,
+    protocol::{Claims, Principal},
+    server::{TokenSigner, TokenVerifier},
+};
+use chrono::Utc;
+use tower::ServiceExt;
+use uuid::Uuid;
+
+/// The service, plus a token for one campaign that it accepts.
+#[derive(Clone)]
+struct App {
+    router: Router,
+    signer: Arc<TokenSigner>,
+    token: Option<String>,
+}
+
+impl App {
+    fn new(pool: sqlx::SqlitePool) -> App {
+        let signer = Arc::new(TokenSigner::new(&DeviceKey::generate()));
+        let verifier = TokenVerifier::new(signer.public_key());
+        let app = App {
+            router: character_service::app(pool, verifier),
+            signer,
+            token: None,
+        };
+        app.as_campaign(Some(Uuid::new_v4()))
+    }
+
+    /// The same service, with a token for some other campaign (or none).
+    fn as_campaign(&self, campaign: Option<Uuid>) -> App {
+        App {
+            router: self.router.clone(),
+            signer: self.signer.clone(),
+            token: campaign.map(|c| token(&self.signer, c)),
+        }
+    }
+}
+
+fn token(signer: &TokenSigner, campaign: Uuid) -> String {
+    signer
+        .issue(&Claims {
+            key: DeviceKey::generate().public(),
+            campaign,
+            role: Principal::Player,
+            name: "Test".into(),
+            expires_at: Utc::now() + chrono::Duration::minutes(5),
+        })
+        .unwrap()
+}
+
+async fn test_app() -> App {
     // An in-memory database lives per connection, so pin the pool to one.
     let pool = SqlitePoolOptions::new()
         .max_connections(1)
@@ -16,17 +67,17 @@ async fn test_app() -> Router {
         .await
         .unwrap();
     character_service::migrate(&pool).await.unwrap();
-    character_service::app(pool)
+    App::new(pool)
 }
 
-async fn send(app: &Router, method: Method, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+async fn send(app: &App, method: Method, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
     let (status, _, json) = request(app, method, uri, None, body).await;
     (status, json)
 }
 
 /// PUT with an optional `If-Match` header.
 async fn put(
-    app: &Router,
+    app: &App,
     uri: &str,
     if_match: Option<&str>,
     body: Value,
@@ -35,13 +86,16 @@ async fn put(
 }
 
 async fn request(
-    app: &Router,
+    app: &App,
     method: Method,
     uri: &str,
     if_match: Option<&str>,
     body: Option<Value>,
 ) -> (StatusCode, HeaderMap, Value) {
     let mut req = Request::builder().method(method).uri(uri);
+    if let Some(token) = &app.token {
+        req = req.header(header::AUTHORIZATION, format!("Bearer {token}"));
+    }
     if let Some(tag) = if_match {
         req = req.header(header::IF_MATCH, tag);
     }
@@ -52,7 +106,12 @@ async fn request(
         }
         None => Body::empty(),
     };
-    let res = app.clone().oneshot(req.body(body).unwrap()).await.unwrap();
+    let res = app
+        .router
+        .clone()
+        .oneshot(req.body(body).unwrap())
+        .await
+        .unwrap();
     let status = res.status();
     let headers = res.headers().clone();
     let bytes = res.into_body().collect().await.unwrap().to_bytes();
@@ -215,7 +274,7 @@ async fn concurrent_actions_never_overspend() {
     let pool = character_service::connect(&format!("sqlite://{}", path.display()))
         .await
         .unwrap();
-    let app = character_service::app(pool);
+    let app = App::new(pool);
 
     let mut sheet = caster();
     sheet["resources"][0]["max"] = json!(5);
@@ -315,4 +374,53 @@ async fn put_requires_a_valid_if_match() {
     // Nothing was written by the rejected attempts.
     let (_, fetched) = send(&app, Method::GET, &uri, None).await;
     assert_eq!(fetched["version"], 2);
+}
+
+#[tokio::test]
+async fn requests_need_a_valid_token() {
+    let app = test_app().await;
+    let anonymous = app.as_campaign(None);
+    let (status, _) = send(&anonymous, Method::GET, "/characters", None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    // A token from some other auth service is worthless here.
+    let forger = TokenSigner::new(&DeviceKey::generate());
+    let forged = App {
+        token: Some(token(&forger, Uuid::new_v4())),
+        ..app.as_campaign(None)
+    };
+    let (status, body) = send(&forged, Method::POST, "/characters", Some(sample())).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["error"], "invalid or expired token");
+}
+
+#[tokio::test]
+async fn campaigns_only_see_their_own_characters() {
+    let ours = test_app().await;
+    let theirs = ours.as_campaign(Some(Uuid::new_v4()));
+    let (_, grog) = send(&ours, Method::POST, "/characters", Some(sample())).await;
+    let uri = format!("/characters/{}", grog["id"].as_str().unwrap());
+
+    let (_, list) = send(&theirs, Method::GET, "/characters", None).await;
+    assert_eq!(list, json!([]));
+    for (method, body) in [
+        (Method::GET, None),
+        (Method::DELETE, None),
+        (Method::PUT, Some(sample())),
+    ] {
+        let (status, _, _) = request(&theirs, method.clone(), &uri, Some("*"), body).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method}");
+    }
+    let action = json!({ "type": "rest", "kind": "long" });
+    let (status, _) = send(
+        &theirs,
+        Method::POST,
+        &format!("{uri}/actions"),
+        Some(action),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, _) = send(&ours, Method::GET, &uri, None).await;
+    assert_eq!(status, StatusCode::OK, "still there for its own campaign");
 }

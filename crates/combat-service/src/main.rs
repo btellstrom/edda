@@ -1,4 +1,7 @@
-use std::env;
+use std::{env, path::Path, sync::Arc};
+
+use campaign_auth::{DeviceKey, PublicKey, server::TokenVerifier};
+use combat_service::sync::HpSyncConfig;
 
 use tracing_subscriber::EnvFilter;
 
@@ -14,21 +17,77 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/combats".to_string());
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3001".to_string());
+    let auth_service =
+        env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string());
+    let auth_key = auth_key(&auth_service).await?;
+
     // Set CHARACTER_SERVICE_URL to an empty string to turn HP write-back off.
     let character_service =
         env::var("CHARACTER_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-    let config = combat_service::Config {
-        character_service: Some(character_service).filter(|url| !url.is_empty()),
+    let hp_sync = if character_service.is_empty() {
+        None
+    } else {
+        let key_file =
+            env::var("SERVICE_KEY_FILE").unwrap_or_else(|_| "combat-service.key".to_string());
+        Some(HpSyncConfig {
+            character_service,
+            auth_service,
+            auth_key,
+            key: Arc::new(service_key(Path::new(&key_file))?),
+        })
     };
+    let config = combat_service::Config { hp_sync };
 
     let pool = combat_service::connect(&database_url).await?;
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!(%bind_addr, ?config, "combat service listening");
 
-    axum::serve(listener, combat_service::app(pool, config).await?)
+    let app = combat_service::app(pool, TokenVerifier::new(auth_key), config).await?;
+    axum::serve(listener, app)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })
         .await?;
     Ok(())
+}
+
+/// The key tokens are signed with: `AUTH_PUBLIC_KEY` if set, otherwise
+/// fetched from the auth service. Set the key explicitly unless the network
+/// between the services is trusted.
+async fn auth_key(auth_service: &str) -> Result<PublicKey, Box<dyn std::error::Error>> {
+    if let Ok(key) = env::var("AUTH_PUBLIC_KEY") {
+        return Ok(key.parse()?);
+    }
+    let key = campaign_client::auth::AuthClient::new(auth_service)
+        .server_key()
+        .await
+        .map_err(|e| {
+            format!(
+                "could not fetch the auth service's key from {auth_service} ({e}); \
+                 start it or set AUTH_PUBLIC_KEY"
+            )
+        })?;
+    tracing::info!(%key, "using the auth service's token key");
+    Ok(key)
+}
+
+/// This service's own key, for writing hit points back. Created on first
+/// start; it must then be registered with the auth service.
+fn service_key(path: &Path) -> Result<DeviceKey, Box<dyn std::error::Error>> {
+    let key = match DeviceKey::load(path)? {
+        Some(key) => key,
+        None => {
+            let key = DeviceKey::generate();
+            key.save(path)?;
+            tracing::warn!(
+                path = %path.display(),
+                "created a service key; register it for HP write-back with: \
+                 auth-service add-service combat-service {}",
+                key.public()
+            );
+            key
+        }
+    };
+    tracing::info!(key = %key.public(), "service key");
+    Ok(key)
 }

@@ -1,7 +1,9 @@
+mod auth;
 mod cli;
 mod display;
 mod edit;
 mod editor;
+mod identity;
 mod parse;
 
 use std::process::ExitCode;
@@ -30,8 +32,13 @@ fn main() -> ExitCode {
 }
 
 async fn run(cli: Cli) -> Result<()> {
-    let client = Client::new(&cli.server);
+    if let TopCommand::Auth(command) = cli.command {
+        return auth::run(command, &cli.auth_server).await;
+    }
+    let (_, session) = identity::Identity::locate()?.login().await?;
+    let client = Client::new(&cli.server).with_token(&session.token);
     match cli.command {
+        TopCommand::Auth(_) => unreachable!("handled above"),
         TopCommand::List => println!("{}", display::list(&client.list().await?)),
         TopCommand::New(args) => {
             let sheet = CharacterSheet {

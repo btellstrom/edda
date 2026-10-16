@@ -37,6 +37,16 @@ pub struct Cli {
     )]
     pub server: String,
 
+    /// Auth service URL, for setting up or joining a campaign. Afterwards
+    /// the one this device joined through is used.
+    #[arg(
+        long,
+        env = "CAMPAIGN_AUTH_SERVER",
+        default_value = "http://127.0.0.1:3002",
+        global = true
+    )]
+    pub auth_server: String,
+
     #[command(subcommand)]
     pub command: TopCommand,
 }
@@ -48,9 +58,48 @@ pub enum TopCommand {
     List,
     /// Create a new character.
     New(NewArgs),
+    /// This device's identity: setting up or joining a campaign, and (for
+    /// the DM) admitting and revoking devices.
+    #[command(subcommand)]
+    Auth(AuthCommand),
     /// A character name or ID, followed by a character command.
     #[command(external_subcommand)]
     Character(Vec<String>),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AuthCommand {
+    /// Show whether this device is in a campaign, and as whom.
+    Status,
+    /// Show this device's public key, to give to your DM.
+    Key,
+    /// DM: make this device the DM of a new campaign, with the one-time code
+    /// printed by `auth-service new-campaign`.
+    Setup {
+        code: String,
+        /// What to call this device, e.g. "DM laptop".
+        #[arg(long)]
+        name: String,
+    },
+    /// Join a campaign after the DM has approved this device's key.
+    Join {
+        /// The campaign id the DM gave you.
+        campaign: uuid::Uuid,
+    },
+    /// DM: admit a device, by the key its owner got from `auth key`.
+    Approve {
+        public_key: campaign_auth::PublicKey,
+        /// Whose device it is, e.g. "Vex's laptop".
+        #[arg(long)]
+        name: String,
+        /// Make it a DM device (e.g. your own second device).
+        #[arg(long)]
+        dm: bool,
+    },
+    /// List the campaign's devices, checking their certificates.
+    Devices,
+    /// DM: lock a device out, by its name or key (a unique prefix is enough).
+    Revoke { device: String },
 }
 
 #[derive(Debug, Args)]

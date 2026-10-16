@@ -1,5 +1,10 @@
 //! Runs the client against a real character service on a random port.
 
+use campaign_auth::{
+    DeviceKey,
+    protocol::{Claims, Principal},
+    server::{TokenSigner, TokenVerifier},
+};
 use campaign_client::{Client, ClientError};
 use campaign_types::{CharacterAction, CharacterSheet, Pool, Recharge, Resource};
 use sqlx::sqlite::SqlitePoolOptions;
@@ -11,10 +16,22 @@ async fn server() -> Client {
         .await
         .unwrap();
     character_service::migrate(&pool).await.unwrap();
+    // A token signed locally: these tests are about characters, not auth.
+    let signer = TokenSigner::new(&DeviceKey::generate());
+    let token = signer
+        .issue(&Claims {
+            key: DeviceKey::generate().public(),
+            campaign: uuid::Uuid::new_v4(),
+            role: Principal::Dm,
+            name: "DM".into(),
+            expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
+        })
+        .unwrap();
+    let app = character_service::app(pool, TokenVerifier::new(signer.public_key()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(axum::serve(listener, character_service::app(pool)).into_future());
-    Client::new(format!("http://{addr}/"))
+    tokio::spawn(axum::serve(listener, app).into_future());
+    Client::new(format!("http://{addr}/")).with_token(&token)
 }
 
 fn grog() -> CharacterSheet {

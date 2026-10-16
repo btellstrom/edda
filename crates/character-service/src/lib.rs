@@ -1,10 +1,14 @@
-//! Character service: CRUD over character sheets.
+//! Character service: CRUD over character sheets. Every request needs a
+//! token from the auth service, and only sees its own campaign's characters.
 
 pub mod error;
 pub mod routes;
 pub mod store;
 
-use axum::Router;
+use std::sync::Arc;
+
+use axum::{Extension, Router};
+use campaign_auth::server::TokenVerifier;
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -33,13 +37,15 @@ pub async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::migrate::MigrateErro
     sqlx::migrate!().run(pool).await
 }
 
-pub fn app(pool: SqlitePool) -> Router {
+/// The service, accepting tokens that `verifier` vouches for.
+pub fn app(pool: SqlitePool, verifier: TokenVerifier) -> Router {
     let state = AppState {
         characters: CharacterStore::new(pool),
     };
     Router::new()
         .merge(routes::router())
         .with_state(state)
+        .layer(Extension(Arc::new(verifier)))
         // Permissive CORS so browser frontends served from other origins can
         // talk to the API during development. Tighten before deploying.
         .layer(CorsLayer::permissive())

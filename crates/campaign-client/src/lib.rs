@@ -1,6 +1,7 @@
 //! Typed HTTP client for the campaign manager services. Shared by every
 //! frontend so none of them need to know about URLs, headers or status codes.
 
+pub mod auth;
 pub mod combat;
 
 use campaign_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
@@ -29,6 +30,12 @@ pub enum ClientError {
     /// a client/server version mismatch.
     #[error("unexpected response from server")]
     InvalidResponse(#[source] reqwest::Error),
+    /// No valid credentials: not logged in, or the token expired.
+    #[error("not authorized: {0}")]
+    Unauthorized(String),
+    /// Logged in, but not allowed to do this.
+    #[error("forbidden: {0}")]
+    Forbidden(String),
     #[error("websocket error: {0}")]
     WebSocket(String),
 }
@@ -47,8 +54,14 @@ impl Client {
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
-            http: reqwest::Client::new(),
+            http: http_client(None),
         }
+    }
+
+    /// Sends `token` (from [`auth::AuthClient::login`]) with every request.
+    pub fn with_token(mut self, token: &str) -> Self {
+        self.http = http_client(Some(token));
+        self
     }
 
     pub fn base_url(&self) -> &str {
@@ -133,6 +146,21 @@ struct ErrorBody {
     current: Option<Box<Character>>,
 }
 
+/// An HTTP client that sends `token` as a bearer token on every request.
+pub(crate) fn http_client(token: Option<&str>) -> reqwest::Client {
+    let mut headers = header::HeaderMap::new();
+    if let Some(token) = token {
+        let mut value = header::HeaderValue::from_str(&format!("Bearer {token}"))
+            .expect("tokens are plain ASCII");
+        value.set_sensitive(true);
+        headers.insert(header::AUTHORIZATION, value);
+    }
+    reqwest::Client::builder()
+        .default_headers(headers)
+        .build()
+        .expect("HTTP client builds")
+}
+
 pub(crate) async fn send<T: DeserializeOwned>(request: RequestBuilder) -> Result<T, ClientError> {
     let response = check(request.send().await?).await?;
     response.json().await.map_err(ClientError::InvalidResponse)
@@ -151,6 +179,8 @@ pub(crate) async fn check(response: Response) -> Result<Response, ClientError> {
     };
     Err(match status {
         StatusCode::NOT_FOUND => ClientError::NotFound,
+        StatusCode::UNAUTHORIZED => ClientError::Unauthorized(message),
+        StatusCode::FORBIDDEN => ClientError::Forbidden(message),
         StatusCode::PRECONDITION_FAILED => match current {
             Some(current) => ClientError::Stale(current),
             None => ClientError::Server { status, message },
