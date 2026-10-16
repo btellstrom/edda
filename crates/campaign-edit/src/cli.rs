@@ -67,6 +67,13 @@ pub enum TopCommand {
     List,
     /// Create a new character.
     New(NewArgs),
+    /// Create characters from JSON files, each one sheet or a list (the
+    /// format `<CHARACTER> show --json` prints). Names already taken are
+    /// skipped.
+    Import {
+        #[arg(required = true)]
+        files: Vec<std::path::PathBuf>,
+    },
     /// This device's identity: setting up or joining a campaign, and (for
     /// the DM) admitting and revoking devices.
     #[command(subcommand)]

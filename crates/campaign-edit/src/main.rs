@@ -10,7 +10,7 @@ mod parse;
 
 use std::process::ExitCode;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use campaign_client::Client;
 use campaign_types::{Character, CharacterAction, CharacterSheet};
 use clap::{CommandFactory, FromArgMatches, Parser, ValueEnum};
@@ -68,7 +68,41 @@ async fn run(cli: Cli) -> Result<()> {
                 parse::short_id(created.id)
             );
         }
+        TopCommand::Import { files } => import(&client, &files).await?,
         TopCommand::Character(args) => character(&client, args).await?,
+    }
+    Ok(())
+}
+
+/// Creates the characters in `files`, skipping names already taken.
+async fn import(client: &Client, files: &[std::path::PathBuf]) -> Result<()> {
+    let mut taken: Vec<String> = client
+        .list()
+        .await?
+        .into_iter()
+        .map(|c| c.name.to_lowercase())
+        .collect();
+    for file in files {
+        let text =
+            std::fs::read_to_string(file).with_context(|| format!("reading {}", file.display()))?;
+        let sheets =
+            editor::parse_sheets(&text).with_context(|| format!("in {}", file.display()))?;
+        for sheet in sheets {
+            if taken.contains(&sheet.name.to_lowercase()) {
+                println!(
+                    "Skipped {}: there's already a character by that name",
+                    sheet.name
+                );
+                continue;
+            }
+            let created = client.create(&sheet).await?;
+            taken.push(created.sheet.name.to_lowercase());
+            println!(
+                "Created {} ({})",
+                created.sheet.name,
+                parse::short_id(created.id)
+            );
+        }
     }
     Ok(())
 }

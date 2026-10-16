@@ -5,3 +5,5 @@
 *.key
 # Downloaded by tools/fetch-srd-monsters.sh (`make srd`); not redistributed here.
 /data/monsters/*.json
+# Your own characters to `campaign-edit import`.
+/data/characters/

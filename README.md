@@ -151,6 +151,7 @@ unique name prefix, or ID prefix) followed by a command:
 ```sh
 campaign-edit list
 campaign-edit new Grog --race Goliath --player Travis
+campaign-edit import data/characters/*.json   # from JSON files: one sheet or a list each
 
 campaign-edit grog                       # show the sheet
 campaign-edit grog set max-hp 50
@@ -167,6 +168,12 @@ campaign-edit keyleth cast moonbeam --at 3
 campaign-edit grog use rage
 campaign-edit grog rest short
 ```
+
+`import` takes the same JSON as `edit` (and `<CHARACTER> show --json`
+prints, so an exported character imports again, e.g. into another
+campaign); unknown fields are refused, and names already taken are
+skipped. `data/characters/` is ignored by git, so it's a place to keep
+your own.
 
 `campaign-edit <CHARACTER> help` lists every command. Edits retry
 automatically if someone else saved the character in the meantime, so they

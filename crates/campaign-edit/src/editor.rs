@@ -62,6 +62,35 @@ pub async fn edit(client: &Client, character: Character) -> Result<Option<Charac
     }
 }
 
+/// Character sheets from a file: one, or a list. Each is checked like an
+/// edited sheet. The server's own fields, as `show --json` prints them,
+/// are dropped, so an exported character can be imported again.
+pub fn parse_sheets(text: &str) -> Result<Vec<CharacterSheet>> {
+    let input: Value = serde_json::from_str(text).context("invalid JSON")?;
+    let mut items = match input {
+        Value::Array(items) => items,
+        single => vec![single],
+    };
+    for item in &mut items {
+        if let Value::Object(fields) = item {
+            for server_side in ["id", "campaign", "version", "created_at", "updated_at"] {
+                fields.remove(server_side);
+            }
+        }
+    }
+    items
+        .iter()
+        .enumerate()
+        .map(|(n, item)| {
+            let label = item["name"]
+                .as_str()
+                .filter(|name| !name.is_empty())
+                .map_or_else(|| format!("character {}", n + 1), str::to_string);
+            parse_sheet(&item.to_string()).with_context(|| label)
+        })
+        .collect()
+}
+
 /// Parses the edited JSON, rejecting unknown keys so a typo like
 /// `"armour_class"` isn't silently dropped, then runs the shared validation.
 fn parse_sheet(text: &str) -> Result<CharacterSheet> {
@@ -170,6 +199,28 @@ mod tests {
         )
         .unwrap();
         assert_eq!(sheet.classes[0].level, 3);
+    }
+
+    #[test]
+    fn files_hold_one_or_many_sheets_each_checked() {
+        let one = parse_sheets(r#"{"name":"Vex"}"#).unwrap();
+        assert_eq!(one[0].name, "Vex");
+        let many = parse_sheets(r#"[{"name":"Vex"},{"name":"Vax"}]"#).unwrap();
+        assert_eq!(many.len(), 2);
+        let err = parse_sheets(r#"[{"name":"Vex"},{"name":"Vax","armour_class":3}]"#).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("Vax: unknown field(s): armour_class"),
+            "{err:#}"
+        );
+        let err = parse_sheets(r#"[{"name":"Vex"},{"name":""}]"#).unwrap_err();
+        assert!(format!("{err:#}").contains("character 2"), "{err:#}");
+        let exported = r#"{"id":"0d6c9a3e-1b1f-4a6e-9a43-6f1f0f6d9b11","campaign":"x",
+            "version":3,"created_at":"x","updated_at":"x","name":"Vex"}"#;
+        assert_eq!(
+            parse_sheets(exported).unwrap()[0].name,
+            "Vex",
+            "as show --json prints"
+        );
     }
 
     #[test]
