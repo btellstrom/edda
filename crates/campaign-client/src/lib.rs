@@ -1,6 +1,8 @@
 //! Typed HTTP client for the campaign manager services. Shared by every
 //! frontend so none of them need to know about URLs, headers or status codes.
 
+pub mod combat;
+
 use campaign_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
 use reqwest::{RequestBuilder, Response, StatusCode, header};
 use serde::{Deserialize, de::DeserializeOwned};
@@ -8,7 +10,7 @@ use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
-    #[error("character not found")]
+    #[error("not found")]
     NotFound,
     /// The character changed on the server since this copy was fetched.
     #[error("character was changed by someone else (now at version {})", .0.version)]
@@ -27,6 +29,8 @@ pub enum ClientError {
     /// a client/server version mismatch.
     #[error("unexpected response from server")]
     InvalidResponse(#[source] reqwest::Error),
+    #[error("websocket error: {0}")]
+    WebSocket(String),
 }
 
 #[derive(Debug, Clone)]
@@ -129,13 +133,13 @@ struct ErrorBody {
     current: Option<Box<Character>>,
 }
 
-async fn send<T: DeserializeOwned>(request: RequestBuilder) -> Result<T, ClientError> {
+pub(crate) async fn send<T: DeserializeOwned>(request: RequestBuilder) -> Result<T, ClientError> {
     let response = check(request.send().await?).await?;
     response.json().await.map_err(ClientError::InvalidResponse)
 }
 
 /// Turns non-success responses into the matching [`ClientError`].
-async fn check(response: Response) -> Result<Response, ClientError> {
+pub(crate) async fn check(response: Response) -> Result<Response, ClientError> {
     let status = response.status();
     if status.is_success() {
         return Ok(response);

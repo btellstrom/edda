@@ -5,6 +5,7 @@
 
 pub mod action;
 pub mod character;
+pub mod combat;
 pub mod resources;
 pub mod spellcasting;
 

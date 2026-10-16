@@ -9,7 +9,8 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | --- | --- |
 | `crates/campaign-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
 | `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
-| `crates/campaign-client` | Typed async HTTP client for the services, shared by all frontends. |
+| `crates/combat-service` | Live, event-sourced combat encounters (axum + SQLite + WebSocket). |
+| `crates/campaign-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
 | `crates/campaign-edit` | Git-style command-line frontend for editing character sheets. |
 
 ## Running
@@ -17,6 +18,8 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 ```sh
 cargo run -p character-service
 # DATABASE_URL defaults to sqlite://characters.db, BIND_ADDR to 127.0.0.1:3000
+cargo run -p combat-service
+# DATABASE_URL defaults to sqlite://combats.db, BIND_ADDR to 127.0.0.1:3001
 ```
 
 ## Command-line editor
@@ -136,3 +139,54 @@ everything except `manual` features, plus all spell slots and current HP.
 ```sh
 cargo test --workspace
 ```
+
+## Combat service
+
+Combats are **event-sourced**. Clients send *commands* (intents: "deal 7
+damage to the goblin"); the server *decides* what *events* (facts: "goblin
+took 7, now at 0 HP") they produce, appends them to a permanent log, and
+broadcasts them to every connected client. A combat's state is never stored
+directly; it's the result of replaying its log. The decide/apply rules live
+in `campaign-types::combat`, so clients run exactly the same code.
+
+| Method | Path | Body | Response |
+| --- | --- | --- | --- |
+| `GET` | `/combats` | | summaries (status, round) |
+| `POST` | `/combats` | `{"name": ...}` | `201` snapshot |
+| `GET` | `/combats/{id}` | | snapshot: round, current turn, initiative order, effects, and `seq` |
+| `GET` | `/combats/{id}/log?after=N` | | the complete log (or the part after `seq` N) |
+| `POST` | `/combats/{id}/commands` | command envelope | the events it produced |
+| `GET` | `/combats/{id}/ws` | | WebSocket: live events, and commands in |
+
+A command envelope carries a client-chosen `command_id` (events are tagged
+with it, and resending it is a no-op), an optional `actor` for the log, and
+the command:
+
+```json
+{ "command_id": "…", "actor": "Vex", "command": { "type": "damage", "combatant": "…", "amount": 5 } }
+```
+
+Commands: `add_combatant` (any time, also mid-combat), `remove_combatant`,
+`roll_initiative` (pass `roll` for physical dice, omit it for a server roll),
+`roll_initiative_for_all`, `set_initiative`, `start`, `next_turn`, `damage`
+(temporary HP first), `heal`, `set_temporary_hit_points`, `add_effect`,
+`remove_effect`, `end`.
+
+Rules the server applies on its own, as extra events of the same command:
+new rounds when the turn order wraps; effects with a duration expiring at
+the start of their source's turn; a creature's previous concentration effect
+ending when it concentrates on a new one, or when it drops to 0 HP; the turn
+passing on when the current combatant is removed.
+
+**WebSocket.** The server first sends `{"type":"snapshot","data":…}`, then
+`{"type":"event","data":<logged event>}` for every change by anyone, in log
+order. Commands go up as `{"type":"command","data":<envelope>}`. A refused
+command gets `rejected` (to its sender only); a repeated one gets
+`already_applied`. A client that falls too far behind gets a fresh snapshot.
+
+**Optimistic UIs.** `campaign_client::combat::Replica` keeps the confirmed
+state plus the client's in-flight commands and shows their predicted result
+immediately, replaying them on top of whatever the server confirms first and
+dropping them if rejected. New combatants and effects carry client-generated
+ids so the prediction matches the server exactly; only server dice rolls
+wait for the server.
