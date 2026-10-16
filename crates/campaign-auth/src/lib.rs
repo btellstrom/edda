@@ -15,6 +15,7 @@
 mod bytes;
 mod cert;
 mod keys;
+pub mod pairing;
 pub mod protocol;
 #[cfg(feature = "server")]
 pub mod server;

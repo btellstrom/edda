@@ -52,3 +52,42 @@ pub fn deserialize<'de, D: Deserializer<'de>, const N: usize>(d: D) -> Result<[u
         d.deserialize_bytes(Visitor)
     }
 }
+
+/// The same for variable-length byte strings: `#[serde(with = "bytes::vec")]`.
+pub mod vec {
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use serde::{Deserialize, Deserializer, Serializer, de};
+
+    pub fn serialize<S: Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
+        if s.is_human_readable() {
+            s.serialize_str(&URL_SAFE_NO_PAD.encode(bytes))
+        } else {
+            s.serialize_bytes(bytes)
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+        if d.is_human_readable() {
+            let text = String::deserialize(d)?;
+            URL_SAFE_NO_PAD
+                .decode(text.trim())
+                .map_err(de::Error::custom)
+        } else {
+            serde_bytes_vec(d)
+        }
+    }
+
+    fn serde_bytes_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+        struct Visitor;
+        impl de::Visitor<'_> for Visitor {
+            type Value = Vec<u8>;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("bytes")
+            }
+            fn visit_bytes<E: de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+                Ok(v.to_vec())
+            }
+        }
+        d.deserialize_bytes(Visitor)
+    }
+}

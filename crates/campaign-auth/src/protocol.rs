@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{Nonce, PublicKey, Role, Signature, SignedCert};
+use crate::{Nonce, PublicKey, Role, Signature, SignedCert, bytes};
 
 /// What a token grants: who is calling, in which campaign, as what.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,4 +129,19 @@ pub struct Device {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerKey {
     pub key: PublicKey,
+}
+
+/// `POST /pairings` (DM only): a slot for pairing a new device.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairingSlot {
+    pub slot: u16,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// A message relayed between the two sides of a pairing:
+/// `PUT`/`GET /pairings/{slot}/{host|joiner}/{n}`. Opaque to the server.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PairingMessage {
+    #[serde(with = "bytes::vec")]
+    pub data: Vec<u8>,
 }

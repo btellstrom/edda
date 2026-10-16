@@ -63,12 +63,15 @@ Each device first joins a campaign (see [Authentication](#authentication)):
 
 ```sh
 campaign-edit auth setup <CODE> --name "DM laptop"   # the DM, with the setup code
-campaign-edit auth key                               # a player: send this to the DM
-campaign-edit auth approve <KEY> --name "Vex's laptop"   # the DM approves it
-campaign-edit auth join <CAMPAIGN ID>                # the player, once approved
+campaign-edit auth invite                            # the DM: shows e.g. 7-tavern-dragon
+campaign-edit auth pair 7-tavern-dragon --name "Vex's laptop"   # the new device
 campaign-edit auth devices                           # who's in, certificates checked
 campaign-edit auth revoke "Vex's laptop"             # the DM locks a device out
 ```
+
+Without both devices at hand, there's a manual way: the player sends the
+DM the output of `auth key`, the DM runs `auth approve <KEY> --name ...`,
+and the player then runs `auth join <CAMPAIGN ID>`.
 
 Top-level commands manage the roster; anything else is a character (name,
 unique name prefix, or ID prefix) followed by a command:
@@ -286,6 +289,28 @@ new-campaign`, and signs its own certificate. If every DM device is lost,
 the server's admin can print a new code with `auth-service setup-code
 <CAMPAIGN>`; whoever runs the server can always do that.
 
+**Pairing.** Rather than copying keys around, the DM's device shows a code
+like `7-tavern-dragon` that is read out and typed on the new device. The
+number only picks the pairing on the auth service; the two words (from the
+EFF short wordlist, 1,296 words) are a password that never leaves the two
+devices. They run SPAKE2 with it (a PAKE: password-authenticated key
+exchange), the auth service relaying the messages, and agree on a strong
+key only if both used the same words. Nobody watching, the auth service
+included, learns anything to guess the words against offline. Someone who
+heard only the number gets one online guess: a wrong guess fails to
+decrypt, the DM's device cancels the pairing, and only one device can ever
+claim a code anyway. That makes two words (one chance in 1.7 million)
+plenty.
+
+Over the resulting channel (ChaCha20-Poly1305, a key per direction, from
+HKDF-SHA256) the new device sends its key and name; the DM is asked to
+approve, and the DM's device adds the device with a certificate and sends
+back the certificate, the campaign, and the auth service's key. So a
+paired device trusts the auth service because the DM's device vouched for
+it, not merely because it answered first. Codes expire after 10 minutes.
+The relay keeps messages in Postgres and clients long-poll, so the two
+devices may reach different auth-service instances.
+
 **Logging in** is challenge–response. The device asks for a challenge (a
 random nonce, single-use, valid for a minute) and signs it together with the
 campaign and the auth service's own key, so the signature is useless
@@ -318,6 +343,11 @@ in it for now.
 | `GET` | `/devices` | | every device, with its certificate |
 | `POST` | `/devices` | signed certificate (DM only) | `201` device |
 | `DELETE` | `/devices/{key}` | (DM only) | the revoked device |
+| `POST` | `/pairings` | (DM only) | `201` `{"slot", "expires_at"}` |
+| `PUT` | `/pairings/{slot}/host/{n}` | `{"data"}` (the DM device that opened it) | `201` |
+| `PUT` | `/pairings/{slot}/joiner/{n}` | `{"data"}` | `201`, or `409` if already claimed |
+| `GET` | `/pairings/{slot}/{host,joiner}/{n}` | | the message (waits up to 20 s; `204` if not yet) |
+| `DELETE` | `/pairings/{slot}` | (the DM device that opened it) | `204` |
 
 Revoking a device stops it logging in; a token it already has stays valid
 until it expires (at most 15 minutes), and an open WebSocket stays open.

@@ -6,12 +6,13 @@ edition = "2024"
 [dependencies]
 campaign-auth = { version = "0.1.0", path = "../campaign-auth" }
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
 futures-util = { version = "0.3.34", default-features = false, features = ["sink"], optional = true }
 reqwest = { version = "0.13.5", features = ["json", "query"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"
-tokio = { version = "1.53.3", features = ["net"], optional = true }
+tokio = { version = "1.53.3", features = ["time"] }
 tokio-tungstenite = { version = "0.30.0", optional = true }
 uuid = "1.28.0"
 
@@ -19,7 +20,7 @@ uuid = "1.28.0"
 default = ["websocket"]
 # Live combat updates. Native only; a WASM frontend would use the browser's
 # WebSocket with the same messages and the (IO-free) Replica.
-websocket = ["dep:tokio-tungstenite", "dep:futures-util", "dep:tokio"]
+websocket = ["dep:tokio-tungstenite", "dep:futures-util", "tokio/net"]
 
 [dev-dependencies]
 auth-service = { path = "../auth-service" }

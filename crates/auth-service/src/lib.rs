@@ -3,6 +3,7 @@
 //! Several instances can run against the same database.
 
 pub mod error;
+pub mod pairing;
 pub mod routes;
 pub mod store;
 
@@ -36,6 +37,7 @@ pub async fn app(pool: PgPool) -> Result<Router, error::ApiError> {
     let verifier = Arc::new(TokenVerifier::new(signer.public_key()));
     Ok(Router::new()
         .merge(routes::router())
+        .merge(pairing::router())
         .with_state(Arc::new(routes::AppState { store, signer }))
         .layer(Extension(verifier))
         .layer(CorsLayer::permissive())

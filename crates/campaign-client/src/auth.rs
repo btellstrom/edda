@@ -14,7 +14,7 @@ use crate::{ClientError, check, send};
 #[derive(Debug, Clone)]
 pub struct AuthClient {
     base_url: String,
-    http: reqwest::Client,
+    pub(crate) http: reqwest::Client,
 }
 
 impl AuthClient {
@@ -36,6 +36,23 @@ impl AuthClient {
     pub async fn server_key(&self) -> Result<PublicKey, ClientError> {
         let key: ServerKey = send(self.http.get(self.url("/public-key"))).await?;
         Ok(key.key)
+    }
+
+    /// [`AuthClient::server_key`], retrying while the auth service can't be
+    /// reached (e.g. it's still starting), for up to `patience`.
+    pub async fn wait_for_server_key(
+        &self,
+        patience: std::time::Duration,
+    ) -> Result<PublicKey, ClientError> {
+        let give_up = tokio::time::Instant::now() + patience;
+        loop {
+            match self.server_key().await {
+                Err(ClientError::Http(_)) if tokio::time::Instant::now() < give_up => {
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                }
+                result => return result,
+            }
+        }
     }
 
     /// Makes `key` the DM of the campaign a one-time setup code is for.
@@ -110,7 +127,7 @@ impl AuthClient {
         response.json().await.map_err(ClientError::InvalidResponse)
     }
 
-    fn url(&self, path: &str) -> String {
+    pub(crate) fn url(&self, path: &str) -> String {
         format!("{}{path}", self.base_url)
     }
 }

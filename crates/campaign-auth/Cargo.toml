@@ -6,21 +6,23 @@ edition = "2024"
 [dependencies]
 axum = { version = "0.8.9", default-features = false, features = ["json"], optional = true }
 base64 = "0.23.1"
+chacha20poly1305 = "0.11.0"
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
 ed25519-dalek = "3.0.0"
+hkdf = "0.13.0"
 pasetors = { version = "0.8.1", optional = true }
 postcard = { version = "1.1.3", default-features = false, features = ["use-std"] }
 rand = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = { version = "1.0.154", optional = true }
+serde_json = "1.0.154"
 sha2 = "0.11.1"
+spake2 = "0.4.0"
 thiserror = "2.0.21"
 uuid = { version = "1.28.0", features = ["serde", "v4"] }
 
 [features]
 # Token signing/verification and the axum extractor; services only.
 # Clients just need keys, certificates and the protocol types.
-server = ["dep:pasetors", "dep:serde_json", "dep:axum"]
+server = ["dep:pasetors", "dep:axum"]
 
 [dev-dependencies]
-serde_json = "1.0.154"

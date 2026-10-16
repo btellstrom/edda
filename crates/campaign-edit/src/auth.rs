@@ -3,8 +3,9 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result, bail};
+use campaign_auth::pairing::PairingCode;
 use campaign_auth::{DeviceCert, PublicKey, Role, protocol::Device};
-use campaign_client::auth::AuthClient;
+use campaign_client::{auth::AuthClient, pairing};
 
 use crate::{
     cli::AuthCommand,
@@ -31,6 +32,64 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
                 println!("Server    {}", profile.auth_server);
             }
         },
+        AuthCommand::Invite { dm, yes } => {
+            let (profile, session) = identity.login().await?;
+            let host = AuthClient::new(&profile.auth_server).with_token(&session.token);
+            let role = if dm { Role::Dm } else { Role::Player };
+            let invitation = host.invite(role).await?;
+            let code = &invitation.code;
+            println!("Pairing code (works once, for 10 minutes):\n\n    {code}\n");
+            println!("On the new device:");
+            println!(
+                "  campaign-edit auth pair {code} --name \"<device name>\" --auth-server {}\n",
+                profile.auth_server
+            );
+            println!("Waiting for it to join… (Ctrl-C to give up)");
+            let role_name = role_name(role);
+            let device = pairing::host(
+                &host,
+                &identity.key()?,
+                &profile.campaign,
+                profile.server_key,
+                &invitation,
+                |request| {
+                    yes || crate::editor::confirm(&format!(
+                        "{} ({}) wants to join as {role_name}. Approve?",
+                        request.name,
+                        request.key.fingerprint()
+                    ))
+                    .unwrap_or(false)
+                },
+            )
+            .await?;
+            let cert = &device.cert.cert;
+            println!(
+                "{} ({}) has joined as {role_name}.",
+                cert.name,
+                cert.device.fingerprint()
+            );
+        }
+        AuthCommand::Pair { code, name } => {
+            refuse_second_campaign(&identity)?;
+            let code: PairingCode = code.parse()?;
+            let auth = AuthClient::new(auth_server);
+            let key = identity.key()?;
+            println!("Pairing… (your DM may need to approve)");
+            let joined = pairing::join(&auth, &code, &key, &name).await?;
+            identity.save_profile(&Profile {
+                auth_server: auth_server.to_string(),
+                server_key: joined.server_key,
+                campaign: joined.campaign.clone(),
+            })?;
+            let (_, session) = identity.login().await?;
+            println!(
+                "Joined {} as {} ({}, key {}).",
+                joined.campaign.name,
+                session.claims.name,
+                role_name(joined.cert.cert.role),
+                key.public().fingerprint()
+            );
+        }
         AuthCommand::Key => {
             println!("{}", identity.key()?.public());
             eprintln!("\nGive this to your DM. Once they've approved it, run:");
@@ -50,7 +109,7 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
                 "This device is now DM of {} ({}).",
                 campaign.name, campaign.id
             );
-            println!("Players join with:  campaign-edit auth key   (and send you the key)");
+            println!("Add players with:  campaign-edit auth invite");
         }
         AuthCommand::Join { campaign } => {
             refuse_second_campaign(&identity)?;
@@ -166,10 +225,7 @@ fn device_table(devices: &[Device], me: PublicKey) -> String {
             (Ok(_), Some(issuer)) => format!("approved by {issuer}"),
             (Ok(_), None) => "UNKNOWN ISSUER".to_string(),
         };
-        let role = match cert.role {
-            Role::Dm => "DM",
-            Role::Player => "player",
-        };
+        let role = role_name(cert.role);
         let status = match device.revoked_at {
             Some(at) => format!("  revoked {}", at.format("%Y-%m-%d")),
             None => String::new(),
@@ -183,4 +239,11 @@ fn device_table(devices: &[Device], me: PublicKey) -> String {
         );
     }
     out
+}
+
+fn role_name(role: Role) -> &'static str {
+    match role {
+        Role::Dm => "DM",
+        Role::Player => "player",
+    }
 }

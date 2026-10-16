@@ -59,7 +59,7 @@ async fn auth_key(auth_service: &str) -> Result<PublicKey, Box<dyn std::error::E
         return Ok(key.parse()?);
     }
     let key = campaign_client::auth::AuthClient::new(auth_service)
-        .server_key()
+        .wait_for_server_key(std::time::Duration::from_secs(30))
         .await
         .map_err(|e| {
             format!(

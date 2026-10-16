@@ -71,7 +71,26 @@ pub enum TopCommand {
 pub enum AuthCommand {
     /// Show whether this device is in a campaign, and as whom.
     Status,
-    /// Show this device's public key, to give to your DM.
+    /// DM: show a short code for a new device to join with, and wait for
+    /// it. The code works once and for ten minutes.
+    Invite {
+        /// Make it a DM device (e.g. your own second device).
+        #[arg(long)]
+        dm: bool,
+        /// Approve whoever joins without asking.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Join a campaign with a code from your DM's `auth invite`.
+    Pair {
+        /// The code, e.g. 7-tavern-dragon.
+        code: String,
+        /// What to call this device, e.g. "Vex's laptop".
+        #[arg(long)]
+        name: String,
+    },
+    /// Show this device's public key, to give to your DM (the manual
+    /// alternative to `invite`/`pair`).
     Key,
     /// DM: make this device the DM of a new campaign, with the one-time code
     /// printed by `auth-service new-campaign`.

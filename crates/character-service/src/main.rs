@@ -37,7 +37,7 @@ async fn auth_key() -> Result<campaign_auth::PublicKey, Box<dyn std::error::Erro
     }
     let url = env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string());
     let key = campaign_client::auth::AuthClient::new(&url)
-        .server_key()
+        .wait_for_server_key(std::time::Duration::from_secs(30))
         .await
         .map_err(|e| {
             format!("could not fetch the auth service's key from {url} ({e}); start it or set AUTH_PUBLIC_KEY")
