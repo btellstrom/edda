@@ -70,6 +70,7 @@ fn targets(steps: &[Step]) -> Vec<Uuid> {
             | CombatCommand::RollInitiative { combatant, .. }
             | CombatCommand::RemoveCombatant { combatant } => out.push(*combatant),
             CombatCommand::AddEffect { effect } => out.extend(&effect.targets),
+            CombatCommand::CastSpell { targets, .. } => out.extend(targets),
             _ => {}
         }
     }
@@ -239,7 +240,7 @@ fn draw_log(frame: &mut Frame, app: &App, area: Rect) {
         };
         lines.push(Line::from(vec![
             Span::raw(actor).dark_gray(),
-            Span::raw(log::describe(&event.event, &app.names)),
+            Span::raw(log::describe_in(&event.event, &app.log, &app.names)),
         ]));
     }
     let visible = usize::from(area.height.saturating_sub(2));

@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{CombatEvent, CombatState, CombatStatus, Combatant, Effect, EffectEndReason, Expiry};
+use super::{
+    CombatEvent, CombatState, CombatStatus, Combatant, Effect, EffectEndReason, Expiry, SpellSlot,
+};
 
 /// What a participant wants to happen. Turned into events by [`decide`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +50,29 @@ pub enum CombatCommand {
     RemoveEffect {
         effect: Uuid,
     },
+    /// Record a spell cast in the log. The slot is spent on the caster's
+    /// character sheet, separately; `slot` says which, for the record.
+    /// For a concentration spell, `concentration` is the id of the effect
+    /// that puts it into play on its targets (ending the caster's previous
+    /// concentration).
+    CastSpell {
+        caster: Uuid,
+        spell: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        slot: Option<SpellSlot>,
+        #[serde(default)]
+        targets: Vec<Uuid>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        concentration: Option<Uuid>,
+    },
+    /// Record the use of a limited feature (Rage, Action Surge...), spent
+    /// on the character sheet separately.
+    UseFeature {
+        combatant: Uuid,
+        feature: String,
+        #[serde(default = "one")]
+        amount: u16,
+    },
     /// Interrupt an active combat. While paused, only `Resume` and `End`
     /// are accepted.
     Pause,
@@ -60,6 +85,10 @@ pub enum CombatCommand {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         command: Option<Uuid>,
     },
+}
+
+fn one() -> u16 {
+    1
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -289,6 +318,55 @@ pub fn decide(
             out.emit(CombatEvent::EffectEnded {
                 effect: *effect,
                 reason: EffectEndReason::Removed,
+            });
+        }
+        CombatCommand::CastSpell {
+            caster,
+            spell,
+            slot,
+            targets,
+            concentration,
+        } => {
+            if spell.trim().is_empty() {
+                return Err(CombatError::EmptyName);
+            }
+            for id in std::iter::once(caster).chain(targets) {
+                out.combatant(*id)?;
+            }
+            out.emit(CombatEvent::SpellCast {
+                caster: *caster,
+                spell: spell.clone(),
+                slot: *slot,
+                targets: targets.clone(),
+            });
+            if let Some(effect) = concentration {
+                out.ensure_unused(*effect)?;
+                out.end_concentration(*caster, EffectEndReason::ConcentrationReplaced);
+                out.emit(CombatEvent::EffectAdded {
+                    effect: Effect {
+                        id: *effect,
+                        name: spell.clone(),
+                        source: Some(*caster),
+                        targets: targets.clone(),
+                        concentration: true,
+                        expires: None,
+                    },
+                });
+            }
+        }
+        CombatCommand::UseFeature {
+            combatant,
+            feature,
+            amount,
+        } => {
+            if feature.trim().is_empty() {
+                return Err(CombatError::EmptyName);
+            }
+            out.combatant(*combatant)?;
+            out.emit(CombatEvent::FeatureUsed {
+                combatant: *combatant,
+                feature: feature.clone(),
+                amount: *amount,
             });
         }
         CombatCommand::Pause => {
@@ -764,6 +842,63 @@ mod tests {
                 amount: 1
             }),
             Err(CombatError::Ended)
+        );
+    }
+
+    #[test]
+    fn spells_and_features_are_recorded_and_concentration_comes_into_play() {
+        let mut f = Fixture::new();
+        let keyleth = f.add("Keyleth", 0, 30);
+        let goblin = f.add("Goblin", 0, 7);
+        let moonbeam = f.effect("Moonbeam", keyleth, true, None);
+        let bless = Uuid::new_v4();
+        let events = f.ok(CombatCommand::CastSpell {
+            caster: keyleth,
+            spell: "Bless".into(),
+            slot: Some(SpellSlot::Level(1)),
+            targets: vec![goblin],
+            concentration: Some(bless),
+        });
+        assert_eq!(
+            events[0],
+            CombatEvent::SpellCast {
+                caster: keyleth,
+                spell: "Bless".into(),
+                slot: Some(SpellSlot::Level(1)),
+                targets: vec![goblin],
+            }
+        );
+        assert!(f.state.effect(moonbeam).is_none(), "concentration moved on");
+        let effect = f.state.effect(bless).unwrap();
+        assert_eq!((effect.source, effect.concentration), (Some(keyleth), true));
+
+        let events = f.ok(CombatCommand::CastSpell {
+            caster: keyleth,
+            spell: "Fire Bolt".into(),
+            slot: None,
+            targets: vec![goblin],
+            concentration: None,
+        });
+        assert_eq!(events.len(), 1, "nothing comes into play");
+        assert!(f.state.effect(bless).is_some(), "still concentrating");
+        assert_eq!(
+            f.run(CombatCommand::CastSpell {
+                caster: keyleth,
+                spell: "Fire Bolt".into(),
+                slot: None,
+                targets: vec![Uuid::nil()],
+                concentration: None,
+            }),
+            Err(CombatError::UnknownCombatant(Uuid::nil()))
+        );
+
+        let used = f.ok(CombatCommand::UseFeature {
+            combatant: keyleth,
+            feature: "Wild Shape".into(),
+            amount: 1,
+        });
+        assert!(
+            matches!(&used[0], CombatEvent::FeatureUsed { feature, .. } if feature == "Wild Shape")
         );
     }
 

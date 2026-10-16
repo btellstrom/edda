@@ -141,8 +141,10 @@ completes it to their number. ↑/↓ pick among the suggestions, Esc clears
 the line, PgUp/PgDn scroll the log, Ctrl-C quits.
 
 Casting spends the caster's slot on their sheet (a pact slot when that's
-what works) and, for concentration spells, puts the spell into play as an
-effect on its targets. Changes show at once and are confirmed by the
+what works), records the cast in the combat log and, for concentration
+spells, puts the spell into play as an effect on its targets; `use` spends
+a feature's use and logs it. If the server refuses one of these, or you
+`undo` it, the screen gives the slot or use back. Changes show at once and are confirmed by the
 server; if the connection drops the screen keeps working, queues what you
 do and sends it once it has reconnected.
 
@@ -268,7 +270,16 @@ Commands: `add_combatant` (any time, also mid-combat), `remove_combatant`,
 `roll_initiative` (pass `roll` for physical dice, omit it for a server roll),
 `roll_initiative_for_all`, `set_initiative`, `start`, `next_turn`, `damage`
 (temporary HP first), `heal`, `set_temporary_hit_points`, `add_effect`,
-`remove_effect`, `pause`, `resume`, `end`, `undo`.
+`remove_effect`, `cast_spell`, `use_feature`, `pause`, `resume`, `end`,
+`undo`.
+
+`cast_spell` (`caster`, `spell`, optional `slot` such as `{"level":2}` or
+`{"pact":3}`, `targets`) and `use_feature` (`combatant`, `feature`,
+`amount`) put spells and features in the log. The slot or use itself is
+spent on the character sheet through the character service; the combat
+only records it. A concentration spell passes `concentration`, the id of
+the effect that puts it into play on its targets, which ends the caster's
+previous concentration.
 
 Rules the server applies on its own, as extra events of the same command:
 new rounds when the turn order wraps; effects with a duration expiring at
@@ -302,7 +313,10 @@ made since are kept:
   is if the combatant whose hit points it would restore has left.
 
 An ended combat accepts only the undo of `end`. An undo can't itself be
-undone. HP write-back follows undos like any other change.
+undone. HP write-back follows undos like any other change. Undoing a cast
+ends the effect it put into play, but the slot (like a feature's use) lives
+on the character sheet: whoever undoes gives it back, as the fight screen
+does.
 
 **Optimistic UIs.** `campaign_client::combat::Replica` keeps the confirmed
 state plus the client's in-flight commands and shows their predicted result

@@ -190,6 +190,21 @@ pub enum CombatEvent {
         effect: Uuid,
         reason: EffectEndReason,
     },
+    /// A record only: the slot was spent on the caster's sheet.
+    SpellCast {
+        caster: Uuid,
+        spell: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        slot: Option<SpellSlot>,
+        #[serde(default)]
+        targets: Vec<Uuid>,
+    },
+    /// A record only: the use was spent on the character's sheet.
+    FeatureUsed {
+        combatant: Uuid,
+        feature: String,
+        amount: u16,
+    },
     Paused,
     Resumed,
     Ended,
@@ -213,6 +228,23 @@ pub enum CombatEvent {
         round: u32,
         current_turn: Option<Uuid>,
     },
+}
+
+/// The slot a spell was cast with: a regular slot of some level, or a
+/// Pact Magic slot (whose level is fixed).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpellSlot {
+    Level(u8),
+    Pact(u8),
+}
+
+impl SpellSlot {
+    pub fn level(self) -> u8 {
+        match self {
+            SpellSlot::Level(level) | SpellSlot::Pact(level) => level,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -306,6 +338,7 @@ impl CombatState {
             }
             CombatEvent::EffectAdded { effect } => self.effects.push(effect.clone()),
             CombatEvent::EffectEnded { effect, .. } => self.effects.retain(|e| e.id != *effect),
+            CombatEvent::SpellCast { .. } | CombatEvent::FeatureUsed { .. } => {}
             CombatEvent::Paused => self.status = CombatStatus::Paused,
             CombatEvent::Resumed => self.status = CombatStatus::Active,
             CombatEvent::Ended => {

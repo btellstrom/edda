@@ -19,6 +19,10 @@
 //!   since; otherwise the undo is refused, as the turn has moved on.
 //!
 //! An ended combat accepts only the undo of the command that ended it.
+//!
+//! Spells and features are spent on character sheets, outside the combat:
+//! undoing a cast ends the effect it put into play, but giving the slot
+//! back is up to whoever undoes it (the fight screen does).
 
 use std::collections::HashSet;
 
@@ -546,6 +550,28 @@ mod tests {
         assert_eq!(t.current(), (1, "Goblin".to_string()));
         t.undo("Vex");
         assert_eq!(t.hp(goblin), 7, "undo works while paused");
+    }
+
+    #[test]
+    fn undoing_a_cast_ends_its_effect_and_restores_the_one_it_replaced() {
+        let mut t = Table::new();
+        let keyleth = t.add("DM", "Keyleth", 30);
+        let moonbeam = t.effect("Keyleth", keyleth, "Moonbeam", None);
+        let bless = Uuid::new_v4();
+        t.run(
+            "Keyleth",
+            CombatCommand::CastSpell {
+                caster: keyleth,
+                spell: "Bless".into(),
+                slot: Some(crate::combat::SpellSlot::Level(1)),
+                targets: vec![keyleth],
+                concentration: Some(bless),
+            },
+        );
+        t.undo("Keyleth");
+        let state = t.state();
+        assert!(state.effect(bless).is_none());
+        assert!(state.effect(moonbeam).is_some());
     }
 
     #[test]

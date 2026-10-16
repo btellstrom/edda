@@ -11,7 +11,9 @@ use std::collections::HashMap;
 
 use campaign_types::{
     Character, CharacterAction, CharacterSheet, CharacterSummary, Spell,
-    combat::{CombatCommand, CombatError, CombatState, Combatant, NewEffect, NoDice, decide},
+    combat::{
+        CombatCommand, CombatError, CombatState, Combatant, NewEffect, NoDice, SpellSlot, decide,
+    },
 };
 use uuid::Uuid;
 
@@ -491,22 +493,30 @@ fn cast(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interpreted 
         Err(_) if !pact && sheet.clone().apply(&action(true)).is_ok() => action(true),
         Err(e) => return (sentence, Err(e.to_string())),
     };
-    let mut steps = vec![Step::Character {
-        id: character,
-        action,
-    }];
-    if spell.concentration {
-        steps.push(Step::Combat(CombatCommand::AddEffect {
-            effect: NewEffect {
-                id: Uuid::new_v4(),
-                name: spell.name.clone(),
-                source: Some(actor.id),
-                targets: targets.iter().map(|t| t.id).collect(),
-                concentration: true,
-                rounds: None,
-            },
-        }));
-    }
+    let slot = match &action {
+        _ if spell.level == 0 => None,
+        CharacterAction::CastSpell { pact: true, .. } => sheet
+            .spellcasting
+            .pact_magic
+            .map(|p| SpellSlot::Pact(p.slot_level)),
+        _ => Some(SpellSlot::Level(at_level.unwrap_or(spell.level))),
+    };
+    // The slot is spent on the sheet first; the cast then goes in the log
+    // and, if it needs concentration, into play.
+    let cast = CombatCommand::CastSpell {
+        caster: actor.id,
+        spell: spell.name.clone(),
+        slot,
+        targets: targets.iter().map(|t| t.id).collect(),
+        concentration: spell.concentration.then(Uuid::new_v4),
+    };
+    let steps = vec![
+        Step::Character {
+            id: character,
+            action,
+        },
+        Step::Combat(cast),
+    ];
     (sentence, Ok(steps))
 }
 
@@ -619,7 +629,15 @@ fn use_feature(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Inter
         return (sentence, Err(e.to_string()));
     }
     let id = actor.character_id.expect("has a sheet");
-    (sentence, Ok(vec![Step::Character { id, action }]))
+    let used = CombatCommand::UseFeature {
+        combatant: actor.id,
+        feature: name.to_string(),
+        amount,
+    };
+    (
+        sentence,
+        Ok(vec![Step::Character { id, action }, Step::Combat(used)]),
+    )
 }
 
 fn add(args: &[&str], ctx: &Context) -> Interpreted {
@@ -988,6 +1006,7 @@ mod tests {
             spell("Cure Wounds Mass", 5, false),
         ];
         vex.spellcasting.slots.insert(1, Pool::new(2));
+        vex.spellcasting.slots.insert(2, Pool::new(1));
         vex.resources.push(Resource {
             name: "Favored Foe".into(),
             uses: Pool::new(3),
@@ -1104,15 +1123,23 @@ mod tests {
         ));
         assert!(matches!(
             &steps[1],
-            Step::Combat(CombatCommand::AddEffect { effect })
-                if effect.source == Some(w.id(1)) && effect.targets == [w.id(3)]
+            Step::Combat(CombatCommand::CastSpell { caster, slot: Some(SpellSlot::Level(1)), targets, concentration: Some(_), .. })
+                if *caster == w.id(1) && *targets == [w.id(3)]
         ));
 
         // The longest matching name wins; no effect without concentration.
         let p = w.parse("cast cure wounds mass 2 3");
         assert_eq!(p.sentence, "Vex casts Cure Wounds Mass on Grog and Goblin");
         assert_eq!(p.plan, Err("no level 5 spell slots".into()));
-        assert_eq!(w.parse("cast cure wounds 2").plan.unwrap().len(), 1);
+        let steps = w.parse("cast cure wounds 2 at 2").plan.unwrap();
+        assert!(matches!(
+            &steps[1],
+            Step::Combat(CombatCommand::CastSpell {
+                slot: Some(SpellSlot::Level(2)),
+                concentration: None,
+                ..
+            })
+        ));
         assert_eq!(
             w.parse("2 cast cure wounds").plan,
             Err("Grog has no character sheet".into())
@@ -1124,7 +1151,10 @@ mod tests {
         let w = world();
         let p = w.parse("use favored foe 2");
         assert_eq!(p.sentence, "Vex uses Favored Foe ×2");
-        assert!(p.plan.is_ok());
+        assert!(matches!(
+            &p.plan.unwrap()[1],
+            Step::Combat(CombatCommand::UseFeature { combatant, amount: 2, .. }) if *combatant == w.id(1)
+        ));
         assert!(w.parse("use favored foe 3 1").plan.is_err());
         assert_eq!(
             w.parse("use favored foe 4").plan,

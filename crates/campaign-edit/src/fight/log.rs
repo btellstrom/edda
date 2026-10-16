@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use campaign_types::combat::{CombatEvent, EffectEndReason, LoggedEvent};
+use campaign_types::combat::{CombatEvent, EffectEndReason, LoggedEvent, SpellSlot};
 use uuid::Uuid;
 
 /// Names of every combatant and effect that appears in `log`.
@@ -27,6 +27,20 @@ pub fn learn(names: &mut HashMap<Uuid, String>, event: &CombatEvent) {
         }
         _ => {}
     }
+}
+
+/// `event` in words; an undo names what it took back, found in `log`.
+pub fn describe_in(
+    event: &CombatEvent,
+    log: &[LoggedEvent],
+    names: &HashMap<Uuid, String>,
+) -> String {
+    if let CombatEvent::Undone { command } = event
+        && let Some(first) = log.iter().find(|e| e.command_id == Some(*command))
+    {
+        return format!("Undo: {}", describe(&first.event, names));
+    }
+    describe(event, names)
 }
 
 pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
@@ -87,6 +101,11 @@ pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
         ),
         CombatEvent::EffectAdded { effect } => {
             let mut text = effect.name.clone();
+            if effect.concentration && effect.source.is_some() {
+                // Following the cast that started it.
+                let source = effect.source.as_ref().map_or("someone", name);
+                return format!("  {source} concentrates on {}", effect.name);
+            }
             if let Some(source) = &effect.source {
                 text = format!("{}: {text}", name(source));
             }
@@ -109,6 +128,33 @@ pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
             };
             format!("{} ends{why}", name(effect))
         }
+        CombatEvent::SpellCast {
+            caster,
+            spell,
+            slot,
+            targets,
+        } => {
+            let mut text = format!("{} casts {spell}", name(caster));
+            if !targets.is_empty() {
+                text += &format!(" on {}", list(targets));
+            }
+            match slot {
+                Some(SpellSlot::Level(level)) => {
+                    text += &format!(" ({} level)", crate::display::ordinal(*level));
+                }
+                Some(SpellSlot::Pact(_)) => text += " (pact slot)",
+                None => {}
+            }
+            text
+        }
+        CombatEvent::FeatureUsed {
+            combatant,
+            feature,
+            amount,
+        } => match amount {
+            1 => format!("{} uses {feature}", name(combatant)),
+            n => format!("{} uses {feature} ×{n}", name(combatant)),
+        },
         CombatEvent::Paused => "The combat pauses".into(),
         CombatEvent::Resumed => "The combat resumes".into(),
         CombatEvent::Ended => "The combat ends".into(),

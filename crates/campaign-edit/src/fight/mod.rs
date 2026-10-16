@@ -16,10 +16,10 @@ use campaign_client::{
     combat::{CombatClient, Received, Replica, live::CommandSender},
 };
 use campaign_types::{
-    Character, CharacterSummary,
+    Character, CharacterAction, CharacterSummary,
     combat::{
-        CombatCommand, CombatStatus, CombatSummary, Combatant, CommandEnvelope, LoggedEvent,
-        ServerMessage,
+        CombatCommand, CombatEvent, CombatStatus, CombatSummary, Combatant, CommandEnvelope,
+        LoggedEvent, ServerMessage, SpellSlot,
     },
 };
 use chrono::Utc;
@@ -55,6 +55,12 @@ impl Login {
     async fn combats(&mut self) -> Result<CombatClient> {
         Ok(CombatClient::new(&self.combat_url).with_token(&self.token().await?))
     }
+}
+
+/// Something a cast or feature use spent on a character sheet.
+enum Spent {
+    Slot(SpellSlot),
+    Feature(String, u16),
 }
 
 /// What the WebSocket reader passes to the screen.
@@ -366,12 +372,64 @@ impl App {
             ServerMessage::Event(event) => Some(event.clone()),
             _ => None,
         };
+        // An undo this screen sent: what the undone command spent on a
+        // sheet is given back here, as the combat can't do it.
+        let undone = match &event {
+            Some(LoggedEvent {
+                command_id: Some(id),
+                event: CombatEvent::Undone { command },
+                ..
+            }) if self.replica.pending().iter().any(|p| p.command_id == *id) => Some(*command),
+            _ => None,
+        };
         match self.replica.receive(message) {
             Received::Updated => {}
-            Received::Rejected { error, .. } => self.status = Some((error, true)),
+            Received::Rejected { envelope, error } => {
+                self.status = Some((error, true));
+                // Refused, so it never happened: give back what it spent.
+                let spent = match envelope.command {
+                    CombatCommand::CastSpell {
+                        caster,
+                        slot: Some(slot),
+                        ..
+                    } => Some((caster, Spent::Slot(slot))),
+                    CombatCommand::UseFeature {
+                        combatant,
+                        feature,
+                        amount,
+                    } => Some((combatant, Spent::Feature(feature, amount))),
+                    _ => None,
+                };
+                if let Some((combatant, spent)) = spent {
+                    self.give_back(combatant, spent).await;
+                }
+            }
             Received::NeedsResync => {
                 self.reconnect().await;
                 return;
+            }
+        }
+        if let Some(command) = undone {
+            let spent: Vec<_> = self
+                .log
+                .iter()
+                .filter(|e| e.command_id == Some(command))
+                .filter_map(|e| match &e.event {
+                    CombatEvent::SpellCast {
+                        caster,
+                        slot: Some(slot),
+                        ..
+                    } => Some((*caster, Spent::Slot(*slot))),
+                    CombatEvent::FeatureUsed {
+                        combatant,
+                        feature,
+                        amount,
+                    } => Some((*combatant, Spent::Feature(feature.clone(), *amount))),
+                    _ => None,
+                })
+                .collect();
+            for (combatant, spent) in spent {
+                self.give_back(combatant, spent).await;
             }
         }
         let Some(event) = event else { return };
@@ -383,7 +441,7 @@ impl App {
         // Sheets change outside the combat too (slots, features, HP
         // written back); catch up with whoever's turn it now is, and with
         // characters who join.
-        use campaign_types::combat::CombatEvent as E;
+        use CombatEvent as E;
         let character = match &event.event {
             E::TurnStarted { combatant } => self
                 .replica
@@ -397,6 +455,48 @@ impl App {
         };
         if let Some(id) = character {
             let _ = self.fetch(id).await;
+        }
+    }
+
+    /// Restores a spent slot or feature use on the combatant's sheet.
+    async fn give_back(&mut self, combatant: Uuid, spent: Spent) {
+        let state = self.replica.state();
+        let Some(character) = state.combatant(combatant).and_then(|c| c.character_id) else {
+            return;
+        };
+        let (action, what) = match spent {
+            Spent::Slot(SpellSlot::Level(level)) => (
+                CharacterAction::RestoreSpellSlot { level },
+                format!("a {} level slot", crate::display::ordinal(level)),
+            ),
+            Spent::Slot(SpellSlot::Pact(_)) => {
+                (CharacterAction::RestorePactSlot, "a pact slot".to_string())
+            }
+            Spent::Feature(name, amount) => (
+                CharacterAction::RestoreResource {
+                    name: name.clone(),
+                    amount,
+                },
+                name,
+            ),
+        };
+        let restored = match self.login.characters().await {
+            Ok(client) => client.act(character, &action).await.map_err(Into::into),
+            Err(e) => Err(e),
+        };
+        match restored {
+            Ok(saved) => {
+                let name = saved.sheet.name.clone();
+                self.sheets.insert(character, saved);
+                let note = format!("gave {name} back {what}");
+                self.status = Some(match self.status.take() {
+                    Some((text, failed)) => (format!("{text}; {note}"), failed),
+                    None => (note, false),
+                });
+            }
+            Err(e) => {
+                self.status = Some((format!("couldn't give back {what}: {e:#}"), true));
+            }
         }
     }
 
