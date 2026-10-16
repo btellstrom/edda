@@ -561,7 +561,10 @@ fn effect(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interprete
     }
     let targets = match targets {
         Ok(ts) if ts.is_empty() => {
-            return (sentence, Err("on whom? type their numbers".into()));
+            return (
+                sentence,
+                Err("on whom? type their numbers; Tab picks by name".into()),
+            );
         }
         Ok(ts) => ts,
         Err(e) => return (sentence, Err(e)),
@@ -834,7 +837,17 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
     match verb {
         Verb::Damage | Verb::Heal | Verb::Temp | Verb::Remove => target_suggestions(),
         Verb::Init if args.is_empty() => target_suggestions(),
-        Verb::Effect if args.iter().any(|w| w.parse::<usize>().is_ok()) => target_suggestions(),
+        // First the effect's name, then whom it's on. Once there's a name,
+        // every target is offered, the first included, along with longer
+        // names it could still be the start of.
+        Verb::Effect if args.is_empty() => named(effect_names(ctx)),
+        Verb::Effect => {
+            let mut out = target_suggestions();
+            if !args.iter().any(|w| w.parse::<usize>().is_ok()) {
+                out.extend(named(effect_names(ctx)));
+            }
+            out
+        }
         Verb::Cast => {
             let Some(sheet) = actor.and_then(|a| ctx.sheet(a)) else {
                 return Vec::new();
@@ -899,6 +912,43 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
         _ => Vec::new(),
     }
 }
+
+/// The conditions, then the effects in play (in case one goes on someone
+/// else too), with what they are.
+fn effect_names(ctx: &Context) -> Vec<(String, String)> {
+    let mut names: Vec<(String, String)> = CONDITIONS
+        .iter()
+        .map(|c| (c.to_string(), "condition".to_string()))
+        .collect();
+    for effect in &ctx.state.effects {
+        if !names
+            .iter()
+            .any(|(n, _)| n.eq_ignore_ascii_case(&effect.name))
+        {
+            names.push((effect.name.clone(), "in play".into()));
+        }
+    }
+    names
+}
+
+/// The conditions of the rules (the same in both editions).
+const CONDITIONS: &[&str] = &[
+    "Blinded",
+    "Charmed",
+    "Deafened",
+    "Exhaustion",
+    "Frightened",
+    "Grappled",
+    "Incapacitated",
+    "Invisible",
+    "Paralyzed",
+    "Petrified",
+    "Poisoned",
+    "Prone",
+    "Restrained",
+    "Stunned",
+    "Unconscious",
+];
 
 /// Combatants with their numbers whose name or number starts with `typed`.
 fn combatants<'c>(
@@ -1230,5 +1280,39 @@ mod tests {
         assert_eq!(w.lines("cast hunter's mark ").len(), 3, "then targets");
         assert_eq!(w.lines("use f"), ["use Favored Foe "]);
         assert_eq!(w.lines("add "), ["add Pike "], "Vex is already in");
+    }
+
+    #[test]
+    fn effects_complete_their_name_and_every_target_including_the_first() {
+        // Regression: combatants were only offered once a first number had
+        // been typed, so the first target got no help, and a name typed
+        // there became part of the effect's name.
+        let mut w = world();
+        assert_eq!(w.lines("effect pr"), ["effect Prone "]);
+        assert_eq!(suggest("effect ", &w.ctx()).len(), CONDITIONS.len());
+        assert_eq!(
+            w.lines("effect Prone "),
+            ["effect Prone 1 ", "effect Prone 2 ", "effect Prone 3 "]
+        );
+        assert_eq!(w.lines("effect Prone gob"), ["effect Prone 3 "]);
+        assert_eq!(
+            w.parse("effect Prone gob").plan,
+            Err("on whom? type their numbers; Tab picks by name".into())
+        );
+        assert_eq!(w.lines("effect Prone 3 gr"), ["effect Prone 3 2 "]);
+
+        // Effects already in play are offered as names, also partway.
+        w.state.apply(&CombatEvent::EffectAdded {
+            effect: Effect {
+                id: Uuid::new_v4(),
+                name: "Hunter's Mark".into(),
+                source: None,
+                targets: vec![],
+                concentration: false,
+                expires: None,
+            },
+        });
+        assert_eq!(w.lines("effect hu"), ["effect Hunter's Mark "]);
+        assert_eq!(w.lines("effect hunter's m"), ["effect Hunter's Mark "]);
     }
 }

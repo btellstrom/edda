@@ -179,7 +179,8 @@ Every action but `use` takes any combatants as targets. As you type, the
 line below says who does what to whom ("Vex deals ? damage to Goblin — how
 much?"), the acting combatant and the targets light up in the initiative
 order, and the sheet panel shows whoever acts. Tab completes the action,
-spell, feature, effect or character; typing a name where a combatant goes
+spell, feature, effect (the conditions, and effects already in play) or
+character; typing a name where a combatant goes, first target included,
 completes it to their number. ↑/↓ pick among the suggestions, Esc clears
 the line, PgUp/PgDn scroll the log, Ctrl-C quits.
 
