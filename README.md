@@ -12,6 +12,7 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | `crates/auth-service` | Campaigns, the devices admitted to them, and login (axum + Postgres). |
 | `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
 | `crates/combat-service` | Live, event-sourced combat encounters (axum + Postgres + WebSocket). Runs as any number of instances. |
+| `crates/monster-service` | Monster stat blocks: a shared library (the SRD) and each campaign's own (axum + SQLite). |
 | `crates/campaign-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
 | `crates/campaign-edit` | Git-style command-line frontend for editing character sheets. |
 
@@ -24,6 +25,7 @@ fight screen) is a native program.
 make server       # the servers' container image, from the Dockerfile
 make client       # campaign-edit, natively: target/release/campaign-edit
 make install      # campaign-edit into ~/.cargo/bin
+make srd          # download the SRD monsters into data/monsters (optional)
 make up           # build and start the servers; make down stops them
 make campaign NAME="Vox Machina" EDITION=2024   # the DM's setup code
 make delete-campaign ID=<id>     # a campaign and everything in it (asks first; YES=1 doesn't)
@@ -34,10 +36,11 @@ The Makefile uses podman; `make CONTAINER=docker ...` uses Docker.
 
 ### Servers in containers
 
-`compose.yaml` runs Postgres, the auth, character and combat services (all
-three from one image, built by the `Dockerfile`), and a one-off job that
-registers the combat service's key so it can write hit points back to
-character sheets.
+`compose.yaml` runs Postgres, the auth, character, combat and monster
+services (all from one image, built by the `Dockerfile`), and two one-off
+jobs: one registers the combat service's key so it can write hit points
+back to character sheets, the other loads the SRD monsters into the
+monster service's shared library (on every start, updating them).
 
 ```sh
 podman compose up -d --build     # or: docker compose up -d --build
@@ -46,16 +49,17 @@ podman compose logs -f combat    # logs
 podman compose down              # stop; data stays in volumes (down -v deletes it)
 ```
 
-Deleting a campaign removes it from all three services: its devices
-(which can no longer log in), characters and combats. `campaign-edit auth
+Deleting a campaign removes it from every service: its devices (which
+can no longer log in), characters, combats and its own monsters. `campaign-edit auth
 status` shows its id. Without make, run `delete-campaign <ID>` with each
 of `auth-service`, `character-service` and `combat-service`; each deletes
 its own part and can be re-run safely.
 
 `podman compose` needs podman's API socket: `systemctl --user enable --now
 podman.socket`. The services are published on localhost: auth 3002,
-characters 3000, combat 3001, Postgres 5432. Move any of them with
-`AUTH_PORT`, `CHARACTERS_PORT`, `COMBAT_PORT` or `POSTGRES_PORT`, e.g. if
+characters 3000, combat 3001, monsters 3003, Postgres 5432. Move any of
+them with `AUTH_PORT`, `CHARACTERS_PORT`, `COMBAT_PORT`, `MONSTERS_PORT` or
+`POSTGRES_PORT`, e.g. if
 another Postgres already has 5432:
 
 ```sh
@@ -92,6 +96,9 @@ cargo run -p combat-service
 # DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/combats
 #   (created on first start), BIND_ADDR to 127.0.0.1:3001,
 # CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty turns HP write-back off)
+cargo run -p monster-service -- import data/monsters/*.json   # the SRD, once
+cargo run -p monster-service
+# DATABASE_URL defaults to sqlite://monsters.db, BIND_ADDR to 127.0.0.1:3003
 ```
 
 On first start the combat service creates its own key (`SERVICE_KEY_FILE`,
@@ -173,6 +180,7 @@ campaign-edit fight --new "Goblin ambush"   # start a combat
 campaign-edit fight                         # the latest one still running
 campaign-edit fight goblin                  # one by name or ID prefix
 export CAMPAIGN_COMBAT_SERVER=http://127.0.0.1:3001   # the default
+export CAMPAIGN_MONSTER_SERVER=http://127.0.0.1:3003  # the default
 ```
 
 A full-screen view of a combat: the initiative order (with HP, AC and the
@@ -183,7 +191,9 @@ the turn:
 
 ```
 add vex                     Vex joins the combat (from their sheet)
-add Goblin 7                Goblin (7 HP) joins the combat
+add 3 goblin warrior        Goblin Warrior 1, 2 and 3 join at their maximum HP
+add goblin boss roll        Goblin Boss joins with rolled hit points
+add Bandit 11               anyone else: a name and hit points
 roll · start · next         initiative for everyone without; begin; end the turn
 damage 3 7                  Vex deals 7 damage to Goblin
 damage 2 3 8                Vex deals 8 damage to Grog and Goblin
@@ -196,6 +206,11 @@ use favored foe             Vex uses Favored Foe (only ever on oneself)
 init 3 17 · init 3          set Goblin's initiative, or roll it
 drop hunter's mark · remove 3 · undo · pause · resume · end · quit
 ```
+
+Monsters come from the monster service (see [Monsters](#monsters)); Tab
+completes their names with their CR, type and hit points, and their stat
+block shows in the side panel when they act. Several of one monster are
+numbered on from any already in the fight.
 
 Every action but `use` takes any combatants as targets. Effects need
 none, for things in the area like a fire on the floor; one with a duration
@@ -216,6 +231,74 @@ a feature's use and logs it. If the server refuses one of these, or you
 `undo` it, the screen gives the slot or use back. Changes show at once and are confirmed by the
 server; if the connection drops the screen keeps working, queues what you
 do and sends it once it has reconnected.
+
+## Monsters
+
+The monster service keeps full stat blocks: a **shared library**, which
+every campaign sees the part of that suits its edition, and each
+campaign's **own** (homebrew), which only that campaign sees and can
+change.
+
+The SRD monsters aren't part of this repository. `make srd` (that is,
+`tools/fetch-srd-monsters.sh`) downloads them into `data/monsters/`: SRD
+5.1 for 2014 campaigns and SRD 5.2 for 2024, 334 and 341 monsters. Wizards
+of the Coast publishes the SRD only as PDFs, so the script takes the
+structured version from the community-maintained
+[5e-database](https://github.com/5e-bits/5e-database), pinned to one commit
+and checked against known checksums, and converts it with
+`tools/convert-5e-database.py`. The SRD is licensed under CC BY 4.0; the
+attribution is in `data/monsters/README.md`. Compose's seed job loads
+whatever is in `data/monsters/` into the shared library on every start
+(`monster-service import` does it by hand), so `make srd` then `make up`.
+
+```sh
+campaign-edit monster list goblin           # name, CR, type, AC, HP, where from
+campaign-edit monster show "goblin boss"    # the stat block
+campaign-edit monster export troll > cave-troll.json   # a starting point
+campaign-edit monster add cave-troll.json   # the campaign's own: one stat block, or a list
+campaign-edit monster edit troll            # in $EDITOR; a shared one is saved as the campaign's copy
+campaign-edit monster delete "cave troll"   # the campaign's own only
+monster-service import my-monsters.json [--campaign <ID>]   # admin: shared library, or a campaign
+```
+
+A stat block is JSON; everything but `name` is optional (a file can hold
+one, or a list). Unknown fields are refused, so typos don't vanish:
+
+```json
+{
+  "name": "Cave Troll", "size": "Large", "type": "giant", "alignment": "chaotic evil",
+  "armor_class": 15, "armor": "natural armor",
+  "hit_points": 84, "hit_dice": "8d10+40", "speed": "30 ft.",
+  "ability_scores": { "strength": 18, "dexterity": 13, "constitution": 20,
+                      "intelligence": 7, "wisdom": 9, "charisma": 7 },
+  "initiative": 1,
+  "saving_throws": { "constitution": 8 }, "skills": { "perception": 2 },
+  "damage_resistances": ["bludgeoning"], "condition_immunities": ["Frightened"],
+  "senses": "darkvision 60 ft., passive Perception 12", "languages": "Giant",
+  "challenge": "5", "xp": 1800, "proficiency_bonus": 3,
+  "traits": [{ "name": "Regeneration", "description": "..." }],
+  "actions": [{ "name": "Club", "description": "Melee Attack Roll: +7, ..." }],
+  "bonus_actions": [], "reactions": [], "legendary_actions": [],
+  "source": "Homebrew", "edition": "2024", "notes": ""
+}
+```
+
+`initiative` overrides the Dexterity modifier; `edition` (`"2014"` or
+`"2024"`) limits a shared monster to campaigns of that edition, and left
+out suits both. A monster joins a fight at the most its `hit_dice` can
+come to (`hit_points` if it has none), or rolled with `add ... roll`.
+
+A converter from another source only has to write this format, like
+`tools/convert-5e-database.py` does for 5e-database; put its output in
+`data/monsters/` and the seed job loads it too.
+
+| Method | Path | Body | Response |
+| --- | --- | --- | --- |
+| `GET` | `/monsters?search=…` | | summaries: the shared ones of the campaign's edition and its own |
+| `GET` | `/monsters/{id}` | | a stat block (shared, or the campaign's own) |
+| `POST` | `/monsters` | stat block | `201`, added to the campaign's own |
+| `PUT` | `/monsters/{id}` | stat block | replaced (the campaign's own only; shared is `403`) |
+| `DELETE` | `/monsters/{id}` | | `204` (the campaign's own only) |
 
 ## Character API
 

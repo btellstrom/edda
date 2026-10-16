@@ -47,6 +47,15 @@ pub struct Cli {
     )]
     pub auth_server: String,
 
+    /// Monster service URL.
+    #[arg(
+        long,
+        env = "CAMPAIGN_MONSTER_SERVER",
+        default_value = "http://127.0.0.1:3003",
+        global = true
+    )]
+    pub monster_server: String,
+
     #[command(subcommand)]
     pub command: TopCommand,
 }
@@ -62,12 +71,39 @@ pub enum TopCommand {
     /// the DM) admitting and revoking devices.
     #[command(subcommand)]
     Auth(AuthCommand),
+    /// The monsters the campaign can use: the shared library (the SRD) and
+    /// its own.
+    #[command(subcommand)]
+    Monster(MonsterCommand),
     /// Run a combat on a full-screen view: initiative order, the acting
     /// character's sheet, the log, and a command line with completion.
     Fight(FightArgs),
     /// A character name or ID, followed by a character command.
     #[command(external_subcommand)]
     Character(Vec<String>),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MonsterCommand {
+    /// List them, optionally only those whose name contains SEARCH.
+    #[command(visible_alias = "ls")]
+    List { search: Option<String> },
+    /// Show a stat block, by name (a unique prefix will do).
+    Show { monster: String },
+    /// Add the campaign's own from a JSON file: one stat block or a list.
+    /// `export` gives a starting point.
+    Add { file: std::path::PathBuf },
+    /// Print a stat block as JSON, e.g. to base a new monster on.
+    Export { monster: String },
+    /// Edit a stat block in $EDITOR. Editing a shared one saves a copy as
+    /// the campaign's own.
+    Edit { monster: String },
+    /// Delete one of the campaign's own.
+    Delete {
+        monster: String,
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Debug, Args)]

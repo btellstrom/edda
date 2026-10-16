@@ -74,6 +74,44 @@ services:
     depends_on:
       - auth
 
+  # Runs on every start: loads the monsters in data/monsters/ (the SRD,
+  # from `make srd`) into the shared library, updating any already there.
+  seed-monsters:
+    <<: *app
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        set -- /srd/*.json
+        if [ -e "$$1" ]; then
+          monster-service import "$$@"
+        else
+          echo "No monsters in data/monsters/; run make srd to get the SRD's."
+        fi
+    environment:
+      DATABASE_URL: sqlite:///data/monsters.db
+    volumes:
+      - monsters-data:/data
+      - ./data/monsters:/srd:ro
+
+  monsters:
+    <<: *app
+    command: ["monster-service", "serve"]
+    environment:
+      DATABASE_URL: sqlite:///data/monsters.db
+      BIND_ADDR: 0.0.0.0:3003
+      AUTH_SERVICE_URL: http://auth:3002
+    ports:
+      - "127.0.0.1:${MONSTERS_PORT:-3003}:3003"
+    volumes:
+      - monsters-data:/data
+    depends_on:
+      auth:
+        condition: service_started
+      seed-monsters:
+        condition: service_completed_successfully
+
   combat:
     <<: *app
     command: ["combat-service"]
@@ -99,3 +137,4 @@ volumes:
   postgres-data:
   characters-data:
   combat-data:
+  monsters-data:

@@ -59,6 +59,10 @@ pub struct Combatant {
     /// Set when this combatant is a character from the character service.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub character_id: Option<Uuid>,
+    /// Set when this combatant is a monster from the monster service, so
+    /// its stat block can be shown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monster_id: Option<Uuid>,
     #[serde(default)]
     pub initiative_modifier: i8,
     /// Initiative total. `None` until rolled or set.
@@ -75,6 +79,7 @@ impl Combatant {
             id: Uuid::new_v4(),
             name: name.into(),
             character_id: None,
+            monster_id: None,
             initiative_modifier: 0,
             initiative: None,
             hit_points: HitPoints {
@@ -94,9 +99,30 @@ impl Combatant {
             id: Uuid::new_v4(),
             name: sheet.name.clone(),
             character_id: Some(character.id),
+            monster_id: None,
             initiative_modifier: sheet.ability_scores.modifier(crate::Ability::Dexterity),
             initiative: None,
             hit_points: sheet.hit_points,
+            armor_class: Some(sheet.armor_class),
+        }
+    }
+
+    /// A combatant for a monster, called `name` (e.g. "Goblin 2"), with
+    /// `hit_points` (its maximum, or rolled).
+    pub fn from_monster(monster: &crate::monster::Monster, name: String, hit_points: u16) -> Self {
+        let sheet = &monster.sheet;
+        Self {
+            id: Uuid::new_v4(),
+            name,
+            character_id: None,
+            monster_id: Some(monster.id),
+            initiative_modifier: sheet.initiative_modifier(),
+            initiative: None,
+            hit_points: HitPoints {
+                max: hit_points,
+                current: hit_points,
+                temporary: 0,
+            },
             armor_class: Some(sheet.armor_class),
         }
     }

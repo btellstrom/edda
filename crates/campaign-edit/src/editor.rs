@@ -78,7 +78,7 @@ fn parse_sheet(text: &str) -> Result<CharacterSheet> {
 /// Keys present in `input` that didn't survive a round trip through the
 /// sheet type. Empty values are ignored since those are legitimately
 /// omitted on output (e.g. `"subclass": null`).
-fn unknown_keys(input: &Value, parsed: &Value, path: &str) -> Vec<String> {
+pub fn unknown_keys(input: &Value, parsed: &Value, path: &str) -> Vec<String> {
     match (input, parsed) {
         (Value::Object(i), Value::Object(p)) => i
             .iter()
@@ -110,11 +110,12 @@ fn is_empty(value: &Value) -> bool {
         Value::Null => true,
         Value::String(s) => s.is_empty(),
         Value::Array(a) => a.is_empty(),
+        Value::Object(o) => o.is_empty(),
         _ => false,
     }
 }
 
-fn open_editor(path: &Path) -> Result<()> {
+pub fn open_editor(path: &Path) -> Result<()> {
     let editor = std::env::var("VISUAL")
         .or_else(|_| std::env::var("EDITOR"))
         .unwrap_or_else(|_| "vi".into());

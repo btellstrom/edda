@@ -3,3 +3,5 @@
 *.db-shm
 *.db-wal
 *.key
+# Downloaded by tools/fetch-srd-monsters.sh (`make srd`); not redistributed here.
+/data/monsters/*.json

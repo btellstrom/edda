@@ -2,7 +2,10 @@
 
 use std::fmt::Write;
 
-use campaign_types::{Ability, Character, CharacterSheet, CharacterSummary, Pool, Recharge, Skill};
+use campaign_types::{
+    Ability, Character, CharacterSheet, CharacterSummary, Pool, Recharge, Skill,
+    monster::{Feature, MonsterSheet, MonsterSummary},
+};
 
 use crate::parse::short_id;
 
@@ -281,6 +284,133 @@ fn classes_line(classes: &[campaign_types::ClassLevel]) -> String {
         })
         .collect::<Vec<_>>()
         .join(" / ")
+}
+
+/// Monsters as a table: name, CR, size and type, AC, HP, where from.
+pub fn monster_list(monsters: &[MonsterSummary]) -> String {
+    if monsters.is_empty() {
+        return "No monsters.".into();
+    }
+    let width = monsters
+        .iter()
+        .map(|m| m.name.chars().count())
+        .max()
+        .unwrap_or(0);
+    let kind = monsters
+        .iter()
+        .map(|m| m.size.len() + 1 + m.kind.chars().count())
+        .max()
+        .unwrap_or(0);
+    let mut out = String::new();
+    for m in monsters {
+        let what = format!("{} {}", m.size, m.kind);
+        let whose = if m.shared { "" } else { "  (campaign)" };
+        let _ = writeln!(
+            out,
+            "{:<width$}  CR {:<4}  {what:<kind$}  AC {:>2}  HP {:>3}  {}{whose}",
+            m.name, m.challenge, m.armor_class, m.hit_points, m.source
+        );
+    }
+    out.trim_end().to_string()
+}
+
+/// A stat block, laid out like the books'.
+pub fn monster(m: &MonsterSheet) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "{}", m.name);
+    let mut kind = format!("{} {}", m.size, m.kind);
+    if !m.alignment.is_empty() {
+        kind += &format!(", {}", m.alignment);
+    }
+    let _ = writeln!(out, "{kind}  ·  {}\n", m.source);
+
+    let armor = if m.armor.is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", m.armor)
+    };
+    let dice = match m.hit_dice() {
+        Some(_) => format!(" ({}, max {})", m.hit_dice, m.max_hit_points()),
+        None => String::new(),
+    };
+    let _ = writeln!(
+        out,
+        "AC {}{armor}   HP {}{dice}   Speed {}   Initiative {:+}",
+        m.armor_class,
+        m.hit_points,
+        m.speed,
+        m.initiative_modifier()
+    );
+    let abilities: Vec<_> = Ability::ALL
+        .iter()
+        .map(|&a| {
+            let score = m.ability_scores.get(a);
+            format!(
+                "{} {score} ({:+})",
+                abbreviation(a),
+                m.ability_scores.modifier(a)
+            )
+        })
+        .collect();
+    let _ = writeln!(out, "{}", abilities.join("  "));
+
+    let mut details = Vec::new();
+    if !m.saving_throws.is_empty() {
+        let saves: Vec<_> = m
+            .saving_throws
+            .iter()
+            .map(|(a, b)| format!("{} {b:+}", abbreviation(*a)))
+            .collect();
+        details.push(format!("Saves {}", saves.join(", ")));
+    }
+    if !m.skills.is_empty() {
+        let skills: Vec<_> = m
+            .skills
+            .iter()
+            .map(|(s, b)| format!("{} {b:+}", skill_name(*s)))
+            .collect();
+        details.push(format!("Skills {}", skills.join(", ")));
+    }
+    for (label, list) in [
+        ("Vulnerabilities", &m.damage_vulnerabilities),
+        ("Resistances", &m.damage_resistances),
+        ("Immunities", &m.damage_immunities),
+        ("Condition immunities", &m.condition_immunities),
+    ] {
+        if !list.is_empty() {
+            details.push(format!("{label} {}", list.join(", ")));
+        }
+    }
+    if !m.senses.is_empty() {
+        details.push(format!("Senses {}", m.senses));
+    }
+    if !m.languages.is_empty() {
+        details.push(format!("Languages {}", m.languages));
+    }
+    details.push(format!(
+        "CR {} ({} XP)   Proficiency {:+}",
+        m.challenge, m.xp, m.proficiency_bonus
+    ));
+    let _ = writeln!(out, "{}", details.join("\n"));
+
+    for (heading, features) in [
+        ("Traits", &m.traits),
+        ("Actions", &m.actions),
+        ("Bonus actions", &m.bonus_actions),
+        ("Reactions", &m.reactions),
+        ("Legendary actions", &m.legendary_actions),
+    ] {
+        if !features.is_empty() {
+            let _ = writeln!(out, "\n{heading}");
+            for Feature { name, description } in features {
+                let _ = writeln!(out, "  {name}. {description}");
+            }
+        }
+    }
+    if !m.notes.is_empty() {
+        let _ = writeln!(out, "\nNotes\n  {}", m.notes);
+    }
+    out.trim_end().to_string()
 }
 
 fn abbreviation(a: Ability) -> &'static str {

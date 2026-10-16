@@ -1,4 +1,4 @@
-# One image with all three services; compose.yaml picks which one each
+# One image with all four services; compose.yaml picks which one each
 # container runs. Works with `docker build` and `podman build`.
 
 FROM docker.io/library/rust:1.97-slim-trixie AS build
@@ -7,10 +7,10 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --locked \
-        -p auth-service -p character-service -p combat-service \
+        -p auth-service -p character-service -p combat-service -p monster-service \
     && mkdir /out \
     && cp target/release/auth-service target/release/character-service \
-        target/release/combat-service /out/
+        target/release/combat-service target/release/monster-service /out/
 
 FROM docker.io/library/debian:trixie-slim
 RUN apt-get update \

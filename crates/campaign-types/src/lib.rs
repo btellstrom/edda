@@ -7,6 +7,7 @@ pub mod action;
 pub mod character;
 pub mod combat;
 pub mod edition;
+pub mod monster;
 pub mod resources;
 mod slots;
 pub mod spellcasting;

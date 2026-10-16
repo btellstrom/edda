@@ -14,6 +14,7 @@ use campaign_types::{
     combat::{
         CombatCommand, CombatError, CombatState, Combatant, NewEffect, NoDice, SpellSlot, decide,
     },
+    monster::MonsterSummary,
 };
 use uuid::Uuid;
 
@@ -24,6 +25,8 @@ pub struct Context<'a> {
     pub sheets: &'a HashMap<Uuid, Character>,
     /// The campaign's characters, who can be added.
     pub roster: &'a [CharacterSummary],
+    /// The monsters that can be added.
+    pub bestiary: &'a [MonsterSummary],
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +39,12 @@ pub enum Step {
     },
     /// Add a campaign character, as their sheet currently stands.
     Join(Uuid),
+    /// Add `count` of a monster, at their maximum hit points or rolled.
+    Summon {
+        monster: Uuid,
+        count: u16,
+        roll: bool,
+    },
     Quit,
 }
 
@@ -124,7 +133,7 @@ const VERBS: &[(Verb, &str, &str, &str)] = &[
     (
         Verb::Add,
         "add",
-        "<character> | <name> <hp>",
+        "<character> | [count] <monster> [roll] | <name> <hp>",
         "join the combat",
     ),
     (Verb::Remove, "remove", "<who…>", "leave the combat"),
@@ -656,12 +665,14 @@ fn use_feature(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Inter
     )
 }
 
+/// `add`: a campaign character, `[count] <monster> [roll]` from the
+/// bestiary, or anyone else as `<name> <hp>`.
 fn add(args: &[&str], ctx: &Context) -> Interpreted {
     let text = args.join(" ");
     if text.is_empty() {
         return (
             "? joins the combat".into(),
-            Err("who? a character's name, or a name and hit points".into()),
+            Err("who? a character, a monster, or a name and hit points".into()),
         );
     }
     if let Some(character) = ctx
@@ -683,6 +694,51 @@ fn add(args: &[&str], ctx: &Context) -> Interpreted {
         }
         return (sentence, Ok(vec![Step::Join(character.id)]));
     }
+
+    let (count, rest) = match args.split_first() {
+        Some((first, rest)) if !rest.is_empty() => match first.parse::<u16>() {
+            Ok(n) => (Some(n), rest),
+            Err(_) => (None, args),
+        },
+        _ => (None, args),
+    };
+    let (roll, rest) = match rest.split_last() {
+        Some((last, init)) if last.eq_ignore_ascii_case("roll") && !init.is_empty() => (true, init),
+        _ => (false, rest),
+    };
+    let wanted = rest.join(" ");
+    if let Some(monster) = monster_named(ctx.bestiary, &wanted) {
+        let count = count.unwrap_or(1);
+        if count == 0 {
+            return ("Nobody joins".into(), Err("how many? at least 1".into()));
+        }
+        let names = monster_names(&monster.name, count, ctx.state);
+        let who = match names.as_slice() {
+            [init @ .., last] if !init.is_empty() => format!("{} and {last}", init.join(", ")),
+            _ => names.join(""),
+        };
+        let verb = if count == 1 { "joins" } else { "join" };
+        let hp = match (roll, count) {
+            (true, _) => "with rolled hit points".to_string(),
+            (false, 1) => format!("at {} HP", monster.max_hit_points),
+            (false, _) => format!("at {} HP each", monster.max_hit_points),
+        };
+        return (
+            format!("{who} {verb} the combat {hp}"),
+            Ok(vec![Step::Summon {
+                monster: monster.id,
+                count,
+                roll,
+            }]),
+        );
+    }
+    if count.is_some() || roll {
+        return (
+            format!("{wanted} joins the combat"),
+            Err(format!("no monster called \"{wanted}\"; Tab lists them")),
+        );
+    }
+
     let (name, hp) = match args.split_last() {
         Some((last, name)) if !name.is_empty() => match last.parse::<u16>() {
             Ok(hp) => (name.join(" "), Some(hp)),
@@ -699,9 +755,48 @@ fn add(args: &[&str], ctx: &Context) -> Interpreted {
         ),
         None => (
             format!("{name} joins the combat"),
-            Err(format!("how many hit points? e.g. add {name} 7")),
+            Err(format!(
+                "not a character or monster; give hit points to add anyone, e.g. add {name} 7"
+            )),
         ),
     }
+}
+
+/// The monster called `name` (any case), the campaign's own before a
+/// shared one.
+pub fn monster_named<'m>(bestiary: &'m [MonsterSummary], name: &str) -> Option<&'m MonsterSummary> {
+    let mut matching: Vec<_> = bestiary
+        .iter()
+        .filter(|m| m.name.eq_ignore_ascii_case(name))
+        .collect();
+    matching.sort_by_key(|m| m.shared);
+    matching.first().copied()
+}
+
+/// Names for `count` more of a monster: just its name for the only one in
+/// the fight, otherwise numbered on from any already there ("Goblin 2").
+pub fn monster_names(base: &str, count: u16, state: &CombatState) -> Vec<String> {
+    let mut plain = false;
+    let mut highest = 0;
+    for combatant in &state.combatants {
+        if combatant.name == base {
+            plain = true;
+        } else if let Some(n) = combatant
+            .name
+            .strip_prefix(base)
+            .and_then(|rest| rest.strip_prefix(' '))
+            .and_then(|n| n.parse::<u16>().ok())
+        {
+            highest = highest.max(n);
+        }
+    }
+    if count == 1 && !plain && highest == 0 {
+        return vec![base.to_string()];
+    }
+    let first = highest.max(u16::from(plain)) + 1;
+    (first..first + count)
+        .map(|n| format!("{base} {n}"))
+        .collect()
 }
 
 /// The combatants that target words refer to.
@@ -828,13 +923,14 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
     };
     // Names that may span several words: offered while what's typed after
     // the action could still be the start of one.
-    let named = |names: Vec<(String, String)>| -> Vec<Suggestion> {
-        let mut typed: Vec<&str> = args.to_vec();
+    // `skip` words after the action come before the name (a count).
+    let named_after = |skip: usize, names: Vec<(String, String)>| -> Vec<Suggestion> {
+        let mut typed: Vec<&str> = args[skip..].to_vec();
         if !partial.is_empty() {
             typed.push(partial);
         }
         let typed = typed.join(" ").to_lowercase();
-        let verb_head = done[..=verb_at].join(" ");
+        let verb_head = done[..=verb_at + skip].join(" ");
         names
             .into_iter()
             .filter(|(name, _)| name.to_lowercase().starts_with(&typed))
@@ -846,6 +942,7 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
             })
             .collect()
     };
+    let named = |names| named_after(0, names);
 
     match verb {
         Verb::Damage | Verb::Heal | Verb::Temp | Verb::Remove => target_suggestions(),
@@ -925,18 +1022,44 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
                 })
                 .collect(),
         ),
-        Verb::Add => named(
-            ctx.roster
+        Verb::Add => {
+            let counted = args.first().is_some_and(|w| w.parse::<u16>().is_ok());
+            let skip = usize::from(counted);
+            // After a whole monster's name: whether to roll its hit points.
+            if monster_named(ctx.bestiary, &args[skip..].join(" ")).is_some() {
+                return if "roll".starts_with(&partial.to_lowercase()) {
+                    vec![Suggestion {
+                        line: complete(&base, "roll"),
+                        label: "roll".into(),
+                        detail: "roll hit points instead of taking the maximum".into(),
+                    }]
+                } else {
+                    Vec::new()
+                };
+            }
+            let characters = ctx
+                .roster
                 .iter()
+                .filter(|_| !counted)
                 .filter(|r| {
                     !ctx.state
                         .combatants
                         .iter()
                         .any(|c| c.character_id == Some(r.id))
                 })
-                .map(|r| (r.name.clone(), format!("level {} {}", r.level, r.race)))
-                .collect(),
-        ),
+                .map(|r| (r.name.clone(), format!("level {} {}", r.level, r.race)));
+            let monsters = ctx.bestiary.iter().map(|m| {
+                let whose = if m.shared { "" } else { " · campaign's own" };
+                let detail = format!(
+                    "CR {} · {} {} · {} HP{whose}",
+                    m.challenge, m.size, m.kind, m.max_hit_points
+                );
+                (m.name.clone(), detail)
+            });
+            let mut names: Vec<(String, String)> = characters.chain(monsters).collect();
+            names.dedup_by(|a, b| a.0.eq_ignore_ascii_case(&b.0));
+            named_after(skip, names)
+        }
         _ => Vec::new(),
     }
 }
@@ -1049,6 +1172,22 @@ mod tests {
         state: CombatState,
         sheets: HashMap<Uuid, Character>,
         roster: Vec<CharacterSummary>,
+        bestiary: Vec<MonsterSummary>,
+    }
+
+    fn monster(name: &str, max_hit_points: u16, shared: bool) -> MonsterSummary {
+        MonsterSummary {
+            id: Uuid::new_v4(),
+            name: name.into(),
+            size: "Small".into(),
+            kind: "humanoid".into(),
+            challenge: "1/4".into(),
+            hit_points: 7,
+            max_hit_points,
+            armor_class: 15,
+            source: if shared { "SRD 5.2" } else { "Homebrew" }.into(),
+            shared,
+        }
     }
 
     fn character(sheet: CharacterSheet) -> Character {
@@ -1118,6 +1257,12 @@ mod tests {
             state,
             roster: vec![(&vex).into(), (&pike).into()],
             sheets: HashMap::from([(vex.id, vex)]),
+            bestiary: vec![
+                monster("Cave Troll", 90, true),
+                monster("Cave Troll", 120, false),
+                monster("Goblin", 12, true),
+                monster("Goblin Boss", 30, true),
+            ],
         }
     }
 
@@ -1127,6 +1272,7 @@ mod tests {
                 state: &self.state,
                 sheets: &self.sheets,
                 roster: &self.roster,
+                bestiary: &self.bestiary,
             }
         }
 
@@ -1307,7 +1453,84 @@ mod tests {
         );
         assert_eq!(w.lines("cast hunter's mark ").len(), 3, "then targets");
         assert_eq!(w.lines("use f"), ["use Favored Foe "]);
-        assert_eq!(w.lines("add "), ["add Pike "], "Vex is already in");
+        assert_eq!(w.lines("add p"), ["add Pike "]);
+        assert!(
+            !w.lines("add ").contains(&"add Vex ".to_string()),
+            "Vex is already in"
+        );
+    }
+
+    #[test]
+    fn monsters_join_numbered_at_their_maximum_or_rolled() {
+        // The fight already has a plain "Goblin" (number 3).
+        let w = world();
+        let goblin = w.bestiary[2].id;
+        let p = w.parse("add 2 goblin");
+        assert_eq!(
+            p.sentence,
+            "Goblin 2 and Goblin 3 join the combat at 12 HP each"
+        );
+        assert_eq!(
+            p.plan,
+            Ok(vec![Step::Summon {
+                monster: goblin,
+                count: 2,
+                roll: false
+            }])
+        );
+        let p = w.parse("add goblin boss roll");
+        assert_eq!(
+            p.sentence,
+            "Goblin Boss joins the combat with rolled hit points"
+        );
+        assert!(matches!(
+            p.plan.unwrap()[0],
+            Step::Summon {
+                roll: true,
+                count: 1,
+                ..
+            }
+        ));
+        let own_troll = w.bestiary[1].id;
+        assert!(
+            matches!(
+                w.parse("add cave troll").plan.unwrap()[0],
+                Step::Summon { monster, .. } if monster == own_troll
+            ),
+            "the campaign's own before the shared one"
+        );
+        assert_eq!(
+            w.parse("add 2 dragon").plan,
+            Err("no monster called \"dragon\"; Tab lists them".into())
+        );
+        assert!(
+            matches!(w.parse("add Goblin 7").plan.unwrap()[0], Step::Combat(_)),
+            "a name and hit points still adds anyone"
+        );
+
+        assert_eq!(
+            w.lines("add 3 gob"),
+            ["add 3 Goblin ", "add 3 Goblin Boss "]
+        );
+        assert!(
+            w.lines("add 3 p").is_empty(),
+            "characters come one at a time"
+        );
+        assert_eq!(w.lines("add goblin "), ["add goblin roll "]);
+    }
+
+    #[test]
+    fn monster_names_number_on_from_those_in_the_fight() {
+        let mut state = CombatState::default();
+        assert_eq!(monster_names("Rat", 1, &state), ["Rat"]);
+        assert_eq!(monster_names("Rat", 2, &state), ["Rat 1", "Rat 2"]);
+        for name in ["Goblin", "Goblin 4", "Goblin Boss"] {
+            state.apply(&CombatEvent::CombatantAdded {
+                combatant: Combatant::new(name, 7),
+            });
+        }
+        assert_eq!(monster_names("Goblin", 2, &state), ["Goblin 5", "Goblin 6"]);
+        assert_eq!(monster_names("Goblin Boss", 1, &state), ["Goblin Boss 2"]);
     }
 
     #[test]

@@ -201,35 +201,58 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
         return;
     };
     let sheet = combatant.character_id.and_then(|id| app.sheets.get(&id));
-    let text = match sheet {
-        Some(character) => {
-            // The combat's hit points are the current ones; the sheet's
-            // catch up a moment later.
-            let mut character = character.clone();
-            character.sheet.hit_points = combatant.hit_points;
-            Text::from(crate::display::sheet(&character))
-        }
-        None => {
+    let monster = combatant.monster_id.and_then(|id| app.monsters.get(&id));
+    let text = match (sheet, monster) {
+        (None, Some(monster)) => {
+            // Its own hit points first; the stat block's are what it
+            // started from.
             let hp = combatant.hit_points;
+            let temp = if hp.temporary > 0 {
+                format!(" +{} temporary", hp.temporary)
+            } else {
+                String::new()
+            };
             let mut lines = vec![
-                Line::from(combatant.name.clone()).bold(),
+                Line::from(format!("HP {}/{}{temp}", hp.current, hp.max)).bold(),
                 Line::raw(""),
-                Line::raw(format!("HP {}/{}", hp.current, hp.max)),
             ];
-            if hp.temporary > 0 {
-                lines.push(Line::raw(format!("Temporary HP {}", hp.temporary)));
-            }
-            if let Some(ac) = combatant.armor_class {
-                lines.push(Line::raw(format!("AC {ac}")));
-            }
-            lines.push(Line::raw(format!(
-                "Initiative modifier {:+}",
-                combatant.initiative_modifier
-            )));
-            lines.push(Line::raw(""));
-            lines.push(Line::from("No character sheet.").dark_gray());
+            lines.extend(
+                crate::display::monster(&monster.sheet)
+                    .lines()
+                    .map(|l| Line::raw(l.to_string())),
+            );
             Text::from(lines)
         }
+        (sheet, _) => match sheet {
+            Some(character) => {
+                // The combat's hit points are the current ones; the sheet's
+                // catch up a moment later.
+                let mut character = character.clone();
+                character.sheet.hit_points = combatant.hit_points;
+                Text::from(crate::display::sheet(&character))
+            }
+            None => {
+                let hp = combatant.hit_points;
+                let mut lines = vec![
+                    Line::from(combatant.name.clone()).bold(),
+                    Line::raw(""),
+                    Line::raw(format!("HP {}/{}", hp.current, hp.max)),
+                ];
+                if hp.temporary > 0 {
+                    lines.push(Line::raw(format!("Temporary HP {}", hp.temporary)));
+                }
+                if let Some(ac) = combatant.armor_class {
+                    lines.push(Line::raw(format!("AC {ac}")));
+                }
+                lines.push(Line::raw(format!(
+                    "Initiative modifier {:+}",
+                    combatant.initiative_modifier
+                )));
+                lines.push(Line::raw(""));
+                lines.push(Line::from("No character sheet.").dark_gray());
+                Text::from(lines)
+            }
+        },
     };
     let turn = app.replica.state().current_turn == Some(combatant.id);
     let title = if turn {

@@ -14,6 +14,7 @@ use campaign_auth::protocol::Session;
 use campaign_client::{
     Client,
     combat::{CombatClient, Received, Replica, live::CommandSender},
+    monsters::MonsterClient,
 };
 use campaign_types::{
     Character, CharacterAction, CharacterSummary,
@@ -21,6 +22,7 @@ use campaign_types::{
         CombatCommand, CombatEvent, CombatStatus, CombatSummary, Combatant, CommandEnvelope,
         LoggedEvent, ServerMessage, SpellSlot,
     },
+    monster::{Monster, MonsterSummary},
 };
 use chrono::Utc;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -44,6 +46,7 @@ struct Login {
     session: Session,
     characters_url: String,
     combat_url: String,
+    monsters_url: String,
 }
 
 impl Login {
@@ -60,6 +63,10 @@ impl Login {
 
     async fn combats(&mut self) -> Result<CombatClient> {
         Ok(CombatClient::new(&self.combat_url).with_token(&self.token().await?))
+    }
+
+    async fn monsters(&mut self) -> Result<MonsterClient> {
+        Ok(MonsterClient::new(&self.monsters_url).with_token(&self.token().await?))
     }
 }
 
@@ -86,6 +93,10 @@ pub struct App {
     names: HashMap<Uuid, String>,
     sheets: HashMap<Uuid, Character>,
     roster: Vec<CharacterSummary>,
+    /// The monsters that can be added.
+    bestiary: Vec<MonsterSummary>,
+    /// Stat blocks of the monsters in the fight, by monster id.
+    monsters: HashMap<Uuid, Monster>,
     sender: Option<CommandSender>,
     incoming: mpsc::UnboundedSender<Incoming>,
     input: String,
@@ -98,7 +109,7 @@ pub struct App {
     retries: u32,
 }
 
-pub async fn run(args: FightArgs, characters_url: &str) -> Result<()> {
+pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> Result<()> {
     let identity = Identity::locate()?;
     let (profile, session) = identity.login().await?;
     let mut login = Login {
@@ -107,6 +118,7 @@ pub async fn run(args: FightArgs, characters_url: &str) -> Result<()> {
         session,
         characters_url: characters_url.to_string(),
         combat_url: args.combat_server.clone(),
+        monsters_url: monsters_url.to_string(),
     };
     let combats = login.combats().await?;
     let combat = match &args.new {
@@ -115,6 +127,12 @@ pub async fn run(args: FightArgs, characters_url: &str) -> Result<()> {
     };
     let log = combats.log(combat, 0).await?;
     let roster = login.characters().await?.list().await?;
+    // The fight works without monsters, so their service being away
+    // isn't fatal.
+    let (bestiary, monster_problem) = match login.monsters().await?.list(None).await {
+        Ok(bestiary) => (bestiary, None),
+        Err(e) => (Vec::new(), Some(format!("no monsters to add: {e}"))),
+    };
 
     let (incoming, mut received) = mpsc::unbounded_channel();
     let (sender, snapshot) = connect(&mut login, combat, &incoming).await?;
@@ -126,11 +144,13 @@ pub async fn run(args: FightArgs, characters_url: &str) -> Result<()> {
         log,
         sheets: HashMap::new(),
         roster,
+        bestiary,
+        monsters: HashMap::new(),
         sender: Some(sender),
         incoming,
         input: String::new(),
         selected: 0,
-        status: None,
+        status: monster_problem.map(|problem| (problem, true)),
         scroll: 0,
         retries: 0,
     };
@@ -234,6 +254,7 @@ impl App {
             state: self.replica.state(),
             sheets: &self.sheets,
             roster: &self.roster,
+            bestiary: &self.bestiary,
         }
     }
 
@@ -310,6 +331,11 @@ impl App {
                     }
                     Err(e) => Err(e),
                 },
+                Step::Summon {
+                    monster,
+                    count,
+                    roll,
+                } => self.summon(monster, count, roll).await,
                 Step::Character { id, action } => {
                     let acted = match self.login.characters().await {
                         Ok(client) => client.act(id, &action).await.map_err(Into::into),
@@ -327,6 +353,32 @@ impl App {
         }
         self.status = Some((parsed.sentence, false));
         true
+    }
+
+    /// Adds `count` of a monster, numbered on from any already in the fight,
+    /// at their maximum hit points or with them rolled.
+    async fn summon(&mut self, id: Uuid, count: u16, roll: bool) -> Result<()> {
+        let monster = self.monster(id).await?;
+        let names = command::monster_names(&monster.sheet.name, count, self.replica.state());
+        for name in names {
+            let hit_points = match (roll, monster.sheet.hit_dice()) {
+                (true, Some(dice)) => dice.roll(|sides| rand::random_range(1..=sides)),
+                _ => monster.sheet.max_hit_points(),
+            };
+            let combatant = Combatant::from_monster(&monster, name, hit_points);
+            self.send(CombatCommand::AddCombatant { combatant }).await?;
+        }
+        Ok(())
+    }
+
+    /// A monster's stat block, fetched once.
+    async fn monster(&mut self, id: Uuid) -> Result<Monster> {
+        if let Some(monster) = self.monsters.get(&id) {
+            return Ok(monster.clone());
+        }
+        let monster = self.login.monsters().await?.get(id).await?;
+        self.monsters.insert(id, monster.clone());
+        Ok(monster)
     }
 
     /// Sends a combat command, showing its predicted outcome at once.
@@ -359,6 +411,16 @@ impl App {
             if let Err(e) = self.fetch(id).await {
                 self.status = Some((format!("couldn't load a character sheet: {e:#}"), true));
             }
+        }
+        let monsters: Vec<Uuid> = self
+            .replica
+            .state()
+            .combatants
+            .iter()
+            .filter_map(|c| c.monster_id)
+            .collect();
+        for id in monsters {
+            let _ = self.monster(id).await;
         }
     }
 
@@ -456,6 +518,9 @@ impl App {
                 .combatant(*combatant)
                 .and_then(|c| c.character_id),
             E::CombatantAdded { combatant } | E::CombatantRestored { combatant } => {
+                if let Some(monster) = combatant.monster_id {
+                    let _ = self.monster(monster).await;
+                }
                 combatant.character_id
             }
             _ => None,

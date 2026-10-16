@@ -3,6 +3,7 @@
 
 pub mod auth;
 pub mod combat;
+pub mod monsters;
 pub mod pairing;
 
 use campaign_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
