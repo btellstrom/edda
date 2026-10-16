@@ -224,7 +224,7 @@ Commands: `add_combatant` (any time, also mid-combat), `remove_combatant`,
 `roll_initiative` (pass `roll` for physical dice, omit it for a server roll),
 `roll_initiative_for_all`, `set_initiative`, `start`, `next_turn`, `damage`
 (temporary HP first), `heal`, `set_temporary_hit_points`, `add_effect`,
-`remove_effect`, `pause`, `resume`, `end`.
+`remove_effect`, `pause`, `resume`, `end`, `undo`.
 
 Rules the server applies on its own, as extra events of the same command:
 new rounds when the turn order wraps; effects with a duration expiring at
@@ -238,12 +238,34 @@ order. Commands go up as `{"type":"command","data":<envelope>}`. A refused
 command gets `rejected` (to its sender only); a repeated one gets
 `already_applied`. A client that falls too far behind gets a fresh snapshot.
 
+**Undo.** `{"type":"undo"}` takes back the sending device's latest
+command that isn't undone yet; repeat it to step further back, or pass
+`"command": "<command_id>"` to undo a particular one. A device can only undo
+its own commands (recognised by its key, not its name). Nothing is removed
+from the log: the undo appends an `undone` event followed by events that put
+back what the command changed (`combatant_restored`, `effect_restored`,
+`progress_restored`, or `effect_ended` with reason `undone`). Changes others
+made since are kept:
+
+- hit points move back by the amount the command changed them, so undoing
+  7 damage after someone else dealt 2 leaves the 2;
+- initiative goes back unless someone changed it again since;
+- combatants and effects it added go away, ones it removed or ended come
+  back (a concentration effect only if its source hasn't started
+  concentrating on something else);
+- round, turn and status go back only if nothing has moved them since;
+  otherwise the undo is refused ("the combat has moved on since"), as it
+  is if the combatant whose hit points it would restore has left.
+
+An ended combat accepts only the undo of `end`. An undo can't itself be
+undone. HP write-back follows undos like any other change.
+
 **Optimistic UIs.** `campaign_client::combat::Replica` keeps the confirmed
 state plus the client's in-flight commands and shows their predicted result
 immediately, replaying them on top of whatever the server confirms first and
 dropping them if rejected. New combatants and effects carry client-generated
 ids so the prediction matches the server exactly; only server dice rolls
-wait for the server.
+and undos (which need the log) wait for the server.
 
 **Pausing.** `pause` interrupts an active combat, e.g. at the end of a
 session; until `resume` only `end` is accepted. Nothing about a combat lives

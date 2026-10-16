@@ -9,6 +9,7 @@
 
 mod protocol;
 mod rules;
+pub mod undo;
 
 pub use protocol::{
     ClientMessage, CombatSnapshot, CombatSummary, CommandEnvelope, LoggedEvent, ServerMessage,
@@ -192,6 +193,26 @@ pub enum CombatEvent {
     Paused,
     Resumed,
     Ended,
+    /// The command `command` was undone. The events after it, from the
+    /// same undo, put back what that command changed.
+    Undone {
+        command: Uuid,
+    },
+    /// A combatant put back as they were (or with their own command's
+    /// change reverted), joining again if they had left.
+    CombatantRestored {
+        combatant: Combatant,
+    },
+    /// An effect put back, in play again if it had ended.
+    EffectRestored {
+        effect: Effect,
+    },
+    /// Status, round and turn set back.
+    ProgressRestored {
+        status: CombatStatus,
+        round: u32,
+        current_turn: Option<Uuid>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -205,6 +226,8 @@ pub enum EffectEndReason {
     ConcentrationBroken,
     /// The source left the combat.
     SourceRemoved,
+    /// The command that added it was undone.
+    Undone,
 }
 
 impl CombatState {
@@ -288,6 +311,29 @@ impl CombatState {
             CombatEvent::Ended => {
                 self.status = CombatStatus::Ended;
                 self.current_turn = None;
+            }
+            CombatEvent::Undone { .. } => {}
+            CombatEvent::CombatantRestored { combatant } => {
+                match self.combatant_mut(combatant.id) {
+                    Some(c) => *c = combatant.clone(),
+                    None => self.combatants.push(combatant.clone()),
+                }
+                self.sort();
+            }
+            CombatEvent::EffectRestored { effect } => {
+                match self.effects.iter_mut().find(|e| e.id == effect.id) {
+                    Some(e) => *e = effect.clone(),
+                    None => self.effects.push(effect.clone()),
+                }
+            }
+            CombatEvent::ProgressRestored {
+                status,
+                round,
+                current_turn,
+            } => {
+                self.status = *status;
+                self.round = *round;
+                self.current_turn = *current_turn;
             }
         }
     }

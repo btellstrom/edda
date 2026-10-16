@@ -21,7 +21,7 @@ use std::{
 };
 
 use campaign_types::combat::{
-    CombatSnapshot, CombatState, CommandEnvelope, Dice, LoggedEvent, decide,
+    CombatCommand, CombatSnapshot, CombatState, CommandEnvelope, Dice, LoggedEvent, decide, undo,
 };
 use sqlx::postgres::PgListener;
 use tokio::sync::{Mutex, broadcast};
@@ -138,11 +138,17 @@ impl Hub {
         Ok(combat)
     }
 
-    pub async fn execute(&self, id: Uuid, envelope: CommandEnvelope) -> Result<Outcome, ApiError> {
+    /// Runs a command sent by the device with `actor_key`.
+    pub async fn execute(
+        &self,
+        id: Uuid,
+        envelope: CommandEnvelope,
+        actor_key: &str,
+    ) -> Result<Outcome, ApiError> {
         let outcome = self
             .combat(id)
             .await?
-            .execute(&self.store, envelope)
+            .execute(&self.store, envelope, actor_key)
             .await?;
         if let (Outcome::Applied(_), Some(sync)) = (&outcome, &self.hp_sync) {
             tokio::spawn(sync.clone().run(id));
@@ -265,7 +271,12 @@ impl LiveCombat {
         Ok(())
     }
 
-    async fn execute(&self, store: &Store, envelope: CommandEnvelope) -> Result<Outcome, ApiError> {
+    async fn execute(
+        &self,
+        store: &Store,
+        envelope: CommandEnvelope,
+        actor_key: &str,
+    ) -> Result<Outcome, ApiError> {
         let mut core = self.core.lock().await;
         let mut tx = store.begin().await?;
         let latest = store
@@ -280,12 +291,19 @@ impl LiveCombat {
             }
         }
         if !store
-            .record_command(&mut tx, self.id, envelope.command_id)
+            .record_command(&mut tx, self.id, envelope.command_id, actor_key)
             .await?
         {
             return Ok(Outcome::AlreadyApplied);
         }
-        let events = decide(&core.state, &envelope.command, &mut ServerDice)?;
+        let events = match envelope.command {
+            CombatCommand::Undo { command } => {
+                let log = store.events_in(&mut tx, self.id, 0).await?;
+                let mine = store.commands_by(&mut tx, self.id, actor_key).await?;
+                undo::undo(&log, command, |c| mine.contains(&c))?
+            }
+            ref command => decide(&core.state, command, &mut ServerDice)?,
+        };
 
         let at = store::now();
         let logged: Vec<_> = events

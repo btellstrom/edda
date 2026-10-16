@@ -119,7 +119,7 @@ async fn command(
     hub.combat_in(id, claims.campaign).await?;
     let envelope = attributed(envelope, &claims);
     let command_id = envelope.command_id;
-    match hub.execute(id, envelope).await? {
+    match hub.execute(id, envelope, &claims.key.to_string()).await? {
         Outcome::Applied(events) => Ok(Json(events)),
         Outcome::AlreadyApplied => Ok(Json(hub.store().events_for_command(id, command_id).await?)),
     }
@@ -205,7 +205,10 @@ async fn handle(hub: &Hub, id: Uuid, text: &str, claims: &Claims) -> Option<Serv
         }
     };
     let command_id = envelope.command_id;
-    match hub.execute(id, attributed(envelope, claims)).await {
+    match hub
+        .execute(id, attributed(envelope, claims), &claims.key.to_string())
+        .await
+    {
         Ok(Outcome::Applied(_)) => None,
         Ok(Outcome::AlreadyApplied) => Some(ServerMessage::AlreadyApplied { command_id }),
         Err(e) => Some(ServerMessage::Rejected {

@@ -610,6 +610,10 @@ async fn hit_points_are_written_back_to_character_sheets() {
     )
     .await;
     wait_for_hp(&characters, vex.id, (24, 0)).await;
+
+    // Undoing the heal reaches the sheet too.
+    run(&a, combat, CombatCommand::Undo { command: None }).await;
+    wait_for_hp(&characters, vex.id, (20, 0)).await;
 }
 
 async fn character_service(auth: &Auth) -> campaign_client::Client {
@@ -696,4 +700,98 @@ async fn the_log_names_the_device_not_whoever_the_client_claims() {
         panic!("expected an event");
     };
     assert_eq!(event.actor.as_deref(), Some("Vex's laptop"));
+}
+
+fn hp_of(state: &CombatState, id: Uuid) -> u16 {
+    state.combatant(id).unwrap().hit_points.current
+}
+
+async fn undo(client: &CombatClient, combat: Uuid) -> Result<Vec<CombatEvent>, String> {
+    let envelope = CommandEnvelope::new(CombatCommand::Undo { command: None });
+    match client.command(combat, &envelope).await {
+        Ok(events) => Ok(events.into_iter().map(|e| e.event).collect()),
+        Err(campaign_client::ClientError::Rejected(message)) => Err(message),
+        Err(e) => panic!("unexpected error: {e}"),
+    }
+}
+
+#[tokio::test]
+async fn undo_takes_back_only_the_devices_own_commands() {
+    let (auth, party, server) = setup().await;
+    let dm = server.client(&party.dm);
+    let combat = dm.create("Oops").await.unwrap().id;
+    let goblin = add(&dm, combat, "Goblin", 0).await;
+    // Two devices with the same name: ownership goes by key, not name.
+    let vex = server.client(&party.player(&auth, "Laptop").await);
+    let grog = server.client(&party.player(&auth, "Laptop").await);
+    let damage = |amount| CombatCommand::Damage {
+        combatant: goblin,
+        amount,
+    };
+    run(&vex, combat, damage(7)).await;
+    let groggy = CommandEnvelope::new(damage(2));
+    grog.command(combat, &groggy).await.unwrap();
+
+    let events = undo(&vex, combat).await.unwrap();
+    assert!(matches!(events[0], CombatEvent::Undone { .. }));
+    let state = dm.snapshot(combat).await.unwrap().state;
+    assert_eq!(hp_of(&state, goblin), 18, "Grog's 2 damage stays");
+    assert_eq!(
+        undo(&vex, combat).await,
+        Err("you have nothing left to undo".into())
+    );
+    let theirs = CommandEnvelope::new(CombatCommand::Undo {
+        command: Some(groggy.command_id),
+    });
+    assert!(matches!(
+        vex.command(combat, &theirs).await,
+        Err(campaign_client::ClientError::Rejected(m)) if m == "you can only undo your own changes"
+    ));
+
+    // The undo is in the log like any other change, by whoever undid.
+    let log = dm.log(combat, 0).await.unwrap();
+    let undone = log
+        .iter()
+        .find(|e| matches!(e.event, CombatEvent::Undone { .. }))
+        .unwrap();
+    assert_eq!(undone.actor.as_deref(), Some("Laptop"));
+    assert_eq!(log.len(), 6, "created, add, two hits, undone, restored");
+}
+
+#[tokio::test]
+async fn undos_reach_everyone_and_replicas_wait_for_them() {
+    let (_auth, party, server) = setup().await;
+    let dm = server.client(&party.dm);
+    let combat = dm.create("Live oops").await.unwrap().id;
+    let goblin = add(&dm, combat, "Goblin", 0).await;
+    run(
+        &dm,
+        combat,
+        CombatCommand::RemoveCombatant { combatant: goblin },
+    )
+    .await;
+
+    let mut watcher = dm.connect(combat).await.unwrap();
+    let ServerMessage::Snapshot(snapshot) = next(&mut watcher).await else {
+        panic!("expected a snapshot");
+    };
+    let mut replica = Replica::new(snapshot);
+    assert!(replica.state().combatants.is_empty());
+
+    let mut conn = dm.connect(combat).await.unwrap();
+    next(&mut conn).await; // snapshot
+    let envelope = CommandEnvelope::new(CombatCommand::Undo { command: None });
+    replica.submit(envelope.clone()).unwrap();
+    assert!(
+        replica.state().combatants.is_empty(),
+        "an undo can't be predicted"
+    );
+    conn.send(&envelope).await.unwrap();
+
+    // The watcher's replica sees the goblin come back.
+    while replica.state().combatant(goblin).is_none() {
+        assert_eq!(replica.receive(next(&mut watcher).await), Received::Updated);
+    }
+    assert!(replica.pending().is_empty(), "matched by command id");
+    assert_eq!(hp_of(replica.state(), goblin), 20);
 }

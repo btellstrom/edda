@@ -255,11 +255,11 @@ impl Replica {
 
     /// Records a command about to be sent and applies its predicted outcome.
     /// Commands that are certainly invalid fail here, instantly, and should
-    /// not be sent. Commands whose outcome needs a server dice roll are
-    /// accepted but only show up once the server answers.
+    /// not be sent. Commands whose outcome needs a server dice roll, and
+    /// undos, are accepted but only show up once the server answers.
     pub fn submit(&mut self, envelope: CommandEnvelope) -> Result<(), CombatError> {
         match decide(&self.predicted, &envelope.command, &mut NoDice) {
-            Ok(_) | Err(CombatError::DiceUnavailable) => {}
+            Ok(_) | Err(CombatError::DiceUnavailable | CombatError::ServerOnly) => {}
             Err(e) => return Err(e),
         }
         self.pending.push(envelope);

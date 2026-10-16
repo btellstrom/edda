@@ -1,6 +1,8 @@
 //! Persistence of the combat event log in Postgres, shared by every
 //! instance of the service.
 
+use std::collections::HashSet;
+
 use campaign_types::combat::{CombatEvent, CombatState, CombatStatus, CombatSummary, LoggedEvent};
 use chrono::{DateTime, SubsecRound, Utc};
 use serde::{Deserialize, Serialize};
@@ -182,22 +184,42 @@ impl Store {
         fetch_events(&mut **tx, id, after).await
     }
 
-    /// Records that a command is being applied. `false` if it already was.
+    /// Records that a command sent by the device with `actor_key` is being
+    /// applied. `false` if it already was.
     pub async fn record_command(
         &self,
         tx: &mut Tx,
         id: Uuid,
         command_id: Uuid,
+        actor_key: &str,
     ) -> Result<bool, ApiError> {
         let inserted = sqlx::query(
-            "INSERT INTO combat_commands (combat_id, command_id) VALUES ($1, $2) \
+            "INSERT INTO combat_commands (combat_id, command_id, actor_key) VALUES ($1, $2, $3) \
              ON CONFLICT DO NOTHING",
         )
         .bind(id)
         .bind(command_id)
+        .bind(actor_key)
         .execute(&mut **tx)
         .await?;
         Ok(inserted.rows_affected() == 1)
+    }
+
+    /// The commands to this combat sent by the device with `actor_key`.
+    pub async fn commands_by(
+        &self,
+        tx: &mut Tx,
+        id: Uuid,
+        actor_key: &str,
+    ) -> Result<HashSet<Uuid>, ApiError> {
+        let rows: Vec<(Uuid,)> = sqlx::query_as(
+            "SELECT command_id FROM combat_commands WHERE combat_id = $1 AND actor_key = $2",
+        )
+        .bind(id)
+        .bind(actor_key)
+        .fetch_all(&mut **tx)
+        .await?;
+        Ok(rows.into_iter().map(|(command,)| command).collect())
     }
 
     /// Appends events (non-empty, continuing the log), refreshes the

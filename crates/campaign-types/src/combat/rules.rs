@@ -53,6 +53,13 @@ pub enum CombatCommand {
     Pause,
     Resume,
     End,
+    /// Take back one of the sender's own earlier commands: `command`, or
+    /// when that's left out, their latest one not yet undone. Only the
+    /// server can decide this (it needs the log); see [`super::undo`].
+    Undo {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        command: Option<Uuid>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -102,6 +109,19 @@ pub enum CombatError {
     /// Only seen client-side: the outcome depends on a server dice roll.
     #[error("this needs a dice roll from the server")]
     DiceUnavailable,
+    /// Only seen client-side: the outcome depends on the server's log.
+    #[error("only the server can decide this")]
+    ServerOnly,
+    #[error("you have nothing left to undo")]
+    NothingToUndo,
+    #[error("no command with id {0}")]
+    UnknownCommand(Uuid),
+    #[error("you can only undo your own changes")]
+    NotYourCommand,
+    #[error("that has already been undone")]
+    AlreadyUndone,
+    #[error("can't undo: {0}")]
+    CannotUndo(String),
 }
 
 /// Source of d20 rolls. The server rolls real dice; clients predicting an
@@ -126,6 +146,9 @@ pub fn decide(
     command: &CombatCommand,
     dice: &mut dyn Dice,
 ) -> Result<Vec<CombatEvent>, CombatError> {
+    if let CombatCommand::Undo { .. } = command {
+        return Err(CombatError::ServerOnly);
+    }
     if state.status == CombatStatus::Ended {
         return Err(CombatError::Ended);
     }
@@ -279,6 +302,7 @@ pub fn decide(
             out.emit(CombatEvent::Resumed);
         }
         CombatCommand::End => out.emit(CombatEvent::Ended),
+        CombatCommand::Undo { .. } => unreachable!("handled above"),
     }
     Ok(out.events)
 }
@@ -289,13 +313,13 @@ fn clamp_u16(n: u32) -> u16 {
 
 /// Collects events while applying them to a scratch copy of the state, so
 /// later steps of a command see the effects of earlier ones.
-struct Emitter {
-    state: CombatState,
-    events: Vec<CombatEvent>,
+pub(super) struct Emitter {
+    pub(super) state: CombatState,
+    pub(super) events: Vec<CombatEvent>,
 }
 
 impl Emitter {
-    fn emit(&mut self, event: CombatEvent) {
+    pub(super) fn emit(&mut self, event: CombatEvent) {
         self.state.apply(&event);
         self.events.push(event);
     }
@@ -394,7 +418,7 @@ impl Emitter {
         }
     }
 
-    fn remove(&mut self, id: Uuid) -> Result<(), CombatError> {
+    pub(super) fn remove(&mut self, id: Uuid) -> Result<(), CombatError> {
         self.combatant(id)?;
         let was_current = self.state.current_turn == Some(id);
         // Work out who's next while the leaver is still in the order.
