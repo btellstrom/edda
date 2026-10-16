@@ -23,6 +23,9 @@ use crate::HitPoints;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CombatState {
     pub name: String,
+    /// The campaign this combat belongs to.
+    #[serde(default)]
+    pub campaign: String,
     pub status: CombatStatus,
     /// 0 until the combat starts.
     pub round: u32,
@@ -40,6 +43,9 @@ pub enum CombatStatus {
     #[default]
     Preparing,
     Active,
+    /// Interrupted, e.g. at the end of a session; resumes exactly where it
+    /// left off, however much later.
+    Paused,
     Ended,
 }
 
@@ -136,6 +142,8 @@ pub struct Expiry {
 pub enum CombatEvent {
     Created {
         name: String,
+        #[serde(default)]
+        campaign: String,
     },
     CombatantAdded {
         combatant: Combatant,
@@ -181,6 +189,8 @@ pub enum CombatEvent {
         effect: Uuid,
         reason: EffectEndReason,
     },
+    Paused,
+    Resumed,
     Ended,
 }
 
@@ -224,7 +234,10 @@ impl CombatState {
     /// so this never fails; references to unknown ids are ignored.
     pub fn apply(&mut self, event: &CombatEvent) {
         match event {
-            CombatEvent::Created { name } => self.name.clone_from(name),
+            CombatEvent::Created { name, campaign } => {
+                self.name.clone_from(name);
+                self.campaign.clone_from(campaign);
+            }
             CombatEvent::CombatantAdded { combatant } => {
                 self.combatants.push(combatant.clone());
                 self.sort();
@@ -270,6 +283,8 @@ impl CombatState {
             }
             CombatEvent::EffectAdded { effect } => self.effects.push(effect.clone()),
             CombatEvent::EffectEnded { effect, .. } => self.effects.retain(|e| e.id != *effect),
+            CombatEvent::Paused => self.status = CombatStatus::Paused,
+            CombatEvent::Resumed => self.status = CombatStatus::Active,
             CombatEvent::Ended => {
                 self.status = CombatStatus::Ended;
                 self.current_turn = None;

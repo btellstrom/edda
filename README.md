@@ -9,18 +9,33 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | --- | --- |
 | `crates/campaign-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
 | `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
-| `crates/combat-service` | Live, event-sourced combat encounters (axum + SQLite + WebSocket). |
+| `crates/combat-service` | Live, event-sourced combat encounters (axum + Postgres + WebSocket). Runs as any number of instances. |
 | `crates/campaign-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
 | `crates/campaign-edit` | Git-style command-line frontend for editing character sheets. |
 
 ## Running
 
+The combat service needs Postgres. Start one with `docker compose up -d`
+(see `compose.yaml`), or without a compose provider:
+
+```sh
+podman run -d --name campaign-postgres -e POSTGRES_PASSWORD=postgres \
+  -p 127.0.0.1:5432:5432 -v campaign-postgres:/var/lib/postgresql/data \
+  docker.io/library/postgres:17-alpine
+```
+
 ```sh
 cargo run -p character-service
 # DATABASE_URL defaults to sqlite://characters.db, BIND_ADDR to 127.0.0.1:3000
 cargo run -p combat-service
-# DATABASE_URL defaults to sqlite://combats.db, BIND_ADDR to 127.0.0.1:3001
+# DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/combats
+#   (created on first start), BIND_ADDR to 127.0.0.1:3001,
+# CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty turns HP write-back off)
 ```
+
+Run more combat-service instances against the same database (with
+different `BIND_ADDR`s, behind any load balancer) and clients may connect to
+whichever they like.
 
 ## Command-line editor
 
@@ -140,6 +155,9 @@ everything except `manual` features, plus all spell slots and current HP.
 cargo test --workspace
 ```
 
+The combat tests need the Postgres above; they use (and create) the
+database `combat_test`, or whatever `TEST_DATABASE_URL` points at.
+
 ## Combat service
 
 Combats are **event-sourced**. Clients send *commands* (intents: "deal 7
@@ -151,8 +169,8 @@ in `campaign-types::combat`, so clients run exactly the same code.
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| `GET` | `/combats` | | summaries (status, round) |
-| `POST` | `/combats` | `{"name": ...}` | `201` snapshot |
+| `GET` | `/combats?campaign=…&status=…` | | summaries (campaign, status, round, last activity), most recently active first; both filters optional |
+| `POST` | `/combats` | `{"campaign": ..., "name": ...}` | `201` snapshot |
 | `GET` | `/combats/{id}` | | snapshot: round, current turn, initiative order, effects, and `seq` |
 | `GET` | `/combats/{id}/log?after=N` | | the complete log (or the part after `seq` N) |
 | `POST` | `/combats/{id}/commands` | command envelope | the events it produced |
@@ -170,7 +188,7 @@ Commands: `add_combatant` (any time, also mid-combat), `remove_combatant`,
 `roll_initiative` (pass `roll` for physical dice, omit it for a server roll),
 `roll_initiative_for_all`, `set_initiative`, `start`, `next_turn`, `damage`
 (temporary HP first), `heal`, `set_temporary_hit_points`, `add_effect`,
-`remove_effect`, `end`.
+`remove_effect`, `pause`, `resume`, `end`.
 
 Rules the server applies on its own, as extra events of the same command:
 new rounds when the turn order wraps; effects with a duration expiring at
@@ -190,3 +208,30 @@ immediately, replaying them on top of whatever the server confirms first and
 dropping them if rejected. New combatants and effects carry client-generated
 ids so the prediction matches the server exactly; only server dice rolls
 wait for the server.
+
+**Pausing.** `pause` interrupts an active combat, e.g. at the end of a
+session; until `resume` only `end` is accepted. Nothing about a combat lives
+only in memory, so it can be resumed days later, on any instance, exactly
+where it stopped: `GET /combats?campaign=…&status=paused` finds it. Other
+combats, in the same campaign or others, run independently meanwhile.
+
+**Several instances.** The database is the only authority. Each command
+locks its combat's row (`SELECT … FOR UPDATE`), so commands to one combat
+are applied one at a time whichever instance receives them, while different
+combats never wait for each other. Before deciding, an instance catches its
+cached state up from the log. Every append sends a Postgres `NOTIFY`; each
+instance listens, reads the new events and pushes them to its own WebSocket
+clients, so everyone sees every change in log order. Resent commands are
+recognised through the `combat_commands` table. Combats nobody is connected
+to are dropped from memory after ten minutes and rebuilt from the log when
+next used.
+
+**Hit points on character sheets.** A combatant added with
+`Combatant::from_character` carries a `character_id`. After every command
+that changes such a combatant's HP, the service writes its current and
+temporary HP back to the character sheet (current capped at the sheet's
+maximum). Progress is tracked per combat in `combat_hp_sync`, so if the
+character service is unreachable the write-back is retried every 30
+seconds; only one instance syncs a combat at a time and it always writes
+the latest values, so sheets never go backwards. The write-back is one-way:
+editing a sheet's HP during a combat doesn't change the combatant.

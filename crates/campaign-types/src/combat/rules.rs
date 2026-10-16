@@ -48,6 +48,10 @@ pub enum CombatCommand {
     RemoveEffect {
         effect: Uuid,
     },
+    /// Interrupt an active combat. While paused, only `Resume` and `End`
+    /// are accepted.
+    Pause,
+    Resume,
     End,
 }
 
@@ -89,6 +93,10 @@ pub enum CombatError {
     NotStarted,
     #[error("combat has already started")]
     AlreadyStarted,
+    #[error("combat is paused")]
+    Paused,
+    #[error("combat is not paused")]
+    NotPaused,
     #[error("combat has ended")]
     Ended,
     /// Only seen client-side: the outcome depends on a server dice roll.
@@ -120,6 +128,11 @@ pub fn decide(
 ) -> Result<Vec<CombatEvent>, CombatError> {
     if state.status == CombatStatus::Ended {
         return Err(CombatError::Ended);
+    }
+    if state.status == CombatStatus::Paused
+        && !matches!(command, CombatCommand::Resume | CombatCommand::End)
+    {
+        return Err(CombatError::Paused);
     }
     let mut out = Emitter {
         state: state.clone(),
@@ -255,6 +268,16 @@ pub fn decide(
                 reason: EffectEndReason::Removed,
             });
         }
+        CombatCommand::Pause => {
+            out.ensure_active()?;
+            out.emit(CombatEvent::Paused);
+        }
+        CombatCommand::Resume => {
+            if state.status != CombatStatus::Paused {
+                return Err(CombatError::NotPaused);
+            }
+            out.emit(CombatEvent::Resumed);
+        }
         CombatCommand::End => out.emit(CombatEvent::Ended),
     }
     Ok(out.events)
@@ -294,6 +317,7 @@ impl Emitter {
         match self.state.status {
             CombatStatus::Active => Ok(()),
             CombatStatus::Preparing => Err(CombatError::NotStarted),
+            CombatStatus::Paused => Err(CombatError::Paused),
             CombatStatus::Ended => Err(CombatError::Ended),
         }
     }
@@ -409,6 +433,7 @@ mod tests {
             let mut state = CombatState::default();
             state.apply(&CombatEvent::Created {
                 name: "Ambush".into(),
+                campaign: "Test".into(),
             });
             Self { state }
         }
@@ -719,10 +744,29 @@ mod tests {
     }
 
     #[test]
+    fn paused_combat_only_resumes_or_ends() {
+        let mut f = Fixture::new();
+        let a = f.add("A", 0, 10);
+        f.init(a, 10);
+        f.ok(CombatCommand::Start);
+        f.ok(CombatCommand::Pause);
+        assert_eq!(f.state.status, CombatStatus::Paused);
+        assert_eq!(f.run(CombatCommand::NextTurn), Err(CombatError::Paused));
+        assert_eq!(f.run(CombatCommand::Pause), Err(CombatError::Paused));
+        f.ok(CombatCommand::Resume);
+        assert_eq!(f.state.status, CombatStatus::Active);
+        assert_eq!(f.state.round, 1, "picks up where it left off");
+        assert_eq!(f.run(CombatCommand::Resume), Err(CombatError::NotPaused));
+        f.ok(CombatCommand::Pause);
+        f.ok(CombatCommand::End);
+    }
+
+    #[test]
     fn replaying_the_log_rebuilds_the_state() {
         let mut f = Fixture::new();
         let mut log = vec![CombatEvent::Created {
             name: "Ambush".into(),
+            campaign: "Test".into(),
         }];
         let a = f.add("A", 0, 10);
         log.extend(

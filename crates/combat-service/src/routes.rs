@@ -21,6 +21,7 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     hub::{Hub, LiveCombat, Outcome},
+    store::ListFilter,
 };
 
 type AppState = Arc<Hub>;
@@ -37,6 +38,7 @@ pub fn router() -> Router<AppState> {
 
 #[derive(Deserialize)]
 struct NewCombat {
+    campaign: String,
     name: String,
 }
 
@@ -44,10 +46,12 @@ async fn create(
     State(hub): State<AppState>,
     Json(body): Json<NewCombat>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if body.name.trim().is_empty() {
-        return Err(ApiError::BadRequest("name must not be empty".into()));
+    if body.name.trim().is_empty() || body.campaign.trim().is_empty() {
+        return Err(ApiError::BadRequest(
+            "campaign and name must not be empty".into(),
+        ));
     }
-    let snapshot = hub.create(&body.name).await?;
+    let snapshot = hub.create(&body.campaign, &body.name).await?;
     let location = format!("/combats/{}", snapshot.id);
     Ok((
         StatusCode::CREATED,
@@ -56,8 +60,12 @@ async fn create(
     ))
 }
 
-async fn list(State(hub): State<AppState>) -> Result<Json<Vec<CombatSummary>>, ApiError> {
-    Ok(Json(hub.store().list().await?))
+/// Most recently active first; filter with `?campaign=...&status=paused`.
+async fn list(
+    State(hub): State<AppState>,
+    Query(filter): Query<ListFilter>,
+) -> Result<Json<Vec<CombatSummary>>, ApiError> {
+    Ok(Json(hub.store().list(&filter).await?))
 }
 
 /// Current state: round, whose turn it is, initiative order and effects.
@@ -65,7 +73,7 @@ async fn snapshot(
     State(hub): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<CombatSnapshot>, ApiError> {
-    Ok(Json(hub.combat(id).await?.snapshot().await))
+    Ok(Json(hub.combat(id).await?.snapshot(hub.store()).await?))
 }
 
 #[derive(Deserialize)]
@@ -112,7 +120,9 @@ async fn websocket(
 /// while executing whatever commands the client sends.
 async fn session(socket: WebSocket, hub: AppState, combat: Arc<LiveCombat>, id: Uuid) {
     let (mut sink, mut incoming) = socket.split();
-    let (snapshot, mut events) = combat.subscribe().await;
+    let Ok((snapshot, mut events)) = combat.subscribe(hub.store()).await else {
+        return;
+    };
     if send(&mut sink, &ServerMessage::Snapshot(snapshot))
         .await
         .is_err()
@@ -125,11 +135,13 @@ async fn session(socket: WebSocket, hub: AppState, combat: Arc<LiveCombat>, id: 
                 Ok(event) => ServerMessage::Event(event),
                 // Too far behind to catch up event by event: start over
                 // from a fresh snapshot.
-                Err(RecvError::Lagged(_)) => {
-                    let (snapshot, receiver) = combat.subscribe().await;
-                    events = receiver;
-                    ServerMessage::Snapshot(snapshot)
-                }
+                Err(RecvError::Lagged(_)) => match combat.subscribe(hub.store()).await {
+                    Ok((snapshot, receiver)) => {
+                        events = receiver;
+                        ServerMessage::Snapshot(snapshot)
+                    }
+                    Err(_) => break,
+                },
                 Err(RecvError::Closed) => break,
             },
             message = incoming.next() => match message {

@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
 futures-util = { version = "0.3.34", default-features = false, features = ["sink"], optional = true }
-reqwest = { version = "0.13.5", features = ["json"] }
+reqwest = { version = "0.13.5", features = ["json", "query"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"

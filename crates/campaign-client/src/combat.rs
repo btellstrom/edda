@@ -2,9 +2,10 @@
 //! and [`Replica`], which gives frontends instant (predicted) feedback.
 
 use campaign_types::combat::{
-    CombatError, CombatSnapshot, CombatState, CombatSummary, CommandEnvelope, LoggedEvent, NoDice,
-    ServerMessage, decide,
+    CombatError, CombatSnapshot, CombatState, CombatStatus, CombatSummary, CommandEnvelope,
+    LoggedEvent, NoDice, ServerMessage, decide,
 };
+use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
@@ -24,12 +25,26 @@ impl CombatClient {
         }
     }
 
-    pub async fn list(&self) -> Result<Vec<CombatSummary>, ClientError> {
-        send(self.http.get(self.url("/combats"))).await
+    /// Most recently active first, optionally only one campaign's and/or
+    /// those in one status (e.g. paused combats waiting to be resumed).
+    pub async fn list(
+        &self,
+        campaign: Option<&str>,
+        status: Option<CombatStatus>,
+    ) -> Result<Vec<CombatSummary>, ClientError> {
+        #[derive(Serialize)]
+        struct Filter<'a> {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            campaign: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            status: Option<CombatStatus>,
+        }
+        let filter = Filter { campaign, status };
+        send(self.http.get(self.url("/combats")).query(&filter)).await
     }
 
-    pub async fn create(&self, name: &str) -> Result<CombatSnapshot, ClientError> {
-        let body = json!({ "name": name });
+    pub async fn create(&self, campaign: &str, name: &str) -> Result<CombatSnapshot, ClientError> {
+        let body = json!({ "campaign": campaign, "name": name });
         send(self.http.post(self.url("/combats")).json(&body)).await
     }
 
@@ -306,6 +321,7 @@ mod tests {
         let id = goblin.id;
         let mut state = CombatState::default();
         state.apply(&CombatEvent::Created {
+            campaign: "Test".into(),
             name: "Ambush".into(),
         });
         state.apply(&CombatEvent::CombatantAdded { combatant: goblin });

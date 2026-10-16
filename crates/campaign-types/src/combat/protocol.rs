@@ -58,10 +58,13 @@ pub struct CombatSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CombatSummary {
     pub id: Uuid,
+    pub campaign: String,
     pub name: String,
     pub status: CombatStatus,
     pub round: u32,
     pub created_at: DateTime<Utc>,
+    /// When the last event happened.
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Sent by the server over a combat's WebSocket.
