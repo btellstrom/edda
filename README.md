@@ -9,6 +9,8 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | --- | --- |
 | `crates/campaign-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
 | `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
+| `crates/campaign-client` | Typed async HTTP client for the services, shared by all frontends. |
+| `crates/campaign-edit` | Git-style command-line frontend for editing character sheets. |
 
 ## Running
 
@@ -16,6 +18,42 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 cargo run -p character-service
 # DATABASE_URL defaults to sqlite://characters.db, BIND_ADDR to 127.0.0.1:3000
 ```
+
+## Command-line editor
+
+```sh
+cargo install --path crates/campaign-edit   # or: cargo run -p campaign-edit -- <args>
+export CAMPAIGN_SERVER=http://127.0.0.1:3000  # the default; or pass --server
+```
+
+Top-level commands manage the roster; anything else is a character (name,
+unique name prefix, or ID prefix) followed by a command:
+
+```sh
+campaign-edit list
+campaign-edit new Grog --race Goliath --player Travis
+
+campaign-edit grog                       # show the sheet
+campaign-edit grog set max-hp 50
+campaign-edit grog set hp -7             # +N heals, -N damages
+campaign-edit grog class add Barbarian 3 --subclass "Path of the Berserker"
+campaign-edit grog skill add athletics intimidation
+campaign-edit grog resource add Rage 3 --recharge long
+campaign-edit grog item add Javelin -n 4
+campaign-edit grog edit                  # whole sheet as JSON in $EDITOR
+
+campaign-edit keyleth class add Druid 5 --casting wis
+campaign-edit keyleth slots set 1 4
+campaign-edit keyleth spell add Moonbeam --level 2 --concentration
+campaign-edit keyleth cast moonbeam --at 3
+campaign-edit grog use rage
+campaign-edit grog rest short
+```
+
+`campaign-edit <CHARACTER> help` lists every command. Edits retry
+automatically if someone else saved the character in the meantime, so they
+merge rather than overwrite; `edit` reports the conflict instead, since a
+whole edited document can't be re-applied safely.
 
 ## Character API
 
