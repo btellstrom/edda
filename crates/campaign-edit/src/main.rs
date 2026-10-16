@@ -111,35 +111,19 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
             println!("Deleted {name}");
         }
 
-        C::Class(c) => updated(modify(client, id, |s| edit::class(s, &c)).await?),
+        C::Class(c) => {
+            // The classes decide the spell slots; show what they come to.
+            let saved = modify(client, id, |s| edit::class(s, &c)).await?;
+            updated(saved.clone());
+            if display::slots_line(&saved.sheet).is_some() {
+                print_slots(&saved);
+            }
+        }
         C::Skill(c) => updated(modify(client, id, |s| edit::skills(s, &c)).await?),
         C::Save(c) => updated(modify(client, id, |s| edit::saves(s, &c)).await?),
         C::Item(c) => updated(modify(client, id, |s| edit::item(s, &c)).await?),
         C::Spell(c) => updated(modify(client, id, |s| edit::spell(s, &c)).await?),
         C::Resource(c) => updated(modify(client, id, |s| edit::resource(s, &c)).await?),
-        C::Slots(SlotsCommand::Set { level, max }) => {
-            let saved = modify(client, id, |s| {
-                edit::set_slots(s, level, max);
-                Ok(())
-            })
-            .await?;
-            print_slots(&saved);
-        }
-        C::Pact(PactCommand::Set { level, max }) => {
-            let saved = modify(client, id, |s| {
-                edit::set_pact(s, level, max);
-                Ok(())
-            })
-            .await?;
-            print_slots(&saved);
-        }
-        C::Pact(PactCommand::Remove) => updated(
-            modify(client, id, |s| {
-                s.spellcasting.pact_magic = None;
-                Ok(())
-            })
-            .await?,
-        ),
 
         C::Slots(SlotsCommand::Use { level }) => {
             print_slots(&act(client, id, CharacterAction::ExpendSpellSlot { level }).await?)

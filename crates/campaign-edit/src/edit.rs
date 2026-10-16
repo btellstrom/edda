@@ -3,7 +3,7 @@
 //! of Fighter") rather than overwrite the sheet with a pre-computed result.
 
 use anyhow::{Context, Result, bail};
-use campaign_types::{Ability, CharacterSheet, ClassLevel, Item, PactMagic, Pool, Resource, Spell};
+use campaign_types::{Ability, CharacterSheet, ClassLevel, Item, Pool, Resource, Spell};
 
 use crate::{
     cli::{ClassCommand, Field, ItemCommand, ProficiencyCommand, ResourceCommand, SpellCommand},
@@ -235,28 +235,6 @@ pub fn spell(sheet: &mut CharacterSheet, command: &SpellCommand) -> Result<()> {
     Ok(())
 }
 
-pub fn set_slots(sheet: &mut CharacterSheet, level: u8, max: u16) {
-    let slots = &mut sheet.spellcasting.slots;
-    if max == 0 {
-        slots.remove(&level);
-    } else {
-        let pool = slots.entry(level).or_default();
-        pool.max = max;
-        pool.used = pool.used.min(max);
-    }
-}
-
-pub fn set_pact(sheet: &mut CharacterSheet, level: u8, max: u16) {
-    let used = sheet
-        .spellcasting
-        .pact_magic
-        .map_or(0, |p| p.slots.used.min(max));
-    sheet.spellcasting.pact_magic = Some(PactMagic {
-        slot_level: level,
-        slots: Pool { max, used },
-    });
-}
-
 pub fn resource(sheet: &mut CharacterSheet, command: &ResourceCommand) -> Result<()> {
     let resources = &mut sheet.resources;
     match command {
@@ -408,15 +386,8 @@ mod tests {
     }
 
     #[test]
-    fn slots_and_resources() {
+    fn resources() {
         let mut s = sheet();
-        set_slots(&mut s, 1, 4);
-        s.spellcasting.slots.get_mut(&1).unwrap().used = 3;
-        set_slots(&mut s, 1, 2);
-        assert_eq!(s.spellcasting.slots[&1], Pool { max: 2, used: 2 });
-        set_slots(&mut s, 1, 0);
-        assert!(s.spellcasting.slots.is_empty());
-
         let add = ResourceCommand::Add {
             name: "Rage".into(),
             max: 3,

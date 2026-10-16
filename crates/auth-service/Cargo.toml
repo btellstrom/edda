@@ -7,6 +7,7 @@ edition = "2024"
 axum = "0.8.9"
 base64 = "0.23.1"
 campaign-auth = { version = "0.1.0", path = "../campaign-auth", features = ["server"] }
+campaign-types = { version = "0.1.0", path = "../campaign-types" }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
 clap = { version = "4.6.7", features = ["derive", "env"] }
 rand = "0.10.3"

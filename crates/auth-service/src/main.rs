@@ -1,6 +1,7 @@
 use std::env;
 
 use campaign_auth::PublicKey;
+use campaign_types::Edition;
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
@@ -30,7 +31,12 @@ enum Command {
     },
     /// Create a campaign and print the one-time code for its DM to set up
     /// their first device with.
-    NewCampaign { name: String },
+    NewCampaign {
+        name: String,
+        /// Which rules it plays by: 2014 or 2024.
+        #[arg(long)]
+        edition: Edition,
+    },
     /// Print a new DM setup code for an existing campaign, e.g. when every
     /// DM device has been lost.
     SetupCode { campaign: Uuid },
@@ -60,9 +66,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await?
         }
         Some(Command::Serve { bind }) => serve(pool, &bind).await?,
-        Some(Command::NewCampaign { name }) => {
-            let campaign = store.create_campaign(&name).await?;
-            println!("Created campaign {} ({})", campaign.name, campaign.id);
+        Some(Command::NewCampaign { name, edition }) => {
+            let campaign = store.create_campaign(&name, edition).await?;
+            println!(
+                "Created campaign {} ({}), playing by the {} rules",
+                campaign.name, campaign.id, campaign.edition
+            );
             print_setup_code(&store, campaign.id).await?;
         }
         Some(Command::SetupCode { campaign }) => print_setup_code(&store, campaign).await?,

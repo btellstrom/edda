@@ -13,6 +13,7 @@ use campaign_auth::{
     protocol::{Claims, Principal},
     server::{TokenSigner, TokenVerifier},
 };
+use campaign_types::Edition;
 use chrono::Utc;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -42,18 +43,28 @@ impl App {
         App {
             router: self.router.clone(),
             signer: self.signer.clone(),
-            token: campaign.map(|c| token(&self.signer, c)),
+            token: campaign.map(|c| token(&self.signer, c, Edition::default())),
+        }
+    }
+
+    /// The same service, for a campaign playing by `edition`'s rules.
+    fn with_edition(&self, campaign: Uuid, edition: Edition) -> App {
+        App {
+            router: self.router.clone(),
+            signer: self.signer.clone(),
+            token: Some(token(&self.signer, campaign, edition)),
         }
     }
 }
 
-fn token(signer: &TokenSigner, campaign: Uuid) -> String {
+fn token(signer: &TokenSigner, campaign: Uuid, edition: Edition) -> String {
     signer
         .issue(&Claims {
             key: DeviceKey::generate().public(),
             campaign,
             role: Principal::Player,
             name: "Test".into(),
+            edition,
             expires_at: Utc::now() + chrono::Duration::minutes(5),
         })
         .unwrap()
@@ -208,7 +219,8 @@ fn caster() -> Value {
     json!({
         "name": "Hexblade Knight",
         "classes": [
-            { "name": "Fighter", "level": 3, "spellcasting_ability": "intelligence" },
+            { "name": "Fighter", "subclass": "Eldritch Knight", "level": 3,
+              "spellcasting_ability": "intelligence" },
             { "name": "Warlock", "level": 2, "spellcasting_ability": "charisma" }
         ],
         "spellcasting": {
@@ -216,15 +228,68 @@ fn caster() -> Value {
                 { "name": "Fire Bolt", "level": 0 },
                 { "name": "Shield", "level": 1, "class": "Fighter" },
                 { "name": "Hex", "level": 1, "class": "Warlock", "concentration": true }
-            ],
-            "slots": { "1": { "max": 2 } },
-            "pact_magic": { "slot_level": 1, "max": 2 }
+            ]
         },
         "resources": [
             { "name": "Action Surge", "max": 1, "recharge": "short_rest" },
             { "name": "Second Wind", "max": 1, "recharge": "short_rest" }
         ]
     })
+}
+
+#[tokio::test]
+async fn spell_slots_follow_the_classes_under_the_campaigns_edition() {
+    // Regression: slots were entered by hand, so a sheet could have any
+    // number of them whatever its classes.
+    let app = test_app().await;
+    let campaign = Uuid::new_v4();
+    let rules_2014 = app.with_edition(campaign, Edition::Rules2014);
+    let rules_2024 = app.with_edition(campaign, Edition::Rules2024);
+    let slot = |max: u16, used: u16| json!({ "max": max, "used": used });
+
+    // Wizard 3 / Cleric 2 share the slots of a 5th-level caster; slots
+    // typed in by hand are ignored.
+    let multiclass = json!({
+        "name": "Pike",
+        "classes": [
+            { "name": "Wizard", "level": 3 },
+            { "name": "Cleric", "level": 2 }
+        ],
+        "spellcasting": { "slots": { "9": { "max": 9 } } }
+    });
+    let (status, c) = send(&rules_2024, Method::POST, "/characters", Some(multiclass)).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(
+        c["spellcasting"]["slots"],
+        json!({ "1": slot(4, 0), "2": slot(3, 0), "3": slot(2, 0) })
+    );
+
+    // A 1st-level Ranger has no slots under the 2014 rules and two under
+    // 2024's: the campaign's edition decides.
+    let ranger = json!({ "name": "Vex", "classes": [{ "name": "Ranger", "level": 1 }] });
+    let (_, c) = send(&rules_2014, Method::POST, "/characters", Some(ranger)).await;
+    assert_eq!(c["spellcasting"]["slots"], json!({}));
+    let uri = format!("/characters/{}", c["id"].as_str().unwrap());
+    let (_, c) = send(&rules_2024, Method::GET, &uri, None).await;
+    assert_eq!(c["spellcasting"]["slots"], json!({ "1": slot(2, 0) }));
+
+    // Levelling up adds slots and keeps the spent ones spent.
+    let (status, _) = send(
+        &rules_2024,
+        Method::POST,
+        &format!("{uri}/actions"),
+        Some(json!({ "type": "expend_spell_slot", "level": 1 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let mut sheet = send(&rules_2024, Method::GET, &uri, None).await.1;
+    sheet["classes"][0]["level"] = json!(5);
+    let (status, _, c) = put(&rules_2024, &uri, Some("*"), sheet).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        c["spellcasting"]["slots"],
+        json!({ "1": slot(4, 1), "2": slot(2, 0) })
+    );
 }
 
 #[tokio::test]
@@ -386,7 +451,7 @@ async fn requests_need_a_valid_token() {
     // A token from some other auth service is worthless here.
     let forger = TokenSigner::new(&DeviceKey::generate());
     let forged = App {
-        token: Some(token(&forger, Uuid::new_v4())),
+        token: Some(token(&forger, Uuid::new_v4(), Edition::default())),
         ..app.as_campaign(None)
     };
     let (status, body) = send(&forged, Method::POST, "/characters", Some(sample())).await;

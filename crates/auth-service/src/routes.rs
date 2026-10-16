@@ -145,11 +145,13 @@ async fn login(
         .principal(issued.campaign, issued.key)
         .await?
         .ok_or_else(rejected)?;
+    let edition = state.store.campaign(issued.campaign).await?.edition;
     let claims = Claims {
         key: issued.key,
         campaign: issued.campaign,
         role,
         name,
+        edition,
         expires_at: Utc::now() + TOKEN_LIFETIME,
     };
     let token = state.signer.issue(&claims)?;

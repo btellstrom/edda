@@ -6,7 +6,9 @@
 pub mod action;
 pub mod character;
 pub mod combat;
+pub mod edition;
 pub mod resources;
+mod slots;
 pub mod spellcasting;
 
 pub use action::{ActionError, CharacterAction};
@@ -14,5 +16,6 @@ pub use character::{
     Ability, AbilityScores, Character, CharacterSheet, CharacterSummary, ClassLevel, HitPoints,
     Item, Skill, ValidationError,
 };
+pub use edition::Edition;
 pub use resources::{Pool, Recharge, Resource, RestKind};
 pub use spellcasting::{PactMagic, Spell, Spellcasting};

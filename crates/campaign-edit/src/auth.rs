@@ -27,6 +27,7 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
                     "Campaign  {} ({})",
                     profile.campaign.name, profile.campaign.id
                 );
+                println!("Rules     {}", claims.edition);
                 println!("Device    {} ({:?})", claims.name, claims.role);
                 println!("Key       {}", claims.key);
                 println!("Server    {}", profile.auth_server);

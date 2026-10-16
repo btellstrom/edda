@@ -5,6 +5,7 @@ use campaign_auth::{
     DeviceKey, Nonce, PublicKey, Role, SignedCert,
     protocol::{Campaign, Challenge, Device, Principal},
 };
+use campaign_types::Edition;
 use chrono::{DateTime, Duration, Utc};
 use sha2::{Digest, Sha256};
 use sqlx::{PgExecutor, PgPool, types::Json};
@@ -53,26 +54,41 @@ impl Store {
         Ok(DeviceKey::from_seed(seed))
     }
 
-    pub async fn create_campaign(&self, name: &str) -> Result<Campaign, ApiError> {
+    pub async fn create_campaign(
+        &self,
+        name: &str,
+        edition: Edition,
+    ) -> Result<Campaign, ApiError> {
         let campaign = Campaign {
             id: Uuid::new_v4(),
             name: name.to_string(),
+            edition,
         };
-        sqlx::query("INSERT INTO campaigns (id, name, created_at) VALUES ($1, $2, now())")
-            .bind(campaign.id)
-            .bind(&campaign.name)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "INSERT INTO campaigns (id, name, edition, created_at) VALUES ($1, $2, $3, now())",
+        )
+        .bind(campaign.id)
+        .bind(&campaign.name)
+        .bind(edition.to_string())
+        .execute(&self.pool)
+        .await?;
         Ok(campaign)
     }
 
     pub async fn campaign(&self, id: Uuid) -> Result<Campaign, ApiError> {
-        let row: Option<(String,)> = sqlx::query_as("SELECT name FROM campaigns WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await?;
-        let (name,) = row.ok_or(ApiError::NotFound)?;
-        Ok(Campaign { id, name })
+        let row: Option<(String, String)> =
+            sqlx::query_as("SELECT name, edition FROM campaigns WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+        let (name, edition) = row.ok_or(ApiError::NotFound)?;
+        let edition: Edition =
+            edition
+                .parse()
+                .map_err(|e: campaign_types::edition::UnknownEdition| {
+                    ApiError::Internal(e.to_string())
+                })?;
+        Ok(Campaign { id, name, edition })
     }
 
     /// A fresh one-time code that lets a device make itself DM of

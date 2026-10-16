@@ -1,4 +1,5 @@
-use campaign_types::{Character, CharacterAction, CharacterSheet};
+use campaign_auth::protocol::Claims;
+use campaign_types::{Character, CharacterAction, CharacterSheet, Edition};
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
 use uuid::Uuid;
@@ -6,6 +7,32 @@ use uuid::Uuid;
 use crate::error::ApiError;
 
 type Row = (String, String, String, i64, DateTime<Utc>, DateTime<Utc>);
+
+/// Whose characters, and by which rules: every operation is scoped to one
+/// campaign, and spell slots follow the classes under its edition.
+#[derive(Debug, Clone, Copy)]
+pub struct Scope {
+    pub campaign: Uuid,
+    pub edition: Edition,
+}
+
+impl From<&Claims> for Scope {
+    fn from(claims: &Claims) -> Self {
+        Self {
+            campaign: claims.campaign,
+            edition: claims.edition,
+        }
+    }
+}
+
+impl Scope {
+    /// A stored character as it stands under the campaign's rules: sheets
+    /// saved before their slots followed the classes show the right ones.
+    fn view(self, mut character: Character) -> Result<Character, ApiError> {
+        character.sheet.derive_slots(self.edition);
+        Ok(character)
+    }
+}
 
 /// Persistence for characters, backed by SQLite. Every operation is scoped
 /// to one campaign: a character of another campaign is simply not found.
@@ -19,38 +46,41 @@ impl CharacterStore {
         Self { pool }
     }
 
-    pub async fn list(&self, campaign: Uuid) -> Result<Vec<Character>, ApiError> {
+    pub async fn list(&self, scope: Scope) -> Result<Vec<Character>, ApiError> {
         let rows: Vec<Row> = sqlx::query_as(
             "SELECT id, campaign, sheet, version, created_at, updated_at FROM characters \
              WHERE campaign = ? ORDER BY name COLLATE NOCASE",
         )
-        .bind(campaign.to_string())
+        .bind(scope.campaign.to_string())
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(from_row).collect()
+        rows.into_iter()
+            .map(|row| scope.view(from_row(row)?))
+            .collect()
     }
 
-    pub async fn get(&self, campaign: Uuid, id: Uuid) -> Result<Character, ApiError> {
+    pub async fn get(&self, scope: Scope, id: Uuid) -> Result<Character, ApiError> {
         let row: Option<Row> = sqlx::query_as(
             "SELECT id, campaign, sheet, version, created_at, updated_at FROM characters WHERE id = ? AND campaign = ?",
         )
         .bind(id.to_string())
-        .bind(campaign.to_string())
+        .bind(scope.campaign.to_string())
         .fetch_optional(&self.pool)
         .await?;
-        row.map(from_row).transpose()?.ok_or(ApiError::NotFound)
+        scope.view(row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?)
     }
 
     pub async fn create(
         &self,
-        campaign: Uuid,
-        sheet: CharacterSheet,
+        scope: Scope,
+        mut sheet: CharacterSheet,
     ) -> Result<Character, ApiError> {
+        sheet.derive_slots(scope.edition);
         sheet.validate()?;
         let now = Utc::now();
         let character = Character {
             id: Uuid::new_v4(),
-            campaign,
+            campaign: scope.campaign,
             sheet,
             version: 1,
             created_at: now,
@@ -61,7 +91,7 @@ impl CharacterStore {
              VALUES (?, ?, ?, ?, 1, ?, ?)",
         )
         .bind(character.id.to_string())
-        .bind(campaign.to_string())
+        .bind(scope.campaign.to_string())
         .bind(&character.sheet.name)
         .bind(to_json(&character.sheet)?)
         .bind(character.created_at)
@@ -76,11 +106,12 @@ impl CharacterStore {
     /// happen in one statement, so there's no window for another write.
     pub async fn replace(
         &self,
-        campaign: Uuid,
+        scope: Scope,
         id: Uuid,
         expected_version: Option<u64>,
-        sheet: CharacterSheet,
+        mut sheet: CharacterSheet,
     ) -> Result<Character, ApiError> {
+        sheet.derive_slots(scope.edition);
         sheet.validate()?;
         // SQLite integers are signed; a version beyond i64 can't match any
         // row, and -1 never does either since versions start at 1.
@@ -94,7 +125,7 @@ impl CharacterStore {
         .bind(to_json(&sheet)?)
         .bind(Utc::now())
         .bind(id.to_string())
-        .bind(campaign.to_string())
+        .bind(scope.campaign.to_string())
         .bind(expected)
         .fetch_optional(&self.pool)
         .await?;
@@ -103,7 +134,7 @@ impl CharacterStore {
             // Either the character doesn't exist (get returns NotFound) or
             // the version moved on; hand back the current state to merge onto.
             None => Err(ApiError::VersionMismatch(Box::new(
-                self.get(campaign, id).await?,
+                self.get(scope, id).await?,
             ))),
         }
     }
@@ -113,7 +144,7 @@ impl CharacterStore {
     /// the same slot) serialize instead of overwriting each other.
     pub async fn apply(
         &self,
-        campaign: Uuid,
+        scope: Scope,
         id: Uuid,
         action: &CharacterAction,
     ) -> Result<Character, ApiError> {
@@ -122,11 +153,13 @@ impl CharacterStore {
             "SELECT id, campaign, sheet, version, created_at, updated_at FROM characters WHERE id = ? AND campaign = ?",
         )
         .bind(id.to_string())
-        .bind(campaign.to_string())
+        .bind(scope.campaign.to_string())
         .fetch_optional(&mut *tx)
         .await?;
         let mut character = row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?;
 
+        // Sheets saved before their slots followed the classes catch up here.
+        character.sheet.derive_slots(scope.edition);
         character.sheet.apply(action)?;
         character.sheet.validate()?;
         character.version += 1;
@@ -144,10 +177,10 @@ impl CharacterStore {
         Ok(character)
     }
 
-    pub async fn delete(&self, campaign: Uuid, id: Uuid) -> Result<(), ApiError> {
+    pub async fn delete(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
         let result = sqlx::query("DELETE FROM characters WHERE id = ? AND campaign = ?")
             .bind(id.to_string())
-            .bind(campaign.to_string())
+            .bind(scope.campaign.to_string())
             .execute(&self.pool)
             .await?;
         if result.rows_affected() == 0 {

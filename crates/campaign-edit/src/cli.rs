@@ -212,10 +212,11 @@ pub enum CharacterCommand {
     /// Manage the spell list.
     #[command(subcommand)]
     Spell(SpellCommand),
-    /// Manage and spend spell slots.
+    /// Spend and regain spell slots. How many there are follows from the
+    /// classes (and the campaign's edition).
     #[command(subcommand)]
     Slots(SlotsCommand),
-    /// Manage and spend Pact Magic slots.
+    /// Spend and regain Pact Magic slots, which follow from Warlock levels.
     #[command(subcommand)]
     Pact(PactCommand),
     /// Manage limited-use features (Action Surge, Rage, Ki, ...).
@@ -372,8 +373,6 @@ pub enum SpellCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum SlotsCommand {
-    /// Set the number of slots at a level (0 removes the level).
-    Set { level: u8, max: u16 },
     /// Spend a slot without casting a listed spell.
     Use { level: u8 },
     /// Regain a spent slot.
@@ -382,11 +381,6 @@ pub enum SlotsCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum PactCommand {
-    /// Set pact slot level and count.
-    Set { level: u8, max: u16 },
-    /// Remove Pact Magic.
-    #[command(visible_alias = "rm")]
-    Remove,
     /// Spend a pact slot.
     Use,
     /// Regain a pact slot.

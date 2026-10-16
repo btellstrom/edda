@@ -25,7 +25,7 @@ make server       # the servers' container image, from the Dockerfile
 make client       # campaign-edit, natively: target/release/campaign-edit
 make install      # campaign-edit into ~/.cargo/bin
 make up           # build and start the servers; make down stops them
-make campaign NAME="Vox Machina"   # the DM's setup code
+make campaign NAME="Vox Machina" EDITION=2024   # the DM's setup code
 make              # lists every target
 ```
 
@@ -40,7 +40,7 @@ character sheets.
 
 ```sh
 podman compose up -d --build     # or: docker compose up -d --build
-podman compose exec auth auth-service new-campaign "Vox Machina"   # the DM's setup code
+podman compose exec auth auth-service new-campaign "Vox Machina" --edition 2024
 podman compose logs -f combat    # logs
 podman compose down              # stop; data stays in volumes (down -v deletes it)
 ```
@@ -77,7 +77,7 @@ them isn't trusted; `AUTH_SERVICE_URL` says where to fetch it from).
 cargo run -p auth-service
 # DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/auth,
 #   BIND_ADDR to 127.0.0.1:3002
-cargo run -p auth-service -- new-campaign "Vox Machina"   # prints the DM's setup code
+cargo run -p auth-service -- new-campaign "Vox Machina" --edition 2024   # the DM's setup code
 
 cargo run -p character-service
 # DATABASE_URL defaults to sqlite://characters.db, BIND_ADDR to 127.0.0.1:3000
@@ -133,8 +133,7 @@ campaign-edit grog resource add Rage 3 --recharge long
 campaign-edit grog item add Javelin -n 4
 campaign-edit grog edit                  # whole sheet as JSON in $EDITOR
 
-campaign-edit keyleth class add Druid 5 --casting wis
-campaign-edit keyleth slots set 1 4
+campaign-edit keyleth class add Druid 5 --casting wis   # gives her a 5th-level caster's slots
 campaign-edit keyleth spell add Moonbeam --level 2 --concentration
 campaign-edit keyleth cast moonbeam --at 3
 campaign-edit grog use rage
@@ -244,6 +243,19 @@ curl -X POST localhost:3000/characters -H 'content-type: application/json' \
 Spell slots, pact slots and class features (Action Surge, Rage, Ki...) all
 share one shape: `{ "max": N, "used": N }`. Features also carry a
 `recharge` of `short_rest`, `long_rest` or `manual`.
+
+How many spell slots a character has follows from their classes, under the
+campaign's edition (chosen with `new-campaign --edition 2014|2024`); the
+service works them out on every save, so any `max` sent is replaced, and
+slots already spent stay spent. One spellcasting class uses its own table:
+full casters (Bard, Cleric, Druid, Sorcerer, Wizard) by level, Paladins
+and Rangers by half their level rounded up (from 1st level in 2024, 2nd in
+2014), Artificers likewise from 1st, and Eldritch Knights and Arcane
+Tricksters (by subclass) by a third, from 3rd level. Several share one pool
+from the multiclass table: full casters add their level, Paladins and
+Rangers half (rounded down in 2014, up in 2024), Artificers half rounded
+up, third casters a third rounded down. Warlock levels give separate Pact
+Magic. Classes the service doesn't know give no slots.
 
 ```json
 "spellcasting": {

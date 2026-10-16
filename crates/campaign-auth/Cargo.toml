@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 axum = { version = "0.8.9", default-features = false, features = ["json"], optional = true }
 base64 = "0.23.1"
+campaign-types = { version = "0.1.0", path = "../campaign-types" }
 chacha20poly1305 = "0.11.0"
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
 ed25519-dalek = "3.0.0"

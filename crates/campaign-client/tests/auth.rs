@@ -13,7 +13,11 @@ use support::Auth;
 #[tokio::test]
 async fn setup_codes_work_once_and_make_a_dm() {
     let auth = Auth::start().await;
-    let campaign = auth.store.create_campaign("Vox Machina").await.unwrap();
+    let campaign = auth
+        .store
+        .create_campaign("Vox Machina", Default::default())
+        .await
+        .unwrap();
     let code = auth
         .store
         .new_setup_code(campaign.id, chrono::Duration::hours(1))

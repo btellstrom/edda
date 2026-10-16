@@ -38,9 +38,9 @@ down: ## stop the servers (data stays in their volumes)
 logs: ## follow the servers' logs
 	$(COMPOSE) logs -f
 
-campaign: ## create a campaign: make campaign NAME="Vox Machina"
-	@test -n "$(NAME)" || { echo 'usage: make campaign NAME="<campaign name>"' >&2; exit 2; }
-	$(COMPOSE) exec auth auth-service new-campaign "$(NAME)"
+campaign: ## create a campaign: make campaign NAME="Vox Machina" EDITION=2024
+	@test -n "$(NAME)" -a -n "$(EDITION)" || { echo 'usage: make campaign NAME="<campaign name>" EDITION=<2014|2024>' >&2; exit 2; }
+	$(COMPOSE) exec auth auth-service new-campaign "$(NAME)" --edition $(EDITION)
 
 test: ## run all tests (needs Postgres: make up, or compose up -d postgres)
 	$(CARGO) test --workspace

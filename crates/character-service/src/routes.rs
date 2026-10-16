@@ -58,7 +58,7 @@ async fn list(
     State(state): State<AppState>,
     Authenticated(claims): Authenticated,
 ) -> Result<Json<Vec<CharacterSummary>>, ApiError> {
-    let characters = state.characters.list(claims.campaign).await?;
+    let characters = state.characters.list((&claims).into()).await?;
     Ok(Json(
         characters.iter().map(CharacterSummary::from).collect(),
     ))
@@ -69,7 +69,7 @@ async fn create(
     Authenticated(claims): Authenticated,
     Json(sheet): Json<CharacterSheet>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let character = state.characters.create(claims.campaign, sheet).await?;
+    let character = state.characters.create((&claims).into(), sheet).await?;
     let location = format!("/characters/{}", character.id);
     Ok((
         StatusCode::CREATED,
@@ -83,7 +83,7 @@ async fn fetch(
     Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, ApiError> {
-    Ok(tagged(state.characters.get(claims.campaign, id).await?))
+    Ok(tagged(state.characters.get((&claims).into(), id).await?))
 }
 
 async fn replace(
@@ -96,7 +96,7 @@ async fn replace(
     let expected = expected_version(&headers)?;
     let saved = state
         .characters
-        .replace(claims.campaign, id, expected, sheet)
+        .replace((&claims).into(), id, expected, sheet)
         .await?;
     Ok(tagged(saved))
 }
@@ -106,7 +106,7 @@ async fn remove(
     Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    state.characters.delete(claims.campaign, id).await?;
+    state.characters.delete((&claims).into(), id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -117,6 +117,9 @@ async fn apply_action(
     Json(action): Json<CharacterAction>,
 ) -> Result<impl IntoResponse, ApiError> {
     Ok(tagged(
-        state.characters.apply(claims.campaign, id, &action).await?,
+        state
+            .characters
+            .apply((&claims).into(), id, &action)
+            .await?,
     ))
 }

@@ -1,5 +1,6 @@
 //! Requests and responses of the auth service, and what tokens say.
 
+use campaign_types::Edition;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -15,6 +16,9 @@ pub struct Claims {
     pub role: Principal,
     /// "Vex's laptop", or the service's name. Used as the actor in logs.
     pub name: String,
+    /// The rules the campaign plays by, so services can apply them.
+    #[serde(default)]
+    pub edition: Edition,
     pub expires_at: DateTime<Utc>,
 }
 
@@ -115,6 +119,9 @@ pub struct SetupRequest {
 pub struct Campaign {
     pub id: Uuid,
     pub name: String,
+    /// Chosen when the campaign is created.
+    #[serde(default)]
+    pub edition: Edition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

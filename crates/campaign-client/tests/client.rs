@@ -6,7 +6,7 @@ use campaign_auth::{
     server::{TokenSigner, TokenVerifier},
 };
 use campaign_client::{Client, ClientError};
-use campaign_types::{CharacterAction, CharacterSheet, Pool, Recharge, Resource};
+use campaign_types::{CharacterAction, CharacterSheet, ClassLevel, Pool, Recharge, Resource};
 use sqlx::sqlite::SqlitePoolOptions;
 
 async fn server() -> Client {
@@ -24,6 +24,7 @@ async fn server() -> Client {
             campaign: uuid::Uuid::new_v4(),
             role: Principal::Dm,
             name: "DM".into(),
+            edition: Default::default(),
             expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
         })
         .unwrap();
@@ -143,11 +144,16 @@ async fn spell_slots_survive_the_round_trip() {
     // into Character over HTTP.
     let client = server().await;
     let mut sheet = grog();
-    sheet.spellcasting.slots.insert(1, Pool::new(2));
-    sheet.spellcasting.slots.insert(3, Pool::new(1));
+    sheet.classes.push(ClassLevel {
+        name: "Wizard".into(),
+        subclass: None,
+        level: 5,
+        spellcasting_ability: None,
+    });
     let created = client.create(&sheet).await.unwrap();
     let fetched = client.get(created.id).await.unwrap();
-    assert_eq!(fetched.sheet.spellcasting.slots, sheet.spellcasting.slots);
+    let levels: Vec<_> = fetched.sheet.spellcasting.slots.keys().copied().collect();
+    assert_eq!(levels, [1, 2, 3]);
 
     let after = client
         .act(created.id, &CharacterAction::ExpendSpellSlot { level: 3 })

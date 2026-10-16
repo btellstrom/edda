@@ -56,7 +56,11 @@ impl Auth {
     /// A new campaign whose DM device ("DM") is set up and logged in, the
     /// way a DM would: with the setup code printed by `new-campaign`.
     pub async fn campaign(&self) -> Party {
-        let campaign = self.store.create_campaign("Test campaign").await.unwrap();
+        let campaign = self
+            .store
+            .create_campaign("Test campaign", Default::default())
+            .await
+            .unwrap();
         let code = self
             .store
             .new_setup_code(campaign.id, chrono::Duration::hours(1))
