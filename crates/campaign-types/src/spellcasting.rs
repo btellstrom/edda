@@ -10,6 +10,7 @@ use crate::{ValidationError, resources::Pool};
 pub struct Spellcasting {
     pub spells: Vec<Spell>,
     /// Regular spell slots keyed by slot level (1-9). Recover on a long rest.
+    #[serde(deserialize_with = "level_keys::deserialize")]
     pub slots: BTreeMap<u8, Pool>,
     /// Warlock Pact Magic slots. Recover on a short or long rest.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -90,5 +91,43 @@ impl Spellcasting {
             }
         }
         Ok(())
+    }
+}
+
+/// JSON map keys are always strings, and inside `#[serde(flatten)]` (as in
+/// `Character`) serde can't convert `"1"` back to an integer key on its own.
+/// Accept slot levels as either integers or numeric strings.
+mod level_keys {
+    use std::{collections::BTreeMap, fmt};
+
+    use serde::{Deserialize, Deserializer, de};
+
+    use crate::resources::Pool;
+
+    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    struct Level(u8);
+
+    impl<'de> Deserialize<'de> for Level {
+        fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+            struct Visitor;
+            impl de::Visitor<'_> for Visitor {
+                type Value = Level;
+                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str("a spell slot level")
+                }
+                fn visit_u64<E: de::Error>(self, v: u64) -> Result<Level, E> {
+                    u8::try_from(v).map(Level).map_err(E::custom)
+                }
+                fn visit_str<E: de::Error>(self, v: &str) -> Result<Level, E> {
+                    v.parse().map(Level).map_err(E::custom)
+                }
+            }
+            d.deserialize_any(Visitor)
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<BTreeMap<u8, Pool>, D::Error> {
+        let map = BTreeMap::<Level, Pool>::deserialize(d)?;
+        Ok(map.into_iter().map(|(Level(l), p)| (l, p)).collect())
     }
 }

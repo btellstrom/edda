@@ -445,6 +445,28 @@ mod tests {
     }
 
     #[test]
+    fn character_round_trips_through_json() {
+        // Regression: slot levels are map keys, which `#[serde(flatten)]`
+        // on Character used to fail to deserialize.
+        let mut sheet = sheet();
+        sheet.spellcasting.slots.insert(1, crate::Pool::new(4));
+        sheet
+            .spellcasting
+            .slots
+            .insert(3, crate::Pool { max: 2, used: 1 });
+        let character = Character {
+            id: Uuid::nil(),
+            sheet,
+            version: 7,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&character).unwrap();
+        let back: Character = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, character);
+    }
+
+    #[test]
     fn minimal_json_fills_defaults() {
         let s: CharacterSheet = serde_json::from_str(r#"{"name":"Pike"}"#).unwrap();
         assert_eq!(s.armor_class, 10);
