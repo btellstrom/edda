@@ -1,0 +1,28 @@
+use std::env;
+
+use tracing_subscriber::EnvFilter;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "character_service=info,tower_http=info".into()),
+        )
+        .init();
+
+    let database_url =
+        env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://characters.db".to_string());
+    let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_string());
+
+    let pool = character_service::connect(&database_url).await?;
+    let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
+    tracing::info!(%bind_addr, %database_url, "character service listening");
+
+    axum::serve(listener, character_service::app(pool))
+        .with_graceful_shutdown(async {
+            let _ = tokio::signal::ctrl_c().await;
+        })
+        .await?;
+    Ok(())
+}

@@ -1,0 +1,318 @@
+use axum::{
+    Router,
+    body::Body,
+    http::{HeaderMap, Method, Request, StatusCode, header},
+};
+use http_body_util::BodyExt;
+use serde_json::{Value, json};
+use sqlx::sqlite::SqlitePoolOptions;
+use tower::ServiceExt;
+
+async fn test_app() -> Router {
+    // An in-memory database lives per connection, so pin the pool to one.
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    character_service::migrate(&pool).await.unwrap();
+    character_service::app(pool)
+}
+
+async fn send(app: &Router, method: Method, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
+    let (status, _, json) = request(app, method, uri, None, body).await;
+    (status, json)
+}
+
+/// PUT with an optional `If-Match` header.
+async fn put(
+    app: &Router,
+    uri: &str,
+    if_match: Option<&str>,
+    body: Value,
+) -> (StatusCode, HeaderMap, Value) {
+    request(app, Method::PUT, uri, if_match, Some(body)).await
+}
+
+async fn request(
+    app: &Router,
+    method: Method,
+    uri: &str,
+    if_match: Option<&str>,
+    body: Option<Value>,
+) -> (StatusCode, HeaderMap, Value) {
+    let mut req = Request::builder().method(method).uri(uri);
+    if let Some(tag) = if_match {
+        req = req.header(header::IF_MATCH, tag);
+    }
+    let body = match body {
+        Some(v) => {
+            req = req.header(header::CONTENT_TYPE, "application/json");
+            Body::from(v.to_string())
+        }
+        None => Body::empty(),
+    };
+    let res = app.clone().oneshot(req.body(body).unwrap()).await.unwrap();
+    let status = res.status();
+    let headers = res.headers().clone();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let json = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).unwrap()
+    };
+    (status, headers, json)
+}
+
+fn sample() -> Value {
+    json!({
+        "name": "Grog",
+        "player_name": "Travis",
+        "race": "Goliath",
+        "classes": [{ "name": "Barbarian", "level": 3 }],
+        "ability_scores": { "strength": 18, "constitution": 16 },
+        "hit_points": { "max": 35, "current": 35 },
+        "skill_proficiencies": ["athletics", "intimidation"],
+        "inventory": [{ "name": "Greataxe" }]
+    })
+}
+
+#[tokio::test]
+async fn full_crud_lifecycle() {
+    let app = test_app().await;
+
+    let (status, created) = send(&app, Method::POST, "/characters", Some(sample())).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let id = created["id"].as_str().unwrap().to_string();
+    assert_eq!(created["name"], "Grog");
+    assert_eq!(
+        created["ability_scores"]["dexterity"], 10,
+        "defaults applied"
+    );
+    assert_eq!(created["inventory"][0]["quantity"], 1);
+
+    let (status, list) = send(&app, Method::GET, "/characters", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(list.as_array().unwrap().len(), 1);
+    assert_eq!(list[0]["level"], 3);
+
+    let (status, fetched) = send(&app, Method::GET, &format!("/characters/{id}"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(fetched, created);
+
+    let mut updated = sample();
+    updated["hit_points"]["current"] = json!(12);
+    let (status, headers, replaced) =
+        put(&app, &format!("/characters/{id}"), Some("\"1\""), updated).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(replaced["hit_points"]["current"], 12);
+    assert_eq!(replaced["version"], 2);
+    assert_eq!(headers[header::ETAG], "\"2\"");
+    assert_eq!(replaced["created_at"], created["created_at"]);
+
+    let (status, _) = send(&app, Method::DELETE, &format!("/characters/{id}"), None).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (status, _) = send(&app, Method::GET, &format!("/characters/{id}"), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn rejects_invalid_sheets() {
+    let app = test_app().await;
+    let mut bad = sample();
+    bad["ability_scores"]["wisdom"] = json!(31);
+    let (status, body) = send(&app, Method::POST, "/characters", Some(bad)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body["error"].as_str().unwrap().contains("Wisdom"));
+}
+
+#[tokio::test]
+async fn missing_characters_are_404() {
+    let app = test_app().await;
+    let uri = format!("/characters/{}", uuid::Uuid::new_v4());
+    assert_eq!(
+        send(&app, Method::GET, &uri, None).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        put(&app, &uri, Some("\"1\""), sample()).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        send(&app, Method::DELETE, &uri, None).await.0,
+        StatusCode::NOT_FOUND
+    );
+}
+
+fn caster() -> Value {
+    json!({
+        "name": "Hexblade Knight",
+        "classes": [
+            { "name": "Fighter", "level": 3, "spellcasting_ability": "intelligence" },
+            { "name": "Warlock", "level": 2, "spellcasting_ability": "charisma" }
+        ],
+        "spellcasting": {
+            "spells": [
+                { "name": "Fire Bolt", "level": 0 },
+                { "name": "Shield", "level": 1, "class": "Fighter" },
+                { "name": "Hex", "level": 1, "class": "Warlock", "concentration": true }
+            ],
+            "slots": { "1": { "max": 2 } },
+            "pact_magic": { "slot_level": 1, "max": 2 }
+        },
+        "resources": [
+            { "name": "Action Surge", "max": 1, "recharge": "short_rest" },
+            { "name": "Second Wind", "max": 1, "recharge": "short_rest" }
+        ]
+    })
+}
+
+#[tokio::test]
+async fn actions_spend_and_recover_resources() {
+    let app = test_app().await;
+    let (_, created) = send(&app, Method::POST, "/characters", Some(caster())).await;
+    let actions = format!("/characters/{}/actions", created["id"].as_str().unwrap());
+    let act = |body: Value| send(&app, Method::POST, &actions, Some(body));
+
+    let (status, c) = act(json!({ "type": "cast_spell", "spell": "shield" })).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(c["spellcasting"]["slots"]["1"]["used"], 1);
+
+    let (status, c) = act(json!({ "type": "cast_spell", "spell": "Hex", "pact": true })).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(c["spellcasting"]["pact_magic"]["used"], 1);
+
+    let (status, c) = act(json!({ "type": "use_resource", "name": "Action Surge" })).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(c["resources"][0]["used"], 1);
+
+    // Out of uses -> 409; nonsense -> 422.
+    let (status, body) = act(json!({ "type": "use_resource", "name": "Action Surge" })).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(body["error"].as_str().unwrap().contains("0 uses remaining"));
+    let (status, _) = act(json!({ "type": "cast_spell", "spell": "Wish" })).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, c) = act(json!({ "type": "rest", "kind": "short" })).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(c["resources"][0]["used"], 0);
+    assert_eq!(c["spellcasting"]["pact_magic"]["used"], 0);
+    assert_eq!(
+        c["spellcasting"]["slots"]["1"]["used"], 1,
+        "needs a long rest"
+    );
+
+    // Changes are persisted, not just echoed back.
+    let (_, fetched) = send(&app, Method::GET, &actions.replace("/actions", ""), None).await;
+    assert_eq!(fetched, c);
+}
+
+#[tokio::test]
+async fn concurrent_actions_never_overspend() {
+    // Needs a real file so the pool can hold several connections.
+    let path = std::env::temp_dir().join(format!("cm-test-{}.db", uuid::Uuid::new_v4()));
+    let pool = character_service::connect(&format!("sqlite://{}", path.display()))
+        .await
+        .unwrap();
+    let app = character_service::app(pool);
+
+    let mut sheet = caster();
+    sheet["resources"][0]["max"] = json!(5);
+    let (_, created) = send(&app, Method::POST, "/characters", Some(sheet)).await;
+    let uri = format!("/characters/{}/actions", created["id"].as_str().unwrap());
+
+    let tasks: Vec<_> = (0..20)
+        .map(|_| {
+            let (app, uri) = (app.clone(), uri.clone());
+            tokio::spawn(async move {
+                let body = json!({ "type": "use_resource", "name": "Action Surge" });
+                send(&app, Method::POST, &uri, Some(body)).await.0
+            })
+        })
+        .collect();
+    let mut ok = 0;
+    for task in tasks {
+        match task.await.unwrap() {
+            StatusCode::OK => ok += 1,
+            StatusCode::CONFLICT => {}
+            other => panic!("unexpected status {other}"),
+        }
+    }
+    assert_eq!(ok, 5);
+
+    let (_, c) = send(&app, Method::GET, &uri.replace("/actions", ""), None).await;
+    assert_eq!(c["resources"][0]["used"], 5);
+    for suffix in ["", "-wal", "-shm"] {
+        let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
+    }
+}
+
+#[tokio::test]
+async fn stale_put_cannot_undo_actions() {
+    let app = test_app().await;
+    let (status, headers, created) =
+        request(&app, Method::POST, "/characters", None, Some(caster())).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(headers[header::ETAG], "\"1\"");
+    let uri = format!("/characters/{}", created["id"].as_str().unwrap());
+
+    // A player spends Action Surge from their phone...
+    let (_, after_action) = send(
+        &app,
+        Method::POST,
+        &format!("{uri}/actions"),
+        Some(json!({ "type": "use_resource", "name": "Action Surge" })),
+    )
+    .await;
+    assert_eq!(after_action["version"], 2);
+
+    // ...while the DM edits notes on the copy they loaded at version 1.
+    let mut stale = created.clone();
+    stale["notes"] = json!("Owes the Slayer's Take 50gp");
+    let (status, headers, body) = put(&app, &uri, Some("\"1\""), stale).await;
+    assert_eq!(status, StatusCode::PRECONDITION_FAILED);
+    assert_eq!(headers[header::ETAG], "\"2\"");
+    assert_eq!(
+        body["current"], after_action,
+        "server hands back the latest copy"
+    );
+
+    // The DM re-applies the edit to the latest copy and it goes through,
+    // with the spent Action Surge intact.
+    let mut merged = body["current"].clone();
+    merged["notes"] = json!("Owes the Slayer's Take 50gp");
+    let (status, _, saved) = put(&app, &uri, Some("\"2\""), merged).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(saved["version"], 3);
+    assert_eq!(saved["resources"][0]["used"], 1);
+    assert_eq!(saved["notes"], "Owes the Slayer's Take 50gp");
+}
+
+#[tokio::test]
+async fn put_requires_a_valid_if_match() {
+    let app = test_app().await;
+    let (_, created) = send(&app, Method::POST, "/characters", Some(sample())).await;
+    let uri = format!("/characters/{}", created["id"].as_str().unwrap());
+
+    let (status, _, _) = put(&app, &uri, None, sample()).await;
+    assert_eq!(status, StatusCode::PRECONDITION_REQUIRED);
+
+    for bad in ["1", "W/\"1\"", "\"one\"", "\"1\", \"2\""] {
+        let (status, _, _) = put(&app, &uri, Some(bad), sample()).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "If-Match: {bad}");
+    }
+
+    // A version that could never exist is just stale, not a server error.
+    let (status, _, _) = put(&app, &uri, Some("\"18446744073709551615\""), sample()).await;
+    assert_eq!(status, StatusCode::PRECONDITION_FAILED);
+
+    // `*` deliberately opts out of the check.
+    let (status, _, body) = put(&app, &uri, Some("*"), sample()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["version"], 2);
+
+    // Nothing was written by the rejected attempts.
+    let (_, fetched) = send(&app, Method::GET, &uri, None).await;
+    assert_eq!(fetched["version"], 2);
+}
