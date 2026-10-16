@@ -1,6 +1,6 @@
 //! Drawing the fight screen.
 
-use campaign_types::combat::{CombatCommand, CombatStatus, Combatant};
+use campaign_types::combat::{CombatCommand, CombatState, CombatStatus, Combatant, Effect};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -123,7 +123,7 @@ fn draw_order(frame: &mut Frame, app: &App, area: Rect) {
         ]));
         for effect in state.effects.iter().filter(|e| e.targets.contains(&c.id)) {
             lines.push(
-                Line::from(format!("      {}", effect.name))
+                Line::from(format!("      {}{}", effect.name, time_left(effect, state)))
                     .dark_gray()
                     .italic(),
             );
@@ -141,7 +141,8 @@ fn draw_order(frame: &mut Frame, app: &App, area: Rect) {
                 .source
                 .and_then(|s| state.combatant(s))
                 .map_or(String::new(), |s| format!(" ({})", s.name));
-            lines.push(Line::from(format!("  {}{source}", effect.name)).dark_gray());
+            let left = time_left(effect, state);
+            lines.push(Line::from(format!("  {}{source}{left}", effect.name)).dark_gray());
         }
     }
     if lines.is_empty() {
@@ -151,6 +152,24 @@ fn draw_order(frame: &mut Frame, app: &App, area: Rect) {
         Paragraph::new(lines).block(Block::bordered().title(" Initiative ")),
         area,
     );
+}
+
+/// How long an effect has left, counted in rounds until the turn it ends on.
+fn time_left(effect: &Effect, state: &CombatState) -> String {
+    let Some(expiry) = effect.expires else {
+        return String::new();
+    };
+    let left = expiry.round.saturating_sub(state.round);
+    let whose = expiry
+        .at_turn_of
+        .and_then(|id| state.combatant(id))
+        .map(|c| c.name.as_str());
+    match (left, whose) {
+        (0, Some(whose)) => format!(" · ends on {whose}'s turn"),
+        (0, None) => " · ends this round".into(),
+        (1, _) => " · 1 round left".into(),
+        (n, _) => format!(" · {n} rounds left"),
+    }
 }
 
 fn hp(c: &Combatant) -> Span<'static> {

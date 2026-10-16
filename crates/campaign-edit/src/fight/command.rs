@@ -520,10 +520,13 @@ fn cast(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interpreted 
     (sentence, Ok(steps))
 }
 
+/// `effect <name> [who…] [for <rounds>]`: targets are optional, for things
+/// in the area like a fire on the floor.
 fn effect(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interpreted {
+    // The name runs up to the first target or `for`.
     let split = args
         .iter()
-        .position(|w| w.parse::<usize>().is_ok())
+        .position(|w| w.parse::<usize>().is_ok() || w.eq_ignore_ascii_case("for"))
         .unwrap_or(args.len());
     let name = args[..split].join(" ");
     let mut target_words = Vec::new();
@@ -542,13 +545,13 @@ fn effect(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interprete
     }
     let targets = targets(&target_words, ctx);
     let shown_name = if name.is_empty() { "?" } else { &name };
-    let on = match &targets {
-        Ok(ts) if !ts.is_empty() => format!(" on {}", names(ts)),
-        _ => String::new(),
-    };
-    let mut sentence = match actor {
-        Some(a) => format!("{} puts {shown_name}{on}", a.name),
-        None => format!("{shown_name}{on}"),
+    let mut sentence = match (actor, &targets) {
+        (Some(a), Ok(ts)) if !ts.is_empty() => {
+            format!("{} puts {shown_name} on {}", a.name, names(ts))
+        }
+        (Some(a), _) => format!("{} puts down {shown_name}", a.name),
+        (None, Ok(ts)) if !ts.is_empty() => format!("{shown_name} on {}", names(ts)),
+        (None, _) => shown_name.to_string(),
     };
     if let Some(r) = rounds {
         sentence += &format!(" for {r} round{}", if r == 1 { "" } else { "s" });
@@ -556,16 +559,26 @@ fn effect(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interprete
     if name.is_empty() {
         return (sentence, Err("what effect? type its name".into()));
     }
+    // Targets are optional, so a combatant's name typed where a target goes
+    // would quietly become part of the effect's name.
+    let looks_like_target = args[..split].iter().skip(1).find(|w| {
+        w.len() >= 2
+            && ctx
+                .state
+                .combatants
+                .iter()
+                .any(|c| c.name.to_lowercase().starts_with(&w.to_lowercase()))
+    });
+    if let Some(word) = looks_like_target {
+        return (
+            sentence,
+            Err(format!("press Tab to pick \"{word}\" as a target")),
+        );
+    }
     if let Some(problem) = problem {
         return (sentence, Err(problem));
     }
     let targets = match targets {
-        Ok(ts) if ts.is_empty() => {
-            return (
-                sentence,
-                Err("on whom? type their numbers; Tab picks by name".into()),
-            );
-        }
         Ok(ts) => ts,
         Err(e) => return (sentence, Err(e)),
     };
@@ -842,9 +855,24 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
         // names it could still be the start of.
         Verb::Effect if args.is_empty() => named(effect_names(ctx)),
         Verb::Effect => {
-            let mut out = target_suggestions();
-            if !args.iter().any(|w| w.parse::<usize>().is_ok()) {
+            let timed = args.iter().any(|w| w.eq_ignore_ascii_case("for"));
+            if args.last().is_some_and(|w| w.eq_ignore_ascii_case("for")) {
+                return Vec::new(); // the number of rounds comes next
+            }
+            let mut out = if timed {
+                Vec::new()
+            } else {
+                target_suggestions()
+            };
+            if !args.iter().any(|w| w.parse::<usize>().is_ok()) && !timed {
                 out.extend(named(effect_names(ctx)));
+            }
+            if !timed && "for".starts_with(&partial.to_lowercase()) {
+                out.push(Suggestion {
+                    line: complete(&base, "for"),
+                    label: "for <rounds>".into(),
+                    detail: "how long it lasts; leave out for until removed".into(),
+                });
             }
             out
         }
@@ -1283,6 +1311,34 @@ mod tests {
     }
 
     #[test]
+    fn effects_need_no_target_and_last_for_rounds_of_whoever_put_them_down() {
+        let w = world();
+        let p = w.parse("effect Fire for 3");
+        assert_eq!(p.sentence, "Vex puts down Fire for 3 rounds");
+        let Ok(steps) = p.plan else {
+            panic!("{:?}", p.plan)
+        };
+        assert!(matches!(
+            &steps[0],
+            Step::Combat(CombatCommand::AddEffect { effect })
+                if effect.name == "Fire" && effect.targets.is_empty()
+                    && effect.rounds == Some(3) && effect.source == Some(w.id(1))
+        ));
+        let p = w.parse("2 effect Wall of Fire");
+        assert_eq!(p.sentence, "Grog puts down Wall of Fire");
+        assert!(p.plan.is_ok(), "until removed");
+        assert_eq!(
+            w.parse("effect Bless 2 for 10").sentence,
+            "Vex puts Bless on Grog for 10 rounds"
+        );
+        assert_eq!(w.lines("effect Fire f"), ["effect Fire for "]);
+        assert!(
+            w.lines("effect Fire for ").is_empty(),
+            "the rounds come next"
+        );
+    }
+
+    #[test]
     fn effects_complete_their_name_and_every_target_including_the_first() {
         // Regression: combatants were only offered once a first number had
         // been typed, so the first target got no help, and a name typed
@@ -1292,12 +1348,17 @@ mod tests {
         assert_eq!(suggest("effect ", &w.ctx()).len(), CONDITIONS.len());
         assert_eq!(
             w.lines("effect Prone "),
-            ["effect Prone 1 ", "effect Prone 2 ", "effect Prone 3 "]
+            [
+                "effect Prone 1 ",
+                "effect Prone 2 ",
+                "effect Prone 3 ",
+                "effect Prone for "
+            ]
         );
         assert_eq!(w.lines("effect Prone gob"), ["effect Prone 3 "]);
         assert_eq!(
             w.parse("effect Prone gob").plan,
-            Err("on whom? type their numbers; Tab picks by name".into())
+            Err("press Tab to pick \"gob\" as a target".into())
         );
         assert_eq!(w.lines("effect Prone 3 gr"), ["effect Prone 3 2 "]);
 

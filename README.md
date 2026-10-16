@@ -191,12 +191,16 @@ damage 2 3 8                Vex deals 8 damage to Grog and Goblin
 cast hunter's mark 3        Vex casts Hunter's Mark on Goblin (concentration)
 cast cure wounds 2 at 2     spends Vex's 2nd-level slot
 effect Prone 3 for 1        Vex puts Prone on Goblin for 1 round
+effect Fire for 3           Vex puts down Fire for 3 rounds (no target needed)
 use favored foe             Vex uses Favored Foe (only ever on oneself)
 init 3 17 · init 3          set Goblin's initiative, or roll it
 drop hunter's mark · remove 3 · undo · pause · resume · end · quit
 ```
 
-Every action but `use` takes any combatants as targets. As you type, the
+Every action but `use` takes any combatants as targets. Effects need
+none, for things in the area like a fire on the floor; one with a duration
+lasts that many rounds counted in turns of whoever put it down (the
+acting combatant), and the initiative list shows the rounds left. As you type, the
 line below says who does what to whom ("Vex deals ? damage to Goblin — how
 much?"), the acting combatant and the targets light up in the initiative
 order, and the sheet panel shows whoever acts. Tab completes the action,

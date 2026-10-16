@@ -127,7 +127,8 @@ pub struct Effect {
 
 /// When an effect ends: at the start of `at_turn_of`'s turn in `round`, or
 /// at the start of `round` if there's no such combatant (5e durations run
-/// from the caster's turn).
+/// from the caster's turn; for an effect nobody cast, from the turn it was
+/// put down in).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Expiry {
     pub round: u32,

@@ -102,7 +102,9 @@ pub struct NewEffect {
     pub targets: Vec<Uuid>,
     #[serde(default)]
     pub concentration: bool,
-    /// Duration in rounds; `None` lasts until removed.
+    /// Duration in rounds, counted in turns of the source, or (with no
+    /// source, like a fire on the floor) of whoever's turn it is when it's
+    /// added; `None` lasts until removed. Targets are optional too.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rounds: Option<u32>,
 }
@@ -298,7 +300,7 @@ pub fn decide(
             }
             let expires = effect.rounds.map(|rounds| Expiry {
                 round: state.round + rounds,
-                at_turn_of: effect.source,
+                at_turn_of: effect.source.or(state.current_turn),
             });
             out.emit(CombatEvent::EffectAdded {
                 effect: Effect {
@@ -805,6 +807,44 @@ mod tests {
             reason: EffectEndReason::Expired
         }));
         assert!(f.state.effects.is_empty());
+    }
+
+    #[test]
+    fn effects_without_a_source_or_targets_count_the_active_combatants_turns() {
+        // Regression: an effect nobody cast ended at the start of a round,
+        // whoever's turn it was when it was put down.
+        let mut f = Fixture::new();
+        let a = f.add("A", 0, 10);
+        let b = f.add("B", 0, 10);
+        f.init(a, 10);
+        f.init(b, 5);
+        f.ok(CombatCommand::Start);
+        f.ok(CombatCommand::NextTurn); // round 1, B's turn
+        let fire = Uuid::new_v4();
+        f.ok(CombatCommand::AddEffect {
+            effect: NewEffect {
+                id: fire,
+                name: "Fire".into(),
+                source: None,
+                targets: vec![],
+                concentration: false,
+                rounds: Some(1),
+            },
+        });
+        assert_eq!(
+            f.state.effect(fire).unwrap().expires.unwrap().at_turn_of,
+            Some(b)
+        );
+        f.ok(CombatCommand::NextTurn); // round 2, A's turn
+        assert!(
+            f.state.effect(fire).is_some(),
+            "lasts until B's turn comes round"
+        );
+        let events = f.ok(CombatCommand::NextTurn); // round 2, B's turn
+        assert!(events.contains(&CombatEvent::EffectEnded {
+            effect: fire,
+            reason: EffectEndReason::Expired
+        }));
     }
 
     #[test]

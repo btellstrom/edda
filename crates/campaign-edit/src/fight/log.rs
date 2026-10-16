@@ -115,6 +115,12 @@ pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
             if effect.concentration {
                 text += " (concentration)";
             }
+            if let Some(expiry) = effect.expires {
+                let turn = expiry
+                    .at_turn_of
+                    .map_or(String::new(), |id| format!("{}'s turn, ", name(&id)));
+                text += &format!(" until {turn}round {}", expiry.round);
+            }
             text
         }
         CombatEvent::EffectEnded { effect, reason } => {
