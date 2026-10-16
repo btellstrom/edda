@@ -28,13 +28,19 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::{cli::FightArgs, identity::Identity};
+use crate::{
+    cli::FightArgs,
+    identity::{Identity, Profile},
+};
 use command::{Context, Parsed, Step, Suggestion};
 
 /// Logged in, with the token renewed shortly before it expires (tokens last
 /// a quarter of an hour; a fight lasts longer).
 struct Login {
     identity: Identity,
+    /// The campaign the screen was opened in, even if another is chosen
+    /// meanwhile (say, in another terminal).
+    profile: Profile,
     session: Session,
     characters_url: String,
     combat_url: String,
@@ -43,7 +49,7 @@ struct Login {
 impl Login {
     async fn token(&mut self) -> Result<String> {
         if self.session.claims.expires_at < Utc::now() + chrono::Duration::minutes(2) {
-            self.session = self.identity.login().await?.1;
+            self.session = self.identity.login_to(&self.profile).await?;
         }
         Ok(self.session.token.clone())
     }
@@ -94,9 +100,10 @@ pub struct App {
 
 pub async fn run(args: FightArgs, characters_url: &str) -> Result<()> {
     let identity = Identity::locate()?;
-    let (_, session) = identity.login().await?;
+    let (profile, session) = identity.login().await?;
     let mut login = Login {
         identity,
+        profile,
         session,
         characters_url: characters_url.to_string(),
         combat_url: args.combat_server.clone(),

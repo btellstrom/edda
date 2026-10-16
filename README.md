@@ -124,6 +124,20 @@ Without both devices at hand, there's a manual way: the player sends the
 DM the output of `auth key`, the DM runs `auth approve <KEY> --name ...`,
 and the player then runs `auth join <CAMPAIGN ID>`.
 
+A device can be in several campaigns, one in use at a time. Setting up or
+joining another adds it and switches to it:
+
+```sh
+campaign-edit auth campaigns          # the campaigns this device is in; * is the one in use
+campaign-edit auth use oneshot        # switch, by name (a unique prefix will do) or ID prefix
+campaign-edit auth forget oneshot     # drop it from this device (it stays registered there)
+```
+
+Everything else (characters, `fight`) works on the campaign in use. A
+fight screen stays with the campaign it was opened in. The profiles live in
+`~/.config/campaign-manager/campaigns/`, next to the device key, which is
+the same in every campaign.
+
 Top-level commands manage the roster; anything else is a character (name,
 unique name prefix, or ID prefix) followed by a command:
 

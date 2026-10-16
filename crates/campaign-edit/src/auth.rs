@@ -16,6 +16,10 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
     let identity = Identity::locate()?;
     match command {
         AuthCommand::Status => match identity.profile()? {
+            None if !identity.profiles()?.is_empty() => println!(
+                "No campaign chosen. Pick one with: campaign-edit auth use <CAMPAIGN>\n{}",
+                campaign_list(&identity)?
+            ),
             None => println!(
                 "Not in a campaign. This device's key: {}",
                 identity.key()?.public()
@@ -27,12 +31,37 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
                     "Campaign  {} ({})",
                     profile.campaign.name, profile.campaign.id
                 );
+                let others = identity.profiles()?.len().saturating_sub(1);
+                if others > 0 {
+                    println!("          and {others} more: campaign-edit auth campaigns");
+                }
                 println!("Rules     {}", claims.edition);
                 println!("Device    {} ({:?})", claims.name, claims.role);
                 println!("Key       {}", claims.key);
                 println!("Server    {}", profile.auth_server);
             }
         },
+        AuthCommand::Campaigns => match identity.profiles()?.as_slice() {
+            [] => println!("This device isn't in any campaign yet."),
+            _ => print!("{}", campaign_list(&identity)?),
+        },
+        AuthCommand::Use { campaign } => {
+            let profile = identity.select(&campaign)?;
+            println!(
+                "Now using {} ({}).",
+                profile.campaign.name, profile.campaign.id
+            );
+        }
+        AuthCommand::Forget { campaign } => {
+            let (profile, was_current) = identity.forget(&campaign)?;
+            println!(
+                "Forgot {} ({}) on this device.",
+                profile.campaign.name, profile.campaign.id
+            );
+            if was_current && !identity.profiles()?.is_empty() {
+                println!("Pick another with: campaign-edit auth use <CAMPAIGN>");
+            }
+        }
         AuthCommand::Invite { dm, yes } => {
             let (profile, session) = identity.login().await?;
             let host = AuthClient::new(&profile.auth_server).with_token(&session.token);
@@ -71,7 +100,6 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
             );
         }
         AuthCommand::Pair { code, name } => {
-            refuse_second_campaign(&identity)?;
             let code: PairingCode = code.parse()?;
             let auth = AuthClient::new(auth_server);
             let key = identity.key()?;
@@ -90,6 +118,7 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
                 role_name(joined.cert.cert.role),
                 key.public().fingerprint()
             );
+            switched_hint(&identity)?;
         }
         AuthCommand::Key => {
             println!("{}", identity.key()?.public());
@@ -97,7 +126,6 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
             eprintln!("  campaign-edit auth join <CAMPAIGN ID>");
         }
         AuthCommand::Setup { code, name } => {
-            refuse_second_campaign(&identity)?;
             let auth = AuthClient::new(auth_server);
             let server_key = auth.server_key().await?;
             let campaign = auth.setup(&code, &identity.key()?, &name).await?;
@@ -111,9 +139,9 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
                 campaign.name, campaign.id
             );
             println!("Add players with:  campaign-edit auth invite");
+            switched_hint(&identity)?;
         }
         AuthCommand::Join { campaign } => {
-            refuse_second_campaign(&identity)?;
             let auth = AuthClient::new(auth_server);
             let server_key = auth.server_key().await?;
             let session = auth
@@ -127,6 +155,7 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
                 campaign: campaign.clone(),
             })?;
             println!("Joined {} as {}.", campaign.name, session.claims.name);
+            switched_hint(&identity)?;
         }
         AuthCommand::Approve {
             public_key,
@@ -177,15 +206,37 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
     Ok(())
 }
 
-fn refuse_second_campaign(identity: &Identity) -> Result<()> {
-    if let Some(profile) = identity.profile()? {
-        bail!(
-            "this device is already in {} ({}); use another CAMPAIGN_CONFIG_DIR for a second campaign",
-            profile.campaign.name,
-            profile.campaign.id
-        );
+/// After joining: the new campaign is now in use; say how to get back.
+fn switched_hint(identity: &Identity) -> Result<()> {
+    if identity.profiles()?.len() > 1 {
+        println!("It's now the campaign in use; switch with: campaign-edit auth use <CAMPAIGN>");
     }
     Ok(())
+}
+
+/// The campaigns this device is in, the one in use marked with `*`.
+fn campaign_list(identity: &Identity) -> Result<String> {
+    let current = identity.profile()?.map(|p| p.campaign.id);
+    let profiles = identity.profiles()?;
+    let width = profiles
+        .iter()
+        .map(|p| p.campaign.name.chars().count())
+        .max()
+        .unwrap_or(0);
+    Ok(profiles
+        .iter()
+        .map(|p| {
+            let marker = if current == Some(p.campaign.id) {
+                "*"
+            } else {
+                " "
+            };
+            format!(
+                "{marker} {:<width$}  {}  {} rules  {}\n",
+                p.campaign.name, p.campaign.id, p.campaign.edition, p.auth_server
+            )
+        })
+        .collect())
 }
 
 fn find_device<'a>(devices: &'a [Device], query: &str) -> Result<&'a DeviceCert> {

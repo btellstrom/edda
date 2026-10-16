@@ -91,6 +91,14 @@ pub struct FightArgs {
 pub enum AuthCommand {
     /// Show whether this device is in a campaign, and as whom.
     Status,
+    /// List the campaigns this device is in; * marks the one in use.
+    Campaigns,
+    /// Switch to another campaign this device is in, by name (a unique
+    /// prefix is enough) or ID prefix.
+    Use { campaign: String },
+    /// Forget a campaign on this device. The device stays registered in
+    /// it (the DM can revoke it); joining again brings it back.
+    Forget { campaign: String },
     /// DM: show a short code for a new device to join with, and wait for
     /// it. The code works once and for ten minutes.
     Invite {
@@ -101,7 +109,8 @@ pub enum AuthCommand {
         #[arg(long)]
         yes: bool,
     },
-    /// Join a campaign with a code from your DM's `auth invite`.
+    /// Join a campaign with a code from your DM's `auth invite`. Joining
+    /// another campaign adds it and switches to it (see `auth use`).
     Pair {
         /// The code, e.g. 7-tavern-dragon.
         code: String,
