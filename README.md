@@ -596,3 +596,28 @@ in it for now.
 
 Revoking a device stops it logging in; a token it already has stays valid
 until it expires (at most 15 minutes), and an open WebSocket stays open.
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+  https://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in the work by you, as defined in the Apache-2.0
+license, shall be dual licensed as above, without any additional terms or
+conditions.
+
+### Third-party material
+
+- `crates/campaign-auth/src/eff_short_wordlist_1.txt` is the EFF's short
+  wordlist 1 (https://www.eff.org/dice), licensed under CC BY 3.0 US
+  (attribution in the file; "yo-yo" is written "yoyo").
+- The SRD monsters are not included; see [Monsters](#monsters) for how
+  `make srd` fetches them, and `data/monsters/README.md` for their
+  attribution (System Reference Document 5.1 and 5.2 by Wizards of the
+  Coast LLC, CC BY 4.0).
