@@ -14,6 +14,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let database_url =
         env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://characters.db".to_string());
+
+    // `character-service delete-campaign <ID>` deletes a campaign's
+    // characters (`make delete-campaign` deletes the rest of it too).
+    let args: Vec<String> = env::args().skip(1).collect();
+    if let [command, campaign] = args.as_slice()
+        && command == "delete-campaign"
+    {
+        let campaign: uuid::Uuid = campaign.parse()?;
+        let pool = character_service::connect(&database_url).await?;
+        let deleted = character_service::CharacterStore::new(pool)
+            .delete_campaign(campaign)
+            .await?;
+        println!("Deleted {deleted} character(s) of campaign {campaign}");
+        return Ok(());
+    }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_string());
 
     let verifier = campaign_auth::server::TokenVerifier::new(auth_key().await?);

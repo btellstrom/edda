@@ -146,6 +146,17 @@ impl Store {
         fetch_events(&self.pool, id, after).await.map(Some)
     }
 
+    /// Deletes every combat of a campaign, logs and all; returns how many
+    /// there were.
+    pub async fn delete_campaign(&self, campaign: &str) -> Result<u64, ApiError> {
+        // Events, commands and sync progress go with them (ON DELETE CASCADE).
+        let result = sqlx::query("DELETE FROM combats WHERE campaign = $1")
+            .bind(campaign)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
     /// The events a given command produced.
     pub async fn events_for_command(
         &self,

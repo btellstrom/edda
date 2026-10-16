@@ -91,6 +91,34 @@ impl Store {
         Ok(Campaign { id, name, edition })
     }
 
+    /// Deletes a campaign with its devices, setup codes, pairings and
+    /// login challenges, returning what it was; `None` if there's no such
+    /// campaign. Its devices can't log in from then on.
+    pub async fn delete_campaign(&self, id: Uuid) -> Result<Option<(Campaign, u64)>, ApiError> {
+        let campaign = match self.campaign(id).await {
+            Ok(campaign) => campaign,
+            Err(ApiError::NotFound) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let mut tx = self.pool.begin().await?;
+        let (devices,): (i64,) =
+            sqlx::query_as("SELECT count(*) FROM devices WHERE campaign_id = $1")
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await?;
+        sqlx::query("DELETE FROM challenges WHERE campaign_id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        // Devices, setup codes and pairings go with it (ON DELETE CASCADE).
+        sqlx::query("DELETE FROM campaigns WHERE id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(Some((campaign, u64::try_from(devices).unwrap_or(0))))
+    }
+
     /// A fresh one-time code that lets a device make itself DM of
     /// `campaign`.
     pub async fn new_setup_code(

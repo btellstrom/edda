@@ -177,6 +177,15 @@ impl CharacterStore {
         Ok(character)
     }
 
+    /// Deletes every character of a campaign; returns how many there were.
+    pub async fn delete_campaign(&self, campaign: Uuid) -> Result<u64, ApiError> {
+        let result = sqlx::query("DELETE FROM characters WHERE campaign = ?")
+            .bind(campaign.to_string())
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn delete(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
         let result = sqlx::query("DELETE FROM characters WHERE id = ? AND campaign = ?")
             .bind(id.to_string())

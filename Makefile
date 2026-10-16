@@ -13,7 +13,7 @@ IMAGE     ?= localhost/campaign-manager
 CARGO     ?= cargo
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install up down logs campaign test clean
+.PHONY: help all server client install up down logs campaign delete-campaign test clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -41,6 +41,16 @@ logs: ## follow the servers' logs
 campaign: ## create a campaign: make campaign NAME="Vox Machina" EDITION=2024
 	@test -n "$(NAME)" -a -n "$(EDITION)" || { echo 'usage: make campaign NAME="<campaign name>" EDITION=<2014|2024>' >&2; exit 2; }
 	$(COMPOSE) exec auth auth-service new-campaign "$(NAME)" --edition $(EDITION)
+
+delete-campaign: ## delete a campaign and everything in it: make delete-campaign ID=<campaign id>
+	@test -n "$(ID)" || { echo 'usage: make delete-campaign ID=<campaign id>  (campaign-edit auth status shows it)' >&2; exit 2; }
+	@if [ -z "$(YES)" ]; then \
+		printf 'Delete campaign %s with all its characters, combats and devices? This cannot be undone. [y/N] ' "$(ID)"; \
+		read answer; [ "$$answer" = y ] || [ "$$answer" = Y ] || { echo 'Not deleted.'; exit 1; }; \
+	fi
+	$(COMPOSE) exec auth auth-service delete-campaign $(ID)
+	$(COMPOSE) exec characters character-service delete-campaign $(ID)
+	$(COMPOSE) exec combat combat-service delete-campaign $(ID)
 
 test: ## run all tests (needs Postgres: make up, or compose up -d postgres)
 	$(CARGO) test --workspace

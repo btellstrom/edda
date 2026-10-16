@@ -40,6 +40,9 @@ enum Command {
     /// Print a new DM setup code for an existing campaign, e.g. when every
     /// DM device has been lost.
     SetupCode { campaign: Uuid },
+    /// Delete a campaign with its devices. Its characters and combats live
+    /// in the other services: `make delete-campaign` removes everything.
+    DeleteCampaign { campaign: Uuid },
     /// Let a service log in to any campaign with this key.
     AddService { name: String, public_key: PublicKey },
 }
@@ -75,6 +78,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             print_setup_code(&store, campaign.id).await?;
         }
         Some(Command::SetupCode { campaign }) => print_setup_code(&store, campaign).await?,
+        Some(Command::DeleteCampaign { campaign }) => {
+            match store.delete_campaign(campaign).await? {
+                Some((deleted, devices)) => println!(
+                    "Deleted campaign {} ({campaign}) and its {devices} device(s)",
+                    deleted.name
+                ),
+                None => println!("No campaign {campaign} in the auth service"),
+            }
+        }
         Some(Command::AddService { name, public_key }) => {
             store.add_service(&name, public_key).await?;
             println!("Service {name} may now log in with key {public_key}");

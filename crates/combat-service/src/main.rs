@@ -27,6 +27,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let database_url = env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/combats".to_string());
+
+    // `combat-service delete-campaign <ID>` deletes a campaign's combats
+    // (`make delete-campaign` deletes the rest of it too).
+    let args: Vec<String> = env::args().skip(1).collect();
+    if let [command, campaign] = args.as_slice()
+        && command == "delete-campaign"
+    {
+        let campaign: uuid::Uuid = campaign.parse()?;
+        let store =
+            combat_service::store::Store::new(combat_service::connect(&database_url).await?);
+        let deleted = store.delete_campaign(&campaign.to_string()).await?;
+        println!("Deleted {deleted} combat(s) of campaign {campaign}");
+        return Ok(());
+    }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3001".to_string());
     let auth_service =
         env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string());

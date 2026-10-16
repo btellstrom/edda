@@ -26,6 +26,7 @@ make client       # campaign-edit, natively: target/release/campaign-edit
 make install      # campaign-edit into ~/.cargo/bin
 make up           # build and start the servers; make down stops them
 make campaign NAME="Vox Machina" EDITION=2024   # the DM's setup code
+make delete-campaign ID=<id>     # a campaign and everything in it (asks first; YES=1 doesn't)
 make              # lists every target
 ```
 
@@ -44,6 +45,12 @@ podman compose exec auth auth-service new-campaign "Vox Machina" --edition 2024
 podman compose logs -f combat    # logs
 podman compose down              # stop; data stays in volumes (down -v deletes it)
 ```
+
+Deleting a campaign removes it from all three services: its devices
+(which can no longer log in), characters and combats. `campaign-edit auth
+status` shows its id. Without make, run `delete-campaign <ID>` with each
+of `auth-service`, `character-service` and `combat-service`; each deletes
+its own part and can be re-run safely.
 
 `podman compose` needs podman's API socket: `systemctl --user enable --now
 podman.socket`. The services are published on localhost: auth 3002,

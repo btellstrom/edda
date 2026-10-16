@@ -795,3 +795,37 @@ async fn undos_reach_everyone_and_replicas_wait_for_them() {
     assert!(replica.pending().is_empty(), "matched by command id");
     assert_eq!(hp_of(replica.state(), goblin), 20);
 }
+
+#[tokio::test]
+async fn deleting_a_campaign_deletes_its_combats_even_from_memory() {
+    let (auth, party, server) = setup().await;
+    let api = server.client(&party.dm);
+    let doomed = api.create("Doomed").await.unwrap().id;
+    let goblin = add(&api, doomed, "Goblin", 0).await;
+    let other = auth.campaign().await;
+    let other_api = server.client(&other.dm);
+    let kept = other_api.create("Kept").await.unwrap().id;
+
+    // As `combat-service delete-campaign` does, from another process.
+    let store = combat_service::store::Store::new(
+        combat_service::connect(&database_url("combat_test"))
+            .await
+            .unwrap(),
+    );
+    let deleted = store.delete_campaign(&party.id().to_string()).await;
+    assert_eq!(deleted.unwrap(), 1);
+
+    assert!(api.list(None).await.unwrap().is_empty());
+    let not_found = |r| matches!(r, Err(campaign_client::ClientError::NotFound));
+    assert!(
+        not_found(api.snapshot(doomed).await.map(|_| ())),
+        "not served from memory"
+    );
+    assert!(not_found(api.log(doomed, 0).await.map(|_| ())));
+    let hit = CommandEnvelope::new(CombatCommand::Damage {
+        combatant: goblin,
+        amount: 1,
+    });
+    assert!(not_found(api.command(doomed, &hit).await.map(|_| ())));
+    other_api.snapshot(kept).await.unwrap();
+}

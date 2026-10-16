@@ -290,3 +290,35 @@ async fn services_can_log_in_to_any_campaign() {
         .await;
     assert!(nowhere.is_err(), "but only to campaigns that exist");
 }
+
+#[tokio::test]
+async fn deleting_a_campaign_locks_out_its_devices_and_leaves_others_alone() {
+    let auth = Auth::start().await;
+    let doomed = auth.campaign().await;
+    let (vex, _) = doomed.join(&auth, "Vex's laptop", Role::Player).await;
+    let other = auth.campaign().await;
+
+    let (deleted, devices) = auth
+        .store
+        .delete_campaign(doomed.id())
+        .await
+        .unwrap()
+        .expect("it exists");
+    assert_eq!(deleted, doomed.campaign);
+    assert_eq!(devices, 2);
+    for key in [&doomed.dm_key, &vex] {
+        let login = auth.client().login(doomed.id(), key, Some(auth.key)).await;
+        assert!(
+            matches!(login, Err(ClientError::Unauthorized(_))),
+            "{login:?}"
+        );
+    }
+    auth.login(other.id(), &other.dm_key).await;
+    assert!(
+        auth.store
+            .delete_campaign(doomed.id())
+            .await
+            .unwrap()
+            .is_none()
+    );
+}

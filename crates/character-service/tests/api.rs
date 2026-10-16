@@ -489,3 +489,31 @@ async fn campaigns_only_see_their_own_characters() {
     let (status, _) = send(&ours, Method::GET, &uri, None).await;
     assert_eq!(status, StatusCode::OK, "still there for its own campaign");
 }
+
+#[tokio::test]
+async fn deleting_a_campaign_deletes_only_its_characters() {
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    character_service::migrate(&pool).await.unwrap();
+    let app = App::new(pool.clone());
+    let campaign = Uuid::new_v4();
+    let doomed = app.as_campaign(Some(campaign));
+    let other = app.as_campaign(Some(Uuid::new_v4()));
+    for app in [&doomed, &doomed, &other] {
+        let (status, _) = send(app, Method::POST, "/characters", Some(sample())).await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
+
+    let store = character_service::CharacterStore::new(pool);
+    assert_eq!(store.delete_campaign(campaign).await.unwrap(), 2);
+    assert_eq!(
+        send(&doomed, Method::GET, "/characters", None).await.1,
+        json!([])
+    );
+    let (_, kept) = send(&other, Method::GET, "/characters", None).await;
+    assert_eq!(kept.as_array().unwrap().len(), 1);
+    assert_eq!(store.delete_campaign(campaign).await.unwrap(), 0);
+}

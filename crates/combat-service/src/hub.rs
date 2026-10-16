@@ -263,7 +263,13 @@ impl LiveCombat {
         if seq.is_some_and(|seq| seq <= feed.seq) {
             return Ok(());
         }
-        for event in store.events(self.id, feed.seq).await?.unwrap_or_default() {
+        // Gone from the log means deleted (with its campaign), whatever this
+        // instance still has in memory.
+        let events = store
+            .events(self.id, feed.seq)
+            .await?
+            .ok_or(ApiError::NotFound)?;
+        for event in events {
             feed.apply(&event);
             // No subscribers is fine; the log is the record.
             let _ = self.events.send(event);
