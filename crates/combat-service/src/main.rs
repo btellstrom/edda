@@ -5,14 +5,25 @@ use combat_service::sync::HpSyncConfig;
 
 use tracing_subscriber::EnvFilter;
 
+const DEFAULT_KEY_FILE: &str = "combat-service.key";
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(
             EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "combat_service=info,tower_http=info".into()),
         )
         .init();
+
+    // `combat-service public-key` prints this service's key, creating it if
+    // needed, so it can be registered: auth-service add-service combat-service <KEY>
+    if env::args().nth(1).as_deref() == Some("public-key") {
+        let key_file = env::var("SERVICE_KEY_FILE").unwrap_or_else(|_| DEFAULT_KEY_FILE.into());
+        println!("{}", service_key(Path::new(&key_file))?.public());
+        return Ok(());
+    }
 
     let database_url = env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/combats".to_string());
@@ -28,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     } else {
         let key_file =
-            env::var("SERVICE_KEY_FILE").unwrap_or_else(|_| "combat-service.key".to_string());
+            env::var("SERVICE_KEY_FILE").unwrap_or_else(|_| DEFAULT_KEY_FILE.to_string());
         Some(HpSyncConfig {
             character_service,
             auth_service,

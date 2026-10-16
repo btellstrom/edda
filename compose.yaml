@@ -1,18 +1,101 @@
-# Postgres for the combat service (and its tests): `podman compose up -d`
-# or `docker compose up -d`. The service creates its databases on first
-# start.
+# The servers: `podman compose up -d --build` (or `docker compose`).
+# Postgres alone, e.g. for the tests: `podman compose up -d postgres`.
+# The clients (campaign-edit) run natively.
+#
+# Published on localhost only; change the host side of `ports` (or set the
+# *_PORT variables) to move them, or drop `127.0.0.1:` to let other
+# machines in.
+
+x-app: &app
+  build:
+    context: .
+    # Builds on the host's network, so fetching crates uses the host's
+    # resolver even where the engine's own DNS can't reach it (e.g. Docker
+    # with systemd-resolved's local stub).
+    network: host
+  image: localhost/campaign-manager
+  restart: unless-stopped
+
 services:
   postgres:
     image: docker.io/library/postgres:17-alpine
     environment:
       POSTGRES_PASSWORD: postgres
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 2s
+    restart: unless-stopped
+
+  auth:
+    <<: *app
+    command: ["auth-service", "serve"]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/auth
+      BIND_ADDR: 0.0.0.0:3002
+    ports:
+      - "127.0.0.1:${AUTH_PORT:-3002}:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Runs once: creates the combat service's key and lets it log in to every
+  # campaign, so it can write hit points back to character sheets.
+  register-combat:
+    <<: *app
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - auth-service add-service combat-service "$$(combat-service public-key)"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/auth
+      SERVICE_KEY_FILE: /data/combat-service.key
+    volumes:
+      - combat-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  characters:
+    <<: *app
+    command: ["character-service"]
+    environment:
+      DATABASE_URL: sqlite:///data/characters.db
+      BIND_ADDR: 0.0.0.0:3000
+      AUTH_SERVICE_URL: http://auth:3002
+    ports:
+      - "127.0.0.1:${CHARACTERS_PORT:-3000}:3000"
+    volumes:
+      - characters-data:/data
+    depends_on:
+      - auth
+
+  combat:
+    <<: *app
+    command: ["combat-service"]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/combats
+      BIND_ADDR: 0.0.0.0:3001
+      AUTH_SERVICE_URL: http://auth:3002
+      CHARACTER_SERVICE_URL: http://characters:3000
+      SERVICE_KEY_FILE: /data/combat-service.key
+    ports:
+      - "127.0.0.1:${COMBAT_PORT:-3001}:3001"
+    volumes:
+      - combat-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      register-combat:
+        condition: service_completed_successfully
+      auth:
+        condition: service_started
 
 volumes:
   postgres-data:
+  characters-data:
+  combat-data:

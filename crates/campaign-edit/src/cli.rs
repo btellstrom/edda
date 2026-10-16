@@ -115,6 +115,8 @@ pub enum AuthCommand {
     /// DM: make this device the DM of a new campaign, with the one-time code
     /// printed by `auth-service new-campaign`.
     Setup {
+        // Codes and keys are base64url, so they may start with `-`.
+        #[arg(allow_hyphen_values = true)]
         code: String,
         /// What to call this device, e.g. "DM laptop".
         #[arg(long)]
@@ -127,6 +129,7 @@ pub enum AuthCommand {
     },
     /// DM: admit a device, by the key its owner got from `auth key`.
     Approve {
+        #[arg(allow_hyphen_values = true)]
         public_key: campaign_auth::PublicKey,
         /// Whose device it is, e.g. "Vex's laptop".
         #[arg(long)]
@@ -138,7 +141,10 @@ pub enum AuthCommand {
     /// List the campaign's devices, checking their certificates.
     Devices,
     /// DM: lock a device out, by its name or key (a unique prefix is enough).
-    Revoke { device: String },
+    Revoke {
+        #[arg(allow_hyphen_values = true)]
+        device: String,
+    },
 }
 
 #[derive(Debug, Args)]

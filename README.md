@@ -17,8 +17,51 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 
 ## Running
 
-The combat service needs Postgres. Start one with `docker compose up -d`
-(see `compose.yaml`), or without a compose provider:
+The servers run as containers; `campaign-edit` (the command line and the
+fight screen) is a native program.
+
+```sh
+make server       # the servers' container image, from the Dockerfile
+make client       # campaign-edit, natively: target/release/campaign-edit
+make install      # campaign-edit into ~/.cargo/bin
+make up           # build and start the servers; make down stops them
+make campaign NAME="Vox Machina"   # the DM's setup code
+make              # lists every target
+```
+
+The Makefile uses podman; `make CONTAINER=docker ...` uses Docker.
+
+### Servers in containers
+
+`compose.yaml` runs Postgres, the auth, character and combat services (all
+three from one image, built by the `Dockerfile`), and a one-off job that
+registers the combat service's key so it can write hit points back to
+character sheets.
+
+```sh
+podman compose up -d --build     # or: docker compose up -d --build
+podman compose exec auth auth-service new-campaign "Vox Machina"   # the DM's setup code
+podman compose logs -f combat    # logs
+podman compose down              # stop; data stays in volumes (down -v deletes it)
+```
+
+`podman compose` needs podman's API socket: `systemctl --user enable --now
+podman.socket`. The services are published on localhost: auth 3002,
+characters 3000, combat 3001, Postgres 5432. Move any of them with
+`AUTH_PORT`, `CHARACTERS_PORT`, `COMBAT_PORT` or `POSTGRES_PORT`, e.g. if
+another Postgres already has 5432:
+
+```sh
+POSTGRES_PORT=5433 podman compose up -d
+```
+
+To let other machines connect, remove the `127.0.0.1:` from the `ports`
+in `compose.yaml` (plain HTTP: trusted networks only).
+
+### Servers natively
+
+The combat and auth services need Postgres. Start one with
+`podman compose up -d postgres`, or without a compose provider:
 
 ```sh
 podman run -d --name campaign-postgres -e POSTGRES_PASSWORD=postgres \
@@ -46,7 +89,8 @@ cargo run -p combat-service
 
 On first start the combat service creates its own key (`SERVICE_KEY_FILE`,
 default `combat-service.key`) and logs the command that lets it write hit
-points back: `auth-service add-service combat-service <KEY>`.
+points back: `auth-service add-service combat-service <KEY>`
+(`combat-service public-key` prints the key).
 
 Run more combat-service instances against the same database (with
 different `BIND_ADDR`s, behind any load balancer) and clients may connect to
