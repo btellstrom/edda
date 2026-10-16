@@ -10,17 +10,39 @@ use ratatui::{
 };
 use uuid::Uuid;
 
-use super::{App, command::Step, log};
+use super::{
+    App,
+    command::{self, Step},
+    log,
+};
 
-/// Suggestion rows shown below the command line.
-const SUGGESTIONS: usize = 6;
+/// Suggestion rows below the command line: every action (what an empty
+/// line lists), and two more.
+const SUGGESTIONS: u16 = command::ACTIONS as u16 + 2;
+/// Rows the initiative order and sheet keep, however short the terminal.
+const MAIN: u16 = 8;
+/// The log's rows, and how few it may shrink to.
+const LOG: u16 = 8;
+const LOG_MIN: u16 = 4;
+/// The header line, and the command box's borders, line and sentence.
+const FIXED: u16 = 1 + 4;
+
+/// Rows for the log and the suggestions on a terminal `height` rows tall.
+/// On a short one the log gives way first, then the suggestions.
+fn rows(height: u16) -> (u16, u16) {
+    let spare = height.saturating_sub(FIXED + MAIN);
+    let log = spare.saturating_sub(SUGGESTIONS).clamp(LOG_MIN, LOG);
+    let suggestions = spare.saturating_sub(log).min(SUGGESTIONS);
+    (log, suggestions)
+}
 
 pub fn draw(frame: &mut Frame, app: &App) {
+    let (log_rows, suggestion_rows) = rows(frame.area().height);
     let [header, main, history, command] = Layout::vertical([
         Constraint::Length(1),
-        Constraint::Min(8),
-        Constraint::Length(8),
-        Constraint::Length(4 + SUGGESTIONS as u16),
+        Constraint::Min(MAIN),
+        Constraint::Length(log_rows),
+        Constraint::Length(4 + suggestion_rows),
     ])
     .areas(frame.area());
     let [order, sheet] =
@@ -30,7 +52,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_order(frame, app, order);
     draw_sheet(frame, app, sheet);
     draw_log(frame, app, history);
-    draw_command(frame, app, command);
+    draw_command(frame, app, command, usize::from(suggestion_rows));
 }
 
 fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
@@ -299,7 +321,7 @@ fn draw_log(frame: &mut Frame, app: &App, area: Rect) {
     );
 }
 
-fn draw_command(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_command(frame: &mut Frame, app: &App, area: Rect, rows: usize) {
     let parsed = app.parsed();
     let mut lines = vec![Line::from(vec![
         Span::raw("> ").bold(),
@@ -330,13 +352,13 @@ fn draw_command(frame: &mut Frame, app: &App, area: Rect) {
     });
 
     let suggestions = app.suggestions();
-    let first = app.selected.saturating_sub(SUGGESTIONS - 1);
+    let first = app.selected.saturating_sub(rows.saturating_sub(1));
     let width = suggestions
         .iter()
         .map(|s| s.label.chars().count())
         .max()
         .unwrap_or(0);
-    for (i, s) in suggestions.iter().enumerate().skip(first).take(SUGGESTIONS) {
+    for (i, s) in suggestions.iter().enumerate().skip(first).take(rows) {
         let line = Line::from(vec![
             Span::raw(format!("  {:<width$}  ", s.label)),
             Span::raw(s.detail.clone()).dark_gray(),
@@ -355,4 +377,21 @@ fn draw_command(frame: &mut Frame, app: &App, area: Rect) {
     );
     let x = area.x + 3 + app.input.chars().count() as u16;
     frame.set_cursor_position((x.min(area.right().saturating_sub(2)), area.y + 1));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_action_fits_with_two_rows_to_spare_when_there_is_room() {
+        assert_eq!(SUGGESTIONS as usize, command::ACTIONS + 2);
+        assert_eq!(rows(60), (LOG, SUGGESTIONS));
+        // A 40-row terminal gives up a row of log for them.
+        assert_eq!(rows(40), (7, SUGGESTIONS));
+        // Shorter: the log shrinks to its least, then the suggestions.
+        assert_eq!(rows(35), (LOG_MIN, 18));
+        assert_eq!(rows(20), (LOG_MIN, 3));
+        assert_eq!(rows(10), (LOG_MIN, 0));
+    }
 }

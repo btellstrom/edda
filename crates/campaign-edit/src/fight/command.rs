@@ -89,6 +89,9 @@ enum Verb {
 }
 
 /// Every action with its arguments, in the order they're offered.
+/// How many actions there are: what an empty line lists.
+pub const ACTIONS: usize = VERBS.len();
+
 const VERBS: &[(Verb, &str, &str, &str)] = &[
     (Verb::Damage, "damage", "<who…> <amount>", "deal damage"),
     (Verb::Heal, "heal", "<who…> <amount>", "restore hit points"),
@@ -107,7 +110,7 @@ const VERBS: &[(Verb, &str, &str, &str)] = &[
     (
         Verb::Effect,
         "effect",
-        "<name> <who…> [for <rounds>]",
+        "<name> [who…] [for <rounds>]",
         "put an effect on",
     ),
     (Verb::Drop, "drop", "<effect>", "end an effect"),
