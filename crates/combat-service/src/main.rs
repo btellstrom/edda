@@ -59,13 +59,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             monster_service,
         })
     };
-    let config = combat_service::Config { services };
+    let config = combat_service::Config {
+        services,
+        limits: campaign_server::Limits::from_env()?,
+    };
     tracing::info!(?config, "combat service configured");
 
     let pool = combat_service::connect(&database_url).await?;
 
+    let limits = config.limits.clone();
     let app = combat_service::app(pool, TokenVerifier::new(auth_key), config).await?;
-    campaign_server::serve(app, &bind_addr, "combat service").await
+    campaign_server::serve(app, &bind_addr, "combat service", &limits).await
 }
 
 /// This service's own key, for reaching the other services. Created on

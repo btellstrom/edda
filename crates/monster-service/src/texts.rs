@@ -63,6 +63,17 @@ impl MonsterStore {
     }
 
     /// Adds one to the campaign's own.
+    /// How many texts of this kind of its own `campaign` keeps.
+    pub async fn count_own_texts<T: RulesText>(&self, campaign: Uuid) -> Result<i64, ApiError> {
+        let (count,): (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM rules_text WHERE kind = ? AND campaign = ?")
+                .bind(T::KIND)
+                .bind(campaign.to_string())
+                .fetch_one(self.pool())
+                .await?;
+        Ok(count)
+    }
+
     pub async fn create_text<T: RulesText>(
         &self,
         scope: Scope,

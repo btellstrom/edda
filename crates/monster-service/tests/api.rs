@@ -10,6 +10,7 @@ use campaign_auth::{
     protocol::{Claims, Principal},
     server::{TokenSigner, TokenVerifier},
 };
+use campaign_server::Limits;
 use campaign_types::{
     Edition,
     monster::MonsterSheet,
@@ -38,6 +39,10 @@ struct As<'a> {
 
 impl App {
     async fn new() -> App {
+        Self::with_limits(Limits::off()).await
+    }
+
+    async fn with_limits(limits: Limits) -> App {
         // An in-memory database lives per connection, so pin the pool to one.
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
@@ -47,7 +52,11 @@ impl App {
         monster_service::migrate(&pool).await.unwrap();
         let signer = TokenSigner::new(&DeviceKey::generate());
         App {
-            router: monster_service::app(pool.clone(), TokenVerifier::new(signer.public_key())),
+            router: monster_service::app(
+                pool.clone(),
+                TokenVerifier::new(signer.public_key()),
+                limits,
+            ),
             store: MonsterStore::new(pool),
             signer,
         }
@@ -412,5 +421,48 @@ async fn only_the_dm_changes_the_campaigns_monsters_spells_and_conditions() {
     assert_eq!(
         player.send(Method::POST, "/spells", Some(spell)).await.0,
         StatusCode::FORBIDDEN
+    );
+}
+
+#[tokio::test]
+async fn a_campaign_keeps_only_as_many_of_its_own_as_its_limits() {
+    let mut limits = Limits::on();
+    limits.monsters = 1;
+    limits.rules_texts = 1;
+    let app = App::with_limits(limits).await;
+    let dm = app.campaign(Uuid::new_v4(), Edition::default());
+    let goblin = json!({ "name": "Goblin", "hit_points": 7 });
+    assert_eq!(
+        dm.send(Method::POST, "/monsters", Some(goblin.clone()))
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    let (status, body) = dm.send(Method::POST, "/monsters", Some(goblin)).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        body["error"],
+        "this campaign has reached its limit of 1 monsters"
+    );
+    let spell = |name: &str| json!({ "name": name, "level": 0 });
+    assert_eq!(
+        dm.send(Method::POST, "/spells", Some(spell("Firebolt")))
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    assert_eq!(
+        dm.send(Method::POST, "/spells", Some(spell("Light")))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    // Each kind counts on its own.
+    let condition = json!({ "name": "Soaked" });
+    assert_eq!(
+        dm.send(Method::POST, "/conditions", Some(condition))
+            .await
+            .0,
+        StatusCode::CREATED
     );
 }

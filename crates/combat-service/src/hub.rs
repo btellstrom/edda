@@ -21,6 +21,7 @@ use std::{
 };
 
 use campaign_auth::protocol::{Claims, Principal};
+use campaign_server::Limits;
 use campaign_types::{
     combat::{
         CombatCommand, CombatEvent, CombatSnapshot, CombatState, CommandEnvelope, Dice,
@@ -52,6 +53,7 @@ pub struct Hub {
     live: Mutex<HashMap<Uuid, Arc<LiveCombat>>>,
     sheet_sync: Option<Arc<SheetSync>>,
     monsters: Option<Monsters>,
+    limits: Limits,
 }
 
 pub struct LiveCombat {
@@ -101,6 +103,7 @@ impl Hub {
         store: Store,
         sheet_sync: Option<SheetSync>,
         monsters: Option<Monsters>,
+        limits: Limits,
     ) -> Result<Arc<Self>, sqlx::Error> {
         let mut listener = PgListener::connect_with(store.pool()).await?;
         listener.listen(store::CHANNEL).await?;
@@ -109,6 +112,7 @@ impl Hub {
             live: Mutex::new(HashMap::new()),
             sheet_sync: sheet_sync.map(Arc::new),
             monsters,
+            limits,
         });
         tokio::spawn(hub.clone().listen(listener));
         tokio::spawn(hub.clone().evict_idle());
@@ -122,7 +126,34 @@ impl Hub {
         &self.store
     }
 
+    pub fn limits(&self) -> &Limits {
+        &self.limits
+    }
+
+    /// Fails unless `campaign` may start another combat.
+    async fn room_for_a_combat(&self, campaign: &str) -> Result<(), ApiError> {
+        let kept = self.store.count(campaign).await?;
+        self.limits
+            .room_for(kept, 1, self.limits.combats, "combats")
+            .map_err(ApiError::Forbidden)
+    }
+
+    /// Fails unless a combat that has logged `seq` events may log `more`.
+    fn room_for_events(&self, seq: u64, more: usize) -> Result<(), ApiError> {
+        let seq = i64::try_from(seq).unwrap_or(i64::MAX);
+        let more = u32::try_from(more).unwrap_or(u32::MAX);
+        self.limits
+            .room_for(
+                seq,
+                more,
+                self.limits.events_per_combat,
+                "events in a combat; start a new one",
+            )
+            .map_err(ApiError::Forbidden)
+    }
+
     pub async fn create(&self, campaign: &str, name: &str) -> Result<CombatSnapshot, ApiError> {
+        self.room_for_a_combat(campaign).await?;
         let id = self.store.create(campaign, name, Vec::new()).await?;
         self.combat(id).await?.snapshot(&self.store).await
     }
@@ -136,6 +167,7 @@ impl Hub {
         encounter: Uuid,
         name: Option<&str>,
     ) -> Result<CombatSnapshot, ApiError> {
+        self.room_for_a_combat(&campaign.to_string()).await?;
         let plan = encounters::plan(self, campaign, encounter).await?;
         let name = name.filter(|n| !n.trim().is_empty()).unwrap_or(&plan.name);
         let mut state = CombatState::default();
@@ -159,6 +191,7 @@ impl Hub {
                 setup.push(event);
             }
         }
+        self.room_for_events(1, setup.len())?;
         let id = self
             .store
             .create(&campaign.to_string(), name, setup)
@@ -260,6 +293,7 @@ impl Hub {
                 &actor_key,
                 played.as_ref(),
                 stat_block.as_ref(),
+                |seq, more| self.room_for_events(seq, more),
             )
             .await;
         if let (Err(_), Some((sync, campaign, character, cost))) = (&outcome, &spent) {
@@ -384,6 +418,11 @@ impl LiveCombat {
             .map_err(|e: uuid::Error| ApiError::Corrupt(e.to_string()))
     }
 
+    /// How many devices on this instance are watching it.
+    pub fn watchers(&self) -> usize {
+        self.events.receiver_count()
+    }
+
     fn touch(&self) {
         *self.last_used.lock().expect("not poisoned") = Instant::now();
     }
@@ -447,6 +486,7 @@ impl LiveCombat {
         actor_key: &str,
         played: Option<&HashSet<Uuid>>,
         stat_block: Option<&Monster>,
+        room_for_events: impl Fn(u64, usize) -> Result<(), ApiError>,
     ) -> Result<Outcome, ApiError> {
         let mut core = self.core.lock().await;
         let mut tx = store.begin().await?;
@@ -481,6 +521,7 @@ impl LiveCombat {
             ref command => decide(&core.state, command, &mut ServerDice)?,
         };
 
+        room_for_events(core.seq, events.len())?;
         let at = store::now();
         let logged: Vec<_> = events
             .into_iter()

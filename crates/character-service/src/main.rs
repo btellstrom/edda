@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let pool = character_service::connect(&database_url).await?;
 
-    let app = character_service::app(pool, verifier);
-    campaign_server::serve(app, &bind_addr, "character service").await
+    let limits = campaign_server::Limits::from_env()?;
+    let app = character_service::app(pool, verifier, limits.clone());
+    campaign_server::serve(app, &bind_addr, "character service", &limits).await
 }

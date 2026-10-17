@@ -7,6 +7,10 @@
 # front with the `https` profile (the proxy below) rather than opening the
 # services themselves.
 
+# Every service keeps limits on how much one client or campaign may ask
+# of it (see the README); `LIMITS=off` (say, in a .env file) turns them off
+# on your own machine. They trust the proxy's word for where a request
+# came from, as only it and the other services reach them.
 x-app: &app
   build:
     context: .
@@ -42,6 +46,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/auth
       BIND_ADDR: 0.0.0.0:3002
+      LIMITS: ${LIMITS:-on}
+      TRUST_PROXY: "1"
     ports:
       - "127.0.0.1:${AUTH_PORT:-3002}:3002"
     depends_on:
@@ -72,6 +78,8 @@ services:
     environment:
       DATABASE_URL: sqlite:///data/characters.db
       BIND_ADDR: 0.0.0.0:3000
+      LIMITS: ${LIMITS:-on}
+      TRUST_PROXY: "1"
       AUTH_SERVICE_URL: http://auth:3002
     ports:
       - "127.0.0.1:${CHARACTERS_PORT:-3000}:3000"
@@ -113,6 +121,8 @@ services:
     environment:
       DATABASE_URL: sqlite:///data/monsters.db
       BIND_ADDR: 0.0.0.0:3003
+      LIMITS: ${LIMITS:-on}
+      TRUST_PROXY: "1"
       AUTH_SERVICE_URL: http://auth:3002
     ports:
       - "127.0.0.1:${MONSTERS_PORT:-3003}:3003"
@@ -130,6 +140,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/combats
       BIND_ADDR: 0.0.0.0:3001
+      LIMITS: ${LIMITS:-on}
+      TRUST_PROXY: "1"
       AUTH_SERVICE_URL: http://auth:3002
       CHARACTER_SERVICE_URL: http://characters:3000
       MONSTER_SERVICE_URL: http://monsters:3003

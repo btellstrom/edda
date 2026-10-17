@@ -84,6 +84,15 @@ impl CharacterStore {
             .collect()
     }
 
+    /// How many characters `campaign` keeps.
+    pub async fn count(&self, campaign: Uuid) -> Result<i64, ApiError> {
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM characters WHERE campaign = ?")
+            .bind(campaign.to_string())
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count)
+    }
+
     pub async fn get(&self, scope: Scope, id: Uuid) -> Result<Character, ApiError> {
         let row: Option<Row> = sqlx::query_as(
             "SELECT id, campaign, owners, sheet, version, created_at, updated_at FROM characters WHERE id = ? AND campaign = ?",

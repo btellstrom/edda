@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use axum::{Extension, Router};
 use campaign_auth::server::TokenVerifier;
+use campaign_server::Limits;
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
 use tower_http::trace::TraceLayer;
 
@@ -22,6 +23,8 @@ pub struct Config {
     /// The other services to use, as this service itself. `None` uses
     /// none: sheets are left alone, and monsters can't be added by id.
     pub services: Option<services::ServicesConfig>,
+    /// How much a campaign may keep, and how many may watch a combat.
+    pub limits: Limits,
 }
 
 /// Connects to the database, creating it if needed, and applies migrations.
@@ -63,7 +66,7 @@ pub async fn app(
             .monster_service
             .map(|url| services::Monsters::new(login, url));
     }
-    let hub = hub::Hub::start(store, sheet_sync, monsters).await?;
+    let hub = hub::Hub::start(store, sheet_sync, monsters, config.limits).await?;
     Ok(Router::new()
         .merge(routes::router())
         .merge(encounters::router())

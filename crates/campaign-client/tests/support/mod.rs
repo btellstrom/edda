@@ -11,6 +11,7 @@ use campaign_auth::{
     protocol::{Campaign, Session},
 };
 use campaign_client::auth::AuthClient;
+use campaign_server::Limits;
 use uuid::Uuid;
 
 /// The test database `name` on the throwaway Postgres at
@@ -60,11 +61,15 @@ pub struct Auth {
 
 impl Auth {
     pub async fn start() -> Self {
+        Self::start_with(Limits::off()).await
+    }
+
+    pub async fn start_with(limits: Limits) -> Self {
         let pool = auth_service::connect(&database_url("auth_test").await)
             .await
             .expect("Postgres must be running for these tests (see README)");
         let store = auth_service::Store::new(pool.clone());
-        let url = serve(auth_service::app(pool).await.unwrap()).await;
+        let url = serve(auth_service::app(pool, limits).await.unwrap()).await;
         let key = AuthClient::new(&url).server_key().await.unwrap();
         Self { url, key, store }
     }

@@ -97,6 +97,15 @@ impl MonsterStore {
     }
 
     /// Adds a monster to the campaign's own.
+    /// How many monsters of its own `campaign` keeps.
+    pub async fn count_own(&self, campaign: Uuid) -> Result<i64, ApiError> {
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM monsters WHERE campaign = ?")
+            .bind(campaign.to_string())
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count)
+    }
+
     pub async fn create(&self, scope: Scope, sheet: MonsterSheet) -> Result<Monster, ApiError> {
         sheet.validate()?;
         insert(&self.pool, Some(scope.campaign), &sheet).await

@@ -1,6 +1,10 @@
 //! What every campaign-manager service shares: logging, finding the auth
-//! service's key, serving (with the CORS setting), error responses, and
-//! for the SQLite ones, backups.
+//! service's key, serving (with the CORS setting and the limits), error
+//! responses, and for the SQLite ones, backups.
+
+pub mod limits;
+
+pub use limits::Limits;
 
 use std::{error::Error, fmt::Display, time::Duration};
 
@@ -53,12 +57,19 @@ pub fn auth_service_url() -> String {
     std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string())
 }
 
-/// Serves `app` on `bind` until Ctrl-C, answering web pages from the
-/// origins in `CORS_ORIGINS`.
-pub async fn serve(app: Router, bind: &str, name: &str) -> Result<(), Box<dyn Error>> {
-    let app = app.layer(cors()?);
+/// Serves `app` on `bind` until Ctrl-C, within `limits`, answering web
+/// pages from the origins in `CORS_ORIGINS`.
+pub async fn serve(
+    app: Router,
+    bind: &str,
+    name: &str,
+    limits: &Limits,
+) -> Result<(), Box<dyn Error>> {
+    let app = limits.apply(app.layer(cors()?));
     let listener = tokio::net::TcpListener::bind(bind).await?;
-    tracing::info!(%bind, "{name} listening");
+    tracing::info!(%bind, limits = limits.enabled(), "{name} listening");
+    // Each request knows its client's address, for the limits.
+    let app = app.into_make_service_with_connect_info::<std::net::SocketAddr>();
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;

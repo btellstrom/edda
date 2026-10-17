@@ -21,6 +21,7 @@ use campaign_auth::{
     protocol::{Claims, PairingMessage, PairingSlot},
     server::Authenticated,
 };
+use campaign_server::Limits;
 use chrono::{DateTime, Utc};
 
 use crate::{error::ApiError, routes::AppState};
@@ -37,10 +38,10 @@ const POLL_INTERVAL: Duration = Duration::from_millis(150);
 
 type AppStateRef = Arc<AppState>;
 
-pub fn router() -> Router<AppStateRef> {
-    Router::new()
-        .route("/pairings", post(open))
-        .route("/pairings/{slot}", delete(cancel))
+pub fn router(limits: &Limits) -> Router<AppStateRef> {
+    // Joining needs no token, so the messages get fewer tries: someone
+    // spraying slots can't spoil everyone's pairings.
+    let messages = Router::new()
         .route(
             "/pairings/{slot}/host/{n}",
             put(send_as_host).get(|state, path| receive(state, path, Side::Host)),
@@ -48,7 +49,11 @@ pub fn router() -> Router<AppStateRef> {
         .route(
             "/pairings/{slot}/joiner/{n}",
             put(send_as_joiner).get(|state, path| receive(state, path, Side::Joiner)),
-        )
+        );
+    Router::new()
+        .route("/pairings", post(open))
+        .route("/pairings/{slot}", delete(cancel))
+        .merge(limits.guard_sign_ins(messages))
 }
 
 async fn open(

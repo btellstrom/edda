@@ -16,6 +16,8 @@ use campaign_auth::{
 };
 use chrono::{Duration, Utc};
 
+use campaign_server::Limits;
+
 use crate::{error::ApiError, store::Store};
 
 const TOKEN_LIFETIME: Duration = Duration::minutes(15);
@@ -25,18 +27,22 @@ const MAX_NAME_LENGTH: usize = 64;
 pub struct AppState {
     pub store: Store,
     pub signer: TokenSigner,
+    pub limits: Limits,
 }
 
 type AppStateRef = Arc<AppState>;
 
-pub fn router() -> Router<AppStateRef> {
-    Router::new()
-        .route("/health", get(|| async { "ok" }))
-        .route("/public-key", get(public_key))
+pub fn router(limits: &Limits) -> Router<AppStateRef> {
+    // What needs no token gets fewer tries.
+    let sign_ins = Router::new()
         .route("/setup", post(setup))
         .route("/setup/lookup", post(lookup_setup_code))
         .route("/login/challenge", post(challenge))
-        .route("/login", post(login))
+        .route("/login", post(login));
+    Router::new()
+        .route("/health", get(|| async { "ok" }))
+        .route("/public-key", get(public_key))
+        .merge(limits.guard_sign_ins(sign_ins))
         .route("/campaign", get(campaign))
         .route("/devices", get(devices).post(add_device))
         .route("/devices/{key}", delete(revoke))
@@ -191,6 +197,13 @@ async fn add_device(
         ));
     }
     check_name(&cert.name)?;
+    let devices = state.store.devices(claims.campaign).await?;
+    let active = devices.iter().filter(|d| d.revoked_at.is_none()).count();
+    let active = i64::try_from(active).unwrap_or(i64::MAX);
+    state
+        .limits
+        .room_for(active, 1, state.limits.devices, "devices")
+        .map_err(ApiError::Forbidden)?;
     let device = state.store.add_device(state.store.pool(), &signed).await?;
     Ok((StatusCode::CREATED, Json(device)))
 }

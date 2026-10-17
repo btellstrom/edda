@@ -111,6 +111,34 @@ try it: `SANDBOX_HTTPS=1` then sends everything through it.
 campaign-edit doesn't need it, and neither does a page served through the
 proxy.
 
+#### Limits
+
+A service open to others has to survive clients that ask too much, by
+mistake or not. Every service keeps limits, on by default:
+
+| Limit | Default | Setting |
+| --- | --- | --- |
+| Requests per minute from one client address | 600 | `LIMIT_REQUESTS_PER_MINUTE` |
+| ...to the routes that need no token (logging in, setting up a campaign, pairing) | 20 | `LIMIT_SIGN_INS_PER_MINUTE` |
+| Size of a request | 1 MiB | `LIMIT_BODY_BYTES` |
+| Characters per campaign | 200 | `LIMIT_CHARACTERS` |
+| A campaign's own monsters, and its own spells and conditions (each) | 1000 | `LIMIT_MONSTERS`, `LIMIT_RULES_TEXTS` |
+| Combats, and planned encounters, per campaign | 500, 200 | `LIMIT_COMBATS`, `LIMIT_PLANS` |
+| Devices per campaign | 50 | `LIMIT_DEVICES` |
+| Events in one combat | 20,000 | `LIMIT_EVENTS_PER_COMBAT` |
+| Devices watching one combat at once | 50 | `LIMIT_CONNECTIONS_PER_COMBAT` |
+
+`LIMITS=off` turns them all off, for your own machine (`LIMITS=off make
+up`, or `LIMITS=off` in a `.env` file next to `compose.yaml`); the sandbox
+runs without them. A client over its rate gets `429` with `Retry-After`;
+a full campaign gets `403` saying which limit it reached.
+
+Requests are counted per service instance and client address. Behind the
+proxy, `TRUST_PROXY=1` (set in compose) takes the address from the
+`X-Forwarded-For` the proxy adds and counts only requests that came
+through it, so the services' calls to each other aren't limited; set it
+only where nothing else can reach the services.
+
 #### Backups
 
 ```sh

@@ -5,6 +5,7 @@ use axum::{
     body::Body,
     http::{HeaderMap, Method, Request, StatusCode, header},
 };
+use campaign_server::Limits;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use sqlx::sqlite::SqlitePoolOptions;
@@ -33,11 +34,11 @@ struct App {
 }
 
 impl App {
-    fn new(pool: sqlx::SqlitePool) -> App {
+    fn new(pool: sqlx::SqlitePool, limits: Limits) -> App {
         let signer = Arc::new(TokenSigner::new(&DeviceKey::generate()));
         let verifier = TokenVerifier::new(signer.public_key());
         let app = App {
-            router: character_service::app(pool, verifier),
+            router: character_service::app(pool, verifier, limits),
             signer,
             key: DeviceKey::generate().public(),
             role: Principal::Player,
@@ -88,6 +89,10 @@ impl App {
 }
 
 async fn test_app() -> App {
+    test_app_with(Limits::off()).await
+}
+
+async fn test_app_with(limits: Limits) -> App {
     // An in-memory database lives per connection, so pin the pool to one.
     let pool = SqlitePoolOptions::new()
         .max_connections(1)
@@ -95,7 +100,7 @@ async fn test_app() -> App {
         .await
         .unwrap();
     character_service::migrate(&pool).await.unwrap();
-    App::new(pool)
+    App::new(pool, limits)
 }
 
 async fn send(app: &App, method: Method, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
@@ -416,7 +421,7 @@ async fn concurrent_actions_never_overspend() {
     let pool = character_service::connect(&format!("sqlite://{}", path.display()))
         .await
         .unwrap();
-    let app = App::new(pool);
+    let app = App::new(pool, Limits::off());
 
     let mut sheet = caster();
     sheet["resources"][0]["max"] = json!(5);
@@ -575,7 +580,7 @@ async fn deleting_a_campaign_deletes_only_its_characters() {
         .await
         .unwrap();
     character_service::migrate(&pool).await.unwrap();
-    let app = App::new(pool.clone());
+    let app = App::new(pool.clone(), Limits::off());
     let campaign = Uuid::new_v4();
     let doomed = app.as_campaign(Some(campaign));
     let other = app.as_campaign(Some(Uuid::new_v4()));
@@ -682,4 +687,43 @@ async fn players_change_only_the_characters_their_device_plays() {
             .clone()
     };
     assert_eq!((owners_of("Vex"), owners_of("Grog")), (both, json!([])));
+}
+
+#[tokio::test]
+async fn a_campaign_keeps_only_as_many_characters_as_its_limit() {
+    let mut limits = Limits::on();
+    limits.characters = 2;
+    let app = test_app_with(limits).await;
+    for name in ["Vex", "Vax"] {
+        let (status, _) = send(
+            &app,
+            Method::POST,
+            "/characters",
+            Some(json!({ "name": name })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
+    let (status, body) = send(
+        &app,
+        Method::POST,
+        "/characters",
+        Some(json!({ "name": "Grog" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        body["error"],
+        "this campaign has reached its limit of 2 characters"
+    );
+    // Another campaign has room of its own.
+    let elsewhere = app.as_campaign(Some(Uuid::new_v4()));
+    let (status, _) = send(
+        &elsewhere,
+        Method::POST,
+        "/characters",
+        Some(json!({ "name": "Grog" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
 }

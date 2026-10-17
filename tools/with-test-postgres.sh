@@ -14,8 +14,11 @@ fi
 CONTAINER=${CONTAINER:-podman}
 name=campaign-manager-test-pg-$$
 port=${TEST_POSTGRES_PORT:-55432}
+# The tests run in parallel, each with services of its own and their
+# connection pools: more than Postgres's default 100 connections.
 "$CONTAINER" run --rm -d --name "$name" -e POSTGRES_PASSWORD=postgres \
-    -p "127.0.0.1:$port:5432" docker.io/library/postgres:17-alpine >/dev/null
+    -p "127.0.0.1:$port:5432" docker.io/library/postgres:17-alpine \
+    postgres -c max_connections=500 >/dev/null
 trap '"$CONTAINER" stop "$name" >/dev/null' EXIT
 until "$CONTAINER" exec "$name" pg_isready -q -h 127.0.0.1 2>/dev/null; do sleep 0.5; done
 TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:$port "$@"

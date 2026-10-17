@@ -24,6 +24,7 @@ default = ["websocket"]
 websocket = ["dep:tokio-tungstenite", "dep:futures-util", "tokio/net"]
 
 [dev-dependencies]
+campaign-server = { path = "../campaign-server" }
 auth-service = { path = "../auth-service" }
 axum = "0.8.9"
 campaign-auth = { path = "../campaign-auth", features = ["server"] }

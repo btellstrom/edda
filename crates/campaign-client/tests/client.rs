@@ -8,6 +8,7 @@ use campaign_auth::{
     server::{TokenSigner, TokenVerifier},
 };
 use campaign_client::{Client, ClientError};
+use campaign_server::Limits;
 use campaign_types::{CharacterAction, CharacterSheet, ClassLevel, Pool, Recharge, Resource};
 use sqlx::sqlite::SqlitePoolOptions;
 
@@ -30,7 +31,7 @@ async fn server() -> Client {
             expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
         })
         .unwrap();
-    let app = character_service::app(pool, TokenVerifier::new(signer.public_key()));
+    let app = character_service::app(pool, TokenVerifier::new(signer.public_key()), Limits::off());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(axum::serve(listener, app).into_future());

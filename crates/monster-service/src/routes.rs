@@ -1,11 +1,14 @@
+use std::sync::Arc;
+
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Path, Query, State},
     http::{StatusCode, header},
     response::IntoResponse,
     routing::get,
 };
 use campaign_auth::{protocol::Claims, server::Authenticated};
+use campaign_server::Limits;
 use campaign_types::{
     monster::{Monster, MonsterSheet, MonsterSummary},
     rules_text::{ConditionText, Entry, RulesText, SpellText},
@@ -62,9 +65,14 @@ async fn fetch_text<T: RulesText>(
 async fn create_text<T: RulesText>(
     State(store): State<MonsterStore>,
     Authenticated(claims): Authenticated,
+    Extension(limits): Extension<Arc<Limits>>,
     Json(text): Json<T>,
 ) -> Result<impl IntoResponse, ApiError> {
     dm_only(&claims)?;
+    let kept = store.count_own_texts::<T>(claims.campaign).await?;
+    limits
+        .room_for(kept, 1, limits.rules_texts, T::KIND)
+        .map_err(ApiError::Limit)?;
     let entry = store.create_text((&claims).into(), text).await?;
     let location = format!("/{}/{}", T::KIND, entry.id);
     Ok((
@@ -130,9 +138,14 @@ async fn fetch(
 async fn create(
     State(store): State<MonsterStore>,
     Authenticated(claims): Authenticated,
+    Extension(limits): Extension<Arc<Limits>>,
     Json(sheet): Json<MonsterSheet>,
 ) -> Result<impl IntoResponse, ApiError> {
     dm_only(&claims)?;
+    let kept = store.count_own(claims.campaign).await?;
+    limits
+        .room_for(kept, 1, limits.monsters, "monsters")
+        .map_err(ApiError::Limit)?;
     let monster = store.create((&claims).into(), sheet).await?;
     let location = format!("/monsters/{}", monster.id);
     Ok((

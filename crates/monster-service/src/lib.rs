@@ -13,6 +13,7 @@ use std::{str::FromStr, sync::Arc};
 
 use axum::{Extension, Router};
 use campaign_auth::server::TokenVerifier;
+use campaign_server::Limits;
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -33,11 +34,14 @@ pub async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::migrate::MigrateErro
     sqlx::migrate!().run(pool).await
 }
 
-/// The service, accepting tokens that `verifier` vouches for.
-pub fn app(pool: SqlitePool, verifier: TokenVerifier) -> Router {
+/// The service, accepting tokens that `verifier` vouches for, within
+/// `limits` (how many monsters, spells and conditions of its own a campaign
+/// may keep).
+pub fn app(pool: SqlitePool, verifier: TokenVerifier, limits: Limits) -> Router {
     Router::new()
         .merge(routes::router())
         .with_state(MonsterStore::new(pool))
         .layer(Extension(Arc::new(verifier)))
+        .layer(Extension(Arc::new(limits)))
         .layer(TraceLayer::new_for_http())
 }

@@ -182,6 +182,16 @@ async fn websocket(
 ) -> Result<Response, ApiError> {
     // Resolve the combat first so an unknown id is a plain 404.
     let combat = hub.combat_in(id, claims.campaign).await?;
+    let watching = i64::try_from(combat.watchers()).unwrap_or(i64::MAX);
+    let limits = hub.limits();
+    limits
+        .room_for(
+            watching,
+            1,
+            limits.connections_per_combat,
+            "devices watching a combat",
+        )
+        .map_err(ApiError::Forbidden)?;
     Ok(upgrade.on_upgrade(move |socket| session(socket, hub, combat, id, claims)))
 }
 

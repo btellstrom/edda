@@ -2,6 +2,7 @@
 
 //! End-to-end tests against real combat and auth services.
 
+use campaign_server::Limits;
 use std::{sync::Arc, time::Duration};
 
 use campaign_auth::{DeviceKey, Role, protocol::Session, server::TokenVerifier};
@@ -641,6 +642,7 @@ async fn using(
             character_service: characters.map(str::to_string),
             monster_service: monsters.map(str::to_string),
         }),
+        ..Default::default()
     }
 }
 
@@ -652,7 +654,12 @@ async fn goblins(auth: &Auth, party: &Party) -> (String, campaign_types::monster
         .await
         .unwrap();
     monster_service::migrate(&pool).await.unwrap();
-    let url = support::serve(monster_service::app(pool, TokenVerifier::new(auth.key))).await;
+    let url = support::serve(monster_service::app(
+        pool,
+        TokenVerifier::new(auth.key),
+        Limits::off(),
+    ))
+    .await;
     let goblin = campaign_client::monsters::MonsterClient::new(&url)
         .with_token(&party.dm.token)
         .create(&MonsterSheet {
@@ -1036,7 +1043,7 @@ async fn character_service(auth: &Auth) -> campaign_client::Client {
         .await
         .unwrap();
     character_service::migrate(&pool).await.unwrap();
-    let app = character_service::app(pool, TokenVerifier::new(auth.key));
+    let app = character_service::app(pool, TokenVerifier::new(auth.key), Limits::off());
     campaign_client::Client::new(support::serve(app).await)
 }
 

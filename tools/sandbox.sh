@@ -16,7 +16,8 @@
 #
 # `run` and `tmux` always use this checkout's target/debug/campaign-edit,
 # with the sandbox's config and servers, and refuse to run without a
-# sandbox up. They're the DM's device, or with SANDBOX_AS=<name> a player's,
+# sandbox up. The services keep no limits (SANDBOX_LIMITS=on for them).
+# They're the DM's device, or with SANDBOX_AS=<name> a player's,
 # and with SANDBOX_HTTPS=1 they go through the proxy, trusting its
 # certificate authority alone.
 set -euo pipefail
@@ -96,6 +97,7 @@ up() {
     done
     (cd "$root" && cargo build --workspace --quiet)
     mkdir -p "$dir"
+    export LIMITS=${SANDBOX_LIMITS:-off}
     local pg_url="postgres://postgres:postgres@127.0.0.1:$pg_port"
 
     "$container" run --rm -d --name "$pg" -e POSTGRES_PASSWORD=postgres \
@@ -225,5 +227,5 @@ case "${1:-}" in
     https) https ;;
     status) status ;;
     down) down ;;
-    *) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+    *) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

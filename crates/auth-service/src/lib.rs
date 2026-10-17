@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use axum::{Extension, Router};
 use campaign_auth::server::{TokenSigner, TokenVerifier};
+use campaign_server::Limits;
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
 use tower_http::trace::TraceLayer;
 
@@ -31,14 +32,20 @@ pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
     Ok(pool)
 }
 
-pub async fn app(pool: PgPool) -> Result<Router, error::ApiError> {
+/// The service, within `limits` (its campaigns' devices, and how often
+/// clients may try to sign in).
+pub async fn app(pool: PgPool, limits: Limits) -> Result<Router, error::ApiError> {
     let store = Store::new(pool);
     let signer = TokenSigner::new(&store.token_key().await?);
     let verifier = Arc::new(TokenVerifier::new(signer.public_key()));
     Ok(Router::new()
-        .merge(routes::router())
-        .merge(pairing::router())
-        .with_state(Arc::new(routes::AppState { store, signer }))
+        .merge(routes::router(&limits))
+        .merge(pairing::router(&limits))
+        .with_state(Arc::new(routes::AppState {
+            store,
+            signer,
+            limits,
+        }))
         .layer(Extension(verifier))
         .layer(TraceLayer::new_for_http()))
 }

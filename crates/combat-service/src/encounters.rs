@@ -130,6 +130,14 @@ async fn create(
 ) -> Result<impl IntoResponse, ApiError> {
     dm_only(&claims)?;
     check(&plan)?;
+    let (kept,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM encounters WHERE campaign = $1")
+        .bind(claims.campaign.to_string())
+        .fetch_one(pool(&hub))
+        .await?;
+    let limits = hub.limits();
+    limits
+        .room_for(kept, 1, limits.plans, "planned encounters")
+        .map_err(ApiError::Forbidden)?;
     let now = store::now();
     let encounter = Encounter {
         id: Uuid::new_v4(),

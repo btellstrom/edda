@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use axum::{Extension, Router};
 use campaign_auth::server::TokenVerifier;
+use campaign_server::Limits;
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -21,6 +22,7 @@ pub use store::CharacterStore;
 #[derive(Clone)]
 pub struct AppState {
     pub characters: CharacterStore,
+    pub limits: Arc<Limits>,
 }
 
 /// Opens (creating if needed) the database and applies migrations.
@@ -37,10 +39,12 @@ pub async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::migrate::MigrateErro
     sqlx::migrate!().run(pool).await
 }
 
-/// The service, accepting tokens that `verifier` vouches for.
-pub fn app(pool: SqlitePool, verifier: TokenVerifier) -> Router {
+/// The service, accepting tokens that `verifier` vouches for, within
+/// `limits` (how many characters a campaign may keep).
+pub fn app(pool: SqlitePool, verifier: TokenVerifier, limits: Limits) -> Router {
     let state = AppState {
         characters: CharacterStore::new(pool),
+        limits: Arc::new(limits),
     };
     Router::new()
         .merge(routes::router())

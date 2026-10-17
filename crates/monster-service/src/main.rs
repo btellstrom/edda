@@ -135,6 +135,7 @@ async fn serve(pool: sqlx::SqlitePool, bind: &str) -> Result<(), Box<dyn std::er
     let verifier = campaign_auth::server::TokenVerifier::new(
         campaign_server::auth_key(&campaign_server::auth_service_url()).await?,
     );
-    let app = monster_service::app(pool, verifier);
-    campaign_server::serve(app, bind, "monster service").await
+    let limits = campaign_server::Limits::from_env()?;
+    let app = monster_service::app(pool, verifier, limits.clone());
+    campaign_server::serve(app, bind, "monster service", &limits).await
 }

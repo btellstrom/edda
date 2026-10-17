@@ -53,6 +53,15 @@ jobs:
         with:
           tool: cargo-llvm-cov
       - uses: ./.github/actions/srd
+      # The tests run in parallel, each with services of its own and their
+      # connection pools: more than Postgres's default 100 connections. A
+      # service container takes no arguments, so it's set and restarted.
+      - name: Give Postgres room for the tests
+        run: |
+          id=$(docker ps --quiet --filter ancestor=postgres:17-alpine)
+          docker exec "$id" psql -U postgres -c "ALTER SYSTEM SET max_connections = 500"
+          docker restart "$id"
+          until docker exec "$id" pg_isready -U postgres; do sleep 1; done
       # Every test, the SRD ones included, measuring what they cover.
       - run: cargo llvm-cov --workspace --locked --lcov --output-path lcov.info -- --include-ignored
       - name: Coverage summary

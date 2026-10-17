@@ -11,6 +11,9 @@ pub enum ApiError {
     /// The shared library is changed by importing, not through the API.
     #[error("the shared library can't be changed here; make a copy for the campaign instead")]
     Shared,
+    /// The campaign keeps as many as it may.
+    #[error("{0}")]
+    Limit(String),
     /// Only the DM's devices change the campaign's monsters, spells and
     /// conditions.
     #[error("only a DM device can change the campaign's monsters, spells and conditions")]
@@ -29,7 +32,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = match &self {
             ApiError::NotFound => StatusCode::NOT_FOUND,
-            ApiError::Shared | ApiError::DmOnly => StatusCode::FORBIDDEN,
+            ApiError::Shared | ApiError::DmOnly | ApiError::Limit(_) => StatusCode::FORBIDDEN,
             ApiError::Invalid(_) | ApiError::InvalidText(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };

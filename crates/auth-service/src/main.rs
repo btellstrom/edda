@@ -89,8 +89,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let app = auth_service::app(pool).await?;
-    campaign_server::serve(app, bind, "auth service").await
+    let limits = campaign_server::Limits::from_env()?;
+    let app = auth_service::app(pool, limits.clone()).await?;
+    campaign_server::serve(app, bind, "auth service", &limits).await
 }
 
 async fn print_setup_code(

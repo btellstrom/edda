@@ -120,6 +120,15 @@ impl Store {
         Ok(id)
     }
 
+    /// How many combats `campaign` keeps.
+    pub async fn count(&self, campaign: &str) -> Result<i64, ApiError> {
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM combats WHERE campaign = $1")
+            .bind(campaign)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count)
+    }
+
     /// Most recently active first.
     pub async fn list(&self, filter: &ListFilter) -> Result<Vec<CombatSummary>, ApiError> {
         let rows: Vec<SummaryRow> = sqlx::query_as(
