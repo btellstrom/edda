@@ -58,6 +58,7 @@ step "Starting the stack"
 # Whatever an interrupted run left behind goes first.
 compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 "$CONTAINER" build --network host -t "$IMAGE" .
+printf 'Server image: %s MB\n' "$(( $("$CONTAINER" image inspect "$IMAGE" --format '{{.Size}}') / 1000000 ))"
 compose up -d
 # The monster service starts once the seed job is done, and the combat
 # service once it's registered with auth: when all four answer, it's up.
