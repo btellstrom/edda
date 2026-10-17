@@ -10,7 +10,6 @@ campaign-auth = { version = "0.1.0", path = "../campaign-auth", features = ["ser
 campaign-client = { version = "0.1.0", path = "../campaign-client", default-features = false }
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
-serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros", "chrono", "uuid"] }
 thiserror = "2.0.21"
@@ -24,3 +23,6 @@ uuid = { version = "1.28.0", features = ["v4", "serde"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 http-body-util = "0.1.5"
 tower = { version = "0.5.3", features = ["util"] }
+
+[lints]
+workspace = true

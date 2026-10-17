@@ -13,7 +13,8 @@ x-app: &app
     # resolver even where the engine's own DNS can't reach it (e.g. Docker
     # with systemd-resolved's local stub).
     network: host
-  image: localhost/campaign-manager
+  # The Makefile's IMAGE; the smoke test builds one of its own.
+  image: ${IMAGE:-localhost/campaign-manager}
   restart: unless-stopped
 
 services:

@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)] // tests panic on failure, which is the point
+
 //! Runs the client against a real character service on a random port.
 
 use campaign_auth::{

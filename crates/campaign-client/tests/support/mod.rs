@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)] // tests panic on failure, which is the point
+
 //! A real auth service for end-to-end tests, and campaigns with logged-in
 //! devices. Needs Postgres (see README); `TEST_POSTGRES_URL` points at the
 //! server, and each service gets its own test database on it.

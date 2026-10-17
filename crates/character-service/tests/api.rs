@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)] // tests panic on failure, which is the point
+
 use axum::{
     Router,
     body::Body,

@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)] // tests panic on failure, which is the point
+
 //! End-to-end tests of pairing a device with a short code (PAKE).
 
 mod support;

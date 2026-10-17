@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)] // tests panic on failure, which is the point
+
 //! End-to-end tests of the auth service: setting up campaigns, admitting
 //! and revoking devices, and logging in. Mostly about what must *not* work.
 

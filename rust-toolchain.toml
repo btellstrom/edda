@@ -1,0 +1,4 @@
+# The same Rust as the Dockerfile's build stage.
+[toolchain]
+channel = "1.97"
+components = ["rustfmt", "clippy"]

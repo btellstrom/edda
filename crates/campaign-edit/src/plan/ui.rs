@@ -15,6 +15,7 @@ use ratatui::{
 use super::{App, command};
 
 /// Suggestion rows below the command line: every action, and two more.
+#[expect(clippy::cast_possible_truncation, reason = "a couple of dozen actions")]
 const SUGGESTIONS: u16 = command::ACTIONS as u16 + 2;
 /// The difficulty box's rows.
 const DIFFICULTY: u16 = 6;
@@ -36,7 +37,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
     .areas(frame.area());
     let [left, right] =
         Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(main);
-    let plans = (app.encounters.len() as u16).clamp(1, PLANS) + 2;
+    let plans = u16::try_from(app.encounters.len())
+        .unwrap_or(u16::MAX)
+        .clamp(1, PLANS)
+        + 2;
     let [plan, rating, list] = Layout::vertical([
         Constraint::Min(3),
         Constraint::Length(DIFFICULTY),
@@ -340,6 +344,7 @@ fn draw_command(frame: &mut Frame, app: &App, area: Rect, rows: usize) {
         Paragraph::new(lines).block(Block::bordered().title(help)),
         area,
     );
-    let x = area.x + 3 + app.input.chars().count() as u16;
+    let typed = u16::try_from(app.input.chars().count()).unwrap_or(u16::MAX);
+    let x = area.x.saturating_add(3).saturating_add(typed);
     frame.set_cursor_position((x.min(area.right().saturating_sub(2)), area.y + 1));
 }

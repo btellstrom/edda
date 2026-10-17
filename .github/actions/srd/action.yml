@@ -1,0 +1,18 @@
+# The SRD data (`make srd`), cached: it's pinned to one 5e-database commit,
+# so it only changes when the fetch script or converter does.
+name: SRD data
+description: Fetch the SRD monsters, spells and conditions into data/
+runs:
+  using: composite
+  steps:
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          data/monsters/*.json
+          data/spells/*.json
+          data/conditions/*.json
+        key: srd-${{ hashFiles('tools/fetch-srd.sh', 'tools/convert-5e-database.py') }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: tools/fetch-srd.sh

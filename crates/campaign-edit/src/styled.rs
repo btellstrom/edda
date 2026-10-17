@@ -161,8 +161,9 @@ impl PanelScroll {
     pub fn by(&self, lines: isize) {
         let (automatic, most) = self.bounds.get();
         let wanted = automatic.saturating_add_signed(self.by_hand.get() + lines);
-        let at = wanted.min(most);
-        self.by_hand.set(at as isize - automatic as isize);
+        let signed = |n: usize| isize::try_from(n).unwrap_or(isize::MAX);
+        self.by_hand
+            .set(signed(wanted.min(most)) - signed(automatic));
     }
 
     /// Where to draw `lines` lines in `height` rows, given where they'd be

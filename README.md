@@ -506,15 +506,34 @@ applied atomically, so two clients can't both spend the last slot:
 A short rest restores `short_rest` features and pact slots. A long rest restores
 everything except `manual` features, plus all spell slots and current HP.
 
-## Testing
+## Testing and quality checks
 
 ```sh
-cargo test --workspace
+make check    # formatting, lints (warnings fail) and every test: what CI runs
+make deny     # dependencies: licences, security advisories, yanked crates (cargo install cargo-deny)
+make smoke    # end to end: the compose stack, seeded, driven by campaign-edit (needs make srd)
+cargo test -p campaign-types -- --ignored   # the SRD data from make srd loads and is valid
 ```
 
 The auth and combat tests need the Postgres above; they use (and create) the
 databases `auth_test` and `combat_test` on it. Point `TEST_POSTGRES_URL` at
-another server if needed.
+another server if needed. The smoke test runs the stack as its own compose
+project (ports 13000–13003 and 15432, its own volumes, deleted afterwards),
+so a running stack is left alone.
+
+The Rust version is pinned in `rust-toolchain.toml` (the Dockerfile's), and
+the lints in the workspace `Cargo.toml` and `clippy.toml`: no `unsafe`, no
+`unwrap` outside tests, and no casts that can silently change a number.
+`deny.toml` allows only permissive licences.
+
+On GitHub, `.github/workflows/ci.yml` runs on every push to master and every
+pull request: formatting and lints; the tests against a Postgres service,
+the SRD ones included, with a coverage report; cargo-deny and cargo-machete
+(unused dependencies); and the smoke test. Dependabot opens weekly pull
+requests for newer crates, base images and actions. A `v*` tag runs
+`release.yml`: the server image goes to the GitHub container registry, and
+`campaign-edit` for Linux, macOS and Windows to a GitHub release. Protect
+`master` so pull requests need CI to pass.
 
 ## Combat service
 

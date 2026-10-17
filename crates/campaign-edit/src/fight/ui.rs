@@ -25,6 +25,7 @@ use crate::{
 
 /// Suggestion rows below the command line: every action (what an empty
 /// line lists), and two more.
+#[expect(clippy::cast_possible_truncation, reason = "a couple of dozen actions")]
 const SUGGESTIONS: u16 = command::ACTIONS as u16 + 2;
 /// Rows the initiative order and sheet keep, however short the terminal.
 const MAIN: u16 = 8;
@@ -223,13 +224,12 @@ fn hp(c: &Combatant) -> Span<'static> {
 /// `show` keeps there), else the acting combatant's sheet.
 fn draw_panel(frame: &mut Frame, app: &App, area: Rect) {
     let state = app.replica.state();
+    let ctx = app.context();
     let topic = app.topic().map(|topic| match topic {
         // A name that's only a combatant's is their sheet.
-        Topic::Named(name)
-            if !describes_text(app, &name) && app.context().named_combatant(&name).is_some() =>
-        {
-            Topic::Combatant(app.context().named_combatant(&name).unwrap().id)
-        }
+        Topic::Named(name) if !describes_text(app, &name) => ctx
+            .named_combatant(&name)
+            .map_or(Topic::Named(name), |c| Topic::Combatant(c.id)),
         other => other,
     });
     match topic {
@@ -576,7 +576,8 @@ fn draw_command(frame: &mut Frame, app: &App, area: Rect, rows: usize) {
         Paragraph::new(lines).block(Block::bordered().title(help)),
         area,
     );
-    let x = area.x + 3 + app.input.chars().count() as u16;
+    let typed = u16::try_from(app.input.chars().count()).unwrap_or(u16::MAX);
+    let x = area.x.saturating_add(3).saturating_add(typed);
     frame.set_cursor_position((x.min(area.right().saturating_sub(2)), area.y + 1));
 }
 

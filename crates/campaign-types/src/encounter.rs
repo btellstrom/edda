@@ -76,12 +76,22 @@ pub fn xp_for_challenge(challenge: &str) -> u32 {
     ];
     match challenge_value(challenge) {
         cr if cr < 0.0 => 0,
-        cr if cr >= 1.0 => BY_CR.get(cr as usize).copied().unwrap_or(0),
+        cr if cr >= 1.0 => BY_CR.get(whole(cr)).copied().unwrap_or(0),
         cr if cr >= 0.5 => 100,
         cr if cr >= 0.25 => 50,
         cr if cr >= 0.125 => 25,
         _ => 10,
     }
+}
+
+/// The whole part of a rating of at least 1.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "ratings are small and positive here"
+)]
+fn whole(rating: f32) -> usize {
+    rating as usize
 }
 
 /// How hard an encounter is for a party, under one edition's rules.
@@ -196,6 +206,11 @@ pub fn difficulty(plan: &EncounterPlan, levels: &[u8], edition: Edition) -> Diff
             1.0,
         ),
     };
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "XP times a multiplier of at most 5 is positive and fits"
+    )]
     let xp = (plan.xp() as f32 * multiplier).round() as u32;
     let thresholds: Vec<_> = names.iter().copied().zip(totals).collect();
     let rating = thresholds

@@ -28,3 +28,6 @@ uuid = { version = "1.28.0", features = ["serde", "v4"] }
 server = ["dep:pasetors", "dep:axum"]
 
 [dev-dependencies]
+
+[lints]
+workspace = true

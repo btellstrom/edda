@@ -4,3 +4,17 @@ members = ["crates/*"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
+
+# Every crate opts in with `[lints] workspace = true`; CI runs clippy with
+# warnings as errors.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# Panics belong to tests (clippy.toml allows them there); elsewhere errors
+# are returned, and `expect` says why something can't fail.
+unwrap_used = "warn"
+# Numbers that silently change.
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_sign_loss = "warn"

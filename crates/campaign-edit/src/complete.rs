@@ -219,11 +219,9 @@ mod tests {
     #[test]
     fn candidates_match_any_case_and_escape_spaces_for_bash() {
         // Regression: the shell was looked up after clap_complete had
-        // cleared it, so bash got names with bare spaces.
-        // SAFETY: nothing else in these tests touches COMPLETE.
-        unsafe { std::env::set_var("COMPLETE", "bash") };
-        SHELL.get_or_init(|| std::env::var("COMPLETE").ok());
-        unsafe { std::env::remove_var("COMPLETE") };
+        // cleared it, so bash got names with bare spaces. The shell is
+        // remembered once, as `answer_if_asked` does.
+        SHELL.get_or_init(|| Some("bash".into()));
         let names = ["Goblin", "Goblin Boss", "Troll"];
         let found = matching(OsStr::new("GOB"), names, |n| (n.to_string(), String::new()));
         let values: Vec<_> = found

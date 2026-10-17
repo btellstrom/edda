@@ -13,7 +13,7 @@ IMAGE     ?= localhost/campaign-manager
 CARGO     ?= cargo
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign test clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign test check deny smoke clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -34,7 +34,7 @@ srd: ## download the SRD monsters, spells and conditions into data/ (loaded by m
 	tools/fetch-srd.sh
 
 up: server ## build and start the servers
-	$(COMPOSE) up -d
+	IMAGE=$(IMAGE) $(COMPOSE) up -d
 
 down: ## stop the servers (data stays in their volumes)
 	$(COMPOSE) down
@@ -59,6 +59,17 @@ delete-campaign: ## delete a campaign and everything in it: make delete-campaign
 
 test: ## run all tests (needs Postgres: make up, or compose up -d postgres)
 	$(CARGO) test --workspace
+
+check: ## what CI checks: formatting, lints (warnings fail) and the tests
+	$(CARGO) fmt --all --check
+	$(CARGO) clippy --workspace --all-targets --locked -- -D warnings
+	$(CARGO) test --workspace --locked
+
+deny: ## the dependencies' licences, advisories and sources (cargo install cargo-deny)
+	cargo deny check
+
+smoke: client ## end to end: the compose stack, seeded, driven by campaign-edit (needs make srd)
+	CONTAINER=$(CONTAINER) tools/smoke-test.sh
 
 clean: ## remove build output and the server image
 	$(CARGO) clean

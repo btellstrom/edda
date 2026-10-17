@@ -100,11 +100,12 @@ impl CharacterSheet {
     /// Sum of all class levels (at least 1 for display purposes when empty).
     pub fn total_level(&self) -> u8 {
         let sum: u32 = self.classes.iter().map(|c| u32::from(c.level)).sum();
-        sum.clamp(1, u32::from(Self::MAX_LEVEL)) as u8
+        u8::try_from(sum.clamp(1, u32::from(Self::MAX_LEVEL))).unwrap_or(Self::MAX_LEVEL)
     }
 
     pub fn proficiency_bonus(&self) -> i8 {
-        2 + ((self.total_level() as i8 - 1) / 4)
+        // A level of 1 to 20 gives +2 to +6.
+        2 + i8::try_from((self.total_level() - 1) / 4).unwrap_or(0)
     }
 
     pub fn saving_throw(&self, ability: Ability) -> i8 {
@@ -257,7 +258,8 @@ impl AbilityScores {
     }
 
     pub fn modifier(&self, ability: Ability) -> i8 {
-        (self.get(ability) as i8 - 10).div_euclid(2)
+        // Any score (0 to 255) gives -5 to +122.
+        i8::try_from((i16::from(self.get(ability)) - 10).div_euclid(2)).unwrap_or(i8::MAX)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (Ability, u8)> + '_ {

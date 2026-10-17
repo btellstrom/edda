@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)] // tests panic on failure, which is the point
+
 //! End-to-end tests against real combat and auth services.
 
 use std::{sync::Arc, time::Duration};
