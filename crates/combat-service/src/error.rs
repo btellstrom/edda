@@ -14,6 +14,9 @@ pub enum ApiError {
     BadRequest(String),
     #[error("{0}")]
     Forbidden(String),
+    /// Something's in the way, as a campaign's combats of an import.
+    #[error("{0}")]
+    Conflict(String),
     /// The character's sheet refused what the command costs (no slot left).
     #[error("{0}")]
     Sheet(String),
@@ -58,6 +61,7 @@ impl IntoResponse for ApiError {
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
+            ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Sheet(_) | ApiError::Combat(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::SheetUnavailable(_) | ApiError::MonstersUnavailable(_) => {
                 StatusCode::BAD_GATEWAY

@@ -275,6 +275,50 @@ impl CharacterStore {
         Ok(result.rows_affected())
     }
 
+    /// Every character of `campaign`, as they are, to keep or move
+    /// elsewhere.
+    pub async fn export_campaign(&self, campaign: Uuid) -> Result<Vec<Character>, ApiError> {
+        let rows: Vec<Row> = sqlx::query_as(concat!(
+            "SELECT ",
+            columns!(),
+            " FROM characters WHERE campaign = $1 ORDER BY created_at, id"
+        ))
+        .bind(campaign)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(from_row).collect()
+    }
+
+    /// Takes in `campaign`'s characters exported elsewhere, as they were:
+    /// ids, owners, versions and dates. All or nothing, and only while it
+    /// has none here.
+    pub async fn import_campaign(
+        &self,
+        campaign: Uuid,
+        characters: &[Character],
+    ) -> Result<u64, ApiError> {
+        if characters.iter().any(|c| c.campaign != campaign) {
+            return Err(ApiError::BadRequest(
+                "a character of another campaign is in the export".into(),
+            ));
+        }
+        let mut tx = self.pool.begin().await?;
+        let (kept,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM characters WHERE campaign = $1")
+            .bind(campaign)
+            .fetch_one(&mut *tx)
+            .await?;
+        if kept > 0 {
+            return Err(ApiError::Conflict(format!(
+                "campaign {campaign} has {kept} character(s) here already"
+            )));
+        }
+        for character in characters {
+            insert(&mut *tx, character).await?;
+        }
+        tx.commit().await?;
+        Ok(u64::try_from(characters.len()).unwrap_or(u64::MAX))
+    }
+
     /// Deletes a character the device may change.
     pub async fn delete(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
         if scope.player.is_some() {

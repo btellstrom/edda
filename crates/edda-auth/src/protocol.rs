@@ -128,6 +128,16 @@ pub struct CreatedCampaign {
     pub setup_code: String,
 }
 
+/// The auth service's part of a campaign, as exported and imported by the
+/// admin API: the campaign and its devices, with their certificates.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct AuthExport {
+    pub campaign: Campaign,
+    pub created_at: DateTime<Utc>,
+    pub devices: Vec<Device>,
+}
+
 /// `POST /setup/lookup`, and the admin API's
 /// `POST /admin/campaigns/{id}/setup-code`
 #[derive(Debug, Clone, Serialize, Deserialize)]

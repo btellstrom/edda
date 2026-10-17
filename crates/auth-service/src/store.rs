@@ -4,7 +4,7 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Duration, Utc};
 use edda_auth::{
     DeviceKey, Nonce, PublicKey, Role, SignedCert,
-    protocol::{Campaign, Challenge, Device, Principal},
+    protocol::{AuthExport, Campaign, Challenge, Device, Principal},
 };
 use edda_types::Edition;
 use sha2::{Digest, Sha256};
@@ -197,6 +197,79 @@ impl Store {
             added_at,
             revoked_at: None,
         })
+    }
+
+    /// The campaign and its devices, to keep or move elsewhere; `None` if
+    /// there's no such campaign.
+    pub async fn export_campaign(&self, id: Uuid) -> Result<Option<AuthExport>, ApiError> {
+        let campaign = match self.campaign(id).await {
+            Ok(campaign) => campaign,
+            Err(ApiError::NotFound) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let (created_at,): (DateTime<Utc>,) =
+            sqlx::query_as("SELECT created_at FROM campaigns WHERE id = $1")
+                .bind(id)
+                .fetch_one(&self.pool)
+                .await?;
+        Ok(Some(AuthExport {
+            campaign,
+            created_at,
+            devices: self.devices(id).await?,
+        }))
+    }
+
+    /// Takes in a campaign exported elsewhere, as it was, ids, keys and
+    /// dates included; returns how many devices came with it. All or
+    /// nothing, and not over a campaign that's here already. Every
+    /// certificate must be for the campaign and properly signed.
+    pub async fn import_campaign(&self, export: &AuthExport) -> Result<u64, ApiError> {
+        let campaign = &export.campaign;
+        for device in &export.devices {
+            let cert = device
+                .cert
+                .verify()
+                .map_err(|e| ApiError::BadRequest(format!("a device's certificate: {e}")))?;
+            if cert.campaign != campaign.id {
+                return Err(ApiError::BadRequest(
+                    "a device's certificate is for another campaign".into(),
+                ));
+            }
+        }
+        let mut tx = self.pool.begin().await?;
+        let inserted = sqlx::query(
+            "INSERT INTO campaigns (id, name, edition, created_at) VALUES ($1, $2, $3, $4)              ON CONFLICT DO NOTHING",
+        )
+        .bind(campaign.id)
+        .bind(&campaign.name)
+        .bind(campaign.edition.to_string())
+        .bind(export.created_at)
+        .execute(&mut *tx)
+        .await?;
+        if inserted.rows_affected() == 0 {
+            return Err(ApiError::Conflict(format!(
+                "campaign {} is here already",
+                campaign.id
+            )));
+        }
+        for device in &export.devices {
+            let c = &device.cert.cert;
+            sqlx::query(
+                "INSERT INTO devices (campaign_id, public_key, role, name, cert, added_at, \
+                 revoked_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            )
+            .bind(c.campaign)
+            .bind(c.device.as_bytes().to_vec())
+            .bind(role_str(c.role))
+            .bind(&c.name)
+            .bind(Json(&device.cert))
+            .bind(device.added_at)
+            .bind(device.revoked_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(u64::try_from(export.devices.len()).unwrap_or(u64::MAX))
     }
 
     /// The campaign's devices, revoked ones too.

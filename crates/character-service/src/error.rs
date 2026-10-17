@@ -17,6 +17,9 @@ pub enum ApiError {
     BadRequest(String),
     #[error("{0}")]
     Forbidden(String),
+    /// Something's in the way, as a campaign's characters of an import.
+    #[error("{0}")]
+    Conflict(String),
     #[error("an If-Match header with the character's current ETag is required")]
     PreconditionRequired,
     /// The client's copy is stale. Carries the current character so the
@@ -39,6 +42,7 @@ impl IntoResponse for ApiError {
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
+            ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::PreconditionRequired => StatusCode::PRECONDITION_REQUIRED,
             ApiError::VersionMismatch(_) => StatusCode::PRECONDITION_FAILED,
             // Out of slots/uses is a conflict with the character's current

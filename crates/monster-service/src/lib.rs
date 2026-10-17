@@ -8,6 +8,7 @@
 /// What whoever runs the service asks of it over HTTP.
 pub mod admin;
 pub mod error;
+mod export;
 /// The HTTP routes.
 pub mod routes;
 pub mod store;

@@ -19,6 +19,12 @@ pub enum ApiError {
     /// conditions.
     #[error("only a DM device can change the campaign's monsters, spells and conditions")]
     DmOnly,
+    /// Not what was asked for, as an export of another campaign.
+    #[error("{0}")]
+    BadRequest(String),
+    /// Something's in the way, as a campaign's own of an import.
+    #[error("{0}")]
+    Conflict(String),
     #[error(transparent)]
     Invalid(#[from] MonsterError),
     #[error(transparent)]
@@ -33,6 +39,8 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = match &self {
             ApiError::NotFound => StatusCode::NOT_FOUND,
+            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Shared | ApiError::DmOnly | ApiError::Limit(_) => StatusCode::FORBIDDEN,
             ApiError::Invalid(_) | ApiError::InvalidText(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,

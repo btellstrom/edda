@@ -18,7 +18,7 @@ use edda_server::openapi::ErrorBody;
 
 use crate::{error::ApiError, hub::Hub, store};
 
-type Row = (
+pub(crate) type Row = (
     Uuid,
     String,
     Jsonb<EncounterPlan>,
@@ -68,7 +68,7 @@ fn check(plan: &EncounterPlan) -> Result<(), ApiError> {
     Ok(())
 }
 
-fn from_row(
+pub(crate) fn from_row(
     (id, campaign, Jsonb(plan), version, created_at, updated_at): Row,
 ) -> Result<Encounter, ApiError> {
     Ok(Encounter {

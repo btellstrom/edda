@@ -1,16 +1,16 @@
 //! The auth service's admin API (see [`edda_server::admin`]): creating a
-//! campaign with its DM's setup code, a new setup code, and deleting a
-//! campaign with its devices.
+//! campaign with its DM's setup code, a new setup code, exporting and
+//! importing a campaign with its devices, and deleting one.
 
 use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    routing::{delete, post},
+    routing::{delete, get, post, put},
 };
 use chrono::Duration;
-use edda_auth::protocol::{CreatedCampaign, NewCampaign, SetupCode};
-use edda_types::admin::Deleted;
+use edda_auth::protocol::{AuthExport, CreatedCampaign, NewCampaign, SetupCode};
+use edda_types::admin::{Deleted, Imported};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -28,6 +28,8 @@ pub fn router(pool: PgPool) -> Router {
         .route("/admin/campaigns", post(create))
         .route("/admin/campaigns/{id}", delete(remove))
         .route("/admin/campaigns/{id}/setup-code", post(setup_code))
+        .route("/admin/campaigns/{id}/export", get(export))
+        .route("/admin/campaigns/{id}/import", put(import))
         .with_state(Store::new(pool))
 }
 
@@ -75,4 +77,31 @@ async fn remove(
         .await?
         .map_or(0, |(_, devices)| devices);
     Ok(Json(Deleted { deleted }))
+}
+
+/// The campaign and its devices, to keep or to move to another server.
+async fn export(
+    State(store): State<Store>,
+    Path(campaign): Path<Uuid>,
+) -> Result<Json<AuthExport>, ApiError> {
+    store
+        .export_campaign(campaign)
+        .await?
+        .map(Json)
+        .ok_or(ApiError::NotFound)
+}
+
+/// Takes in a campaign exported from another server; `409` if it's here.
+async fn import(
+    State(store): State<Store>,
+    Path(campaign): Path<Uuid>,
+    Json(export): Json<AuthExport>,
+) -> Result<(StatusCode, Json<Imported>), ApiError> {
+    if export.campaign.id != campaign {
+        return Err(ApiError::BadRequest(
+            "that's another campaign's export".into(),
+        ));
+    }
+    let imported = store.import_campaign(&export).await?;
+    Ok((StatusCode::CREATED, Json(Imported { imported })))
 }

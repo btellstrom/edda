@@ -40,6 +40,10 @@ pub enum ClientError {
     /// Logged in, but not allowed to do this.
     #[error("forbidden: {0}")]
     Forbidden(String),
+    /// Something's in the way: from the admin API, a campaign's data where
+    /// an import would put it.
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("websocket error: {0}")]
     WebSocket(String),
 }

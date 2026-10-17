@@ -105,6 +105,23 @@ impl MonsterStore {
         Ok(())
     }
 
+    /// The campaign's own texts of this kind, as they are.
+    pub async fn export_texts<T: RulesText>(
+        &self,
+        campaign: Uuid,
+    ) -> Result<Vec<Entry<T>>, ApiError> {
+        let rows: Vec<Row> = sqlx::query_as(concat!(
+            "SELECT ",
+            columns!(),
+            " FROM rules_text WHERE kind = $1 AND campaign = $2 ORDER BY created_at, id"
+        ))
+        .bind(T::KIND)
+        .bind(campaign)
+        .fetch_all(self.pool())
+        .await?;
+        rows.into_iter().map(from_row).collect()
+    }
+
     async fn owned_text<T: RulesText>(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
         match self.text::<T>(scope, id).await?.campaign {
             Some(_) => Ok(()),

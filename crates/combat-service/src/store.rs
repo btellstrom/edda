@@ -322,7 +322,11 @@ async fn fetch_events(
     rows.into_iter().map(from_row).collect()
 }
 
-async fn insert_event(tx: &mut Tx, id: Uuid, event: &LoggedEvent) -> Result<(), ApiError> {
+pub(crate) async fn insert_event(
+    tx: &mut Tx,
+    id: Uuid,
+    event: &LoggedEvent,
+) -> Result<(), ApiError> {
     sqlx::query(
         "INSERT INTO combat_events (combat_id, seq, command_id, actor, at, event) \
          VALUES ($1, $2, $3, $4, $5, $6)",
@@ -360,15 +364,15 @@ fn from_row((seq, command_id, actor, at, Json(event)): EventRow) -> Result<Logge
     })
 }
 
-fn to_seq(seq: i64) -> Result<u64, ApiError> {
+pub(crate) fn to_seq(seq: i64) -> Result<u64, ApiError> {
     u64::try_from(seq).map_err(|e| ApiError::Corrupt(e.to_string()))
 }
 
-fn from_seq(seq: u64) -> Result<i64, ApiError> {
+pub(crate) fn from_seq(seq: u64) -> Result<i64, ApiError> {
     i64::try_from(seq).map_err(|e| ApiError::Corrupt(e.to_string()))
 }
 
-fn status_str(status: CombatStatus) -> &'static str {
+pub(crate) fn status_str(status: CombatStatus) -> &'static str {
     match status {
         CombatStatus::Preparing => "preparing",
         CombatStatus::Active => "active",

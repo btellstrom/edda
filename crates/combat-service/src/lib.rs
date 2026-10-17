@@ -7,6 +7,7 @@
 pub mod admin;
 pub mod encounters;
 pub mod error;
+mod export;
 pub mod hub;
 /// The `/combats` routes and the WebSocket.
 pub mod routes;

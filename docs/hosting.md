@@ -92,8 +92,18 @@ service serves it there; each request must bear the token
 | auth | `POST` | `/admin/campaigns` `{"name", "edition"}` | `201` `{"campaign", "setup_code"}` |
 | auth | `POST` | `/admin/campaigns/{id}/setup-code` | `{"code"}`: a new code for a DM device |
 | every one | `DELETE` | `/admin/campaigns/{id}` | `{"deleted": n}`: its part of the campaign; safe to repeat |
+| every one | `GET` | `/admin/campaigns/{id}/export` | its part of the campaign, as it is |
+| every one | `PUT` | `/admin/campaigns/{id}/import` | `201` `{"imported": n}`, or `409` if the campaign has some there already |
 
-In Rust, `edda_client::admin::AdminClient` calls it.
+In Rust, `edda_client::admin::AdminClient` calls it, and `Services` acts
+on all four at once: `export_campaign` gathers a whole campaign into one
+`CampaignBundle` (JSON, to keep as the campaign's own backup or to move it
+to another server), `import_campaign` puts one back, all or nothing, ids,
+versions, logs and devices as they were, and `delete_campaign` deletes one
+everywhere. Make a campaign read-only before exporting it to move, or what
+changes meanwhile may be left out of a part. A device remembers the key of
+the auth service it joined through, so its logins work on the new server
+only if both auth services sign with the same key.
 
 ## Letting players in: HTTPS
 

@@ -185,6 +185,19 @@ impl MonsterStore {
 
     /// Deletes a campaign's own monsters, spells and conditions; returns
     /// how many monsters there were.
+    /// The campaign's own monsters, as they are.
+    pub async fn export_own(&self, campaign: Uuid) -> Result<Vec<Monster>, ApiError> {
+        let rows: Vec<Row> = sqlx::query_as(concat!(
+            "SELECT ",
+            columns!(),
+            " FROM monsters WHERE campaign = $1 ORDER BY created_at, id"
+        ))
+        .bind(campaign)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(from_row).collect()
+    }
+
     pub async fn delete_campaign(&self, campaign: Uuid) -> Result<u64, ApiError> {
         let mut tx = self.pool.begin().await?;
         sqlx::query("DELETE FROM rules_text WHERE campaign = $1")
