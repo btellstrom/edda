@@ -1,11 +1,15 @@
-//! Writes combatants' hit points back to their character sheets.
+//! Keeps character sheets in step with combats: hit points are written
+//! back, and what casting or using a feature costs (a slot, uses) is spent
+//! on the sheet before the command runs and given back if it's refused or
+//! undone. Every frontend gets this without doing anything.
 //!
 //! The combat log stays the authority during a fight; the character service
 //! follows it. How far each combat has been written back is stored in
 //! `combat_hp_sync`, so a write-back that fails (the character service is
 //! down, say) is retried later by whichever instance gets there first.
 //! Only one instance syncs a given combat at a time, and it always writes
-//! the latest HP, so sheets never go backwards.
+//! the latest HP, so sheets never go backwards. Spending and giving back
+//! carry an idempotency key, so a retry never does either twice.
 //!
 //! The service logs in to the auth service with its own key (registered
 //! there with `auth-service add-service`) to get a token for each
@@ -17,7 +21,7 @@ use campaign_auth::{DeviceKey, PublicKey, protocol::Session};
 use campaign_client::{Client, ClientError, auth::AuthClient};
 use campaign_types::{
     HitPoints,
-    combat::{CombatState, LoggedEvent},
+    combat::{CombatEvent, CombatState, LoggedEvent, SheetCost},
 };
 use chrono::Utc;
 use tokio::sync::Mutex;
@@ -30,7 +34,7 @@ const RETRY_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Where and as whom to write hit points back.
 #[derive(Debug, Clone)]
-pub struct HpSyncConfig {
+pub struct SheetSyncConfig {
     pub character_service: String,
     pub auth_service: String,
     /// The auth service's token key, checked when logging in.
@@ -39,12 +43,27 @@ pub struct HpSyncConfig {
     pub key: Arc<DeviceKey>,
 }
 
-pub struct HpSync {
+pub struct SheetSync {
     store: Store,
-    config: HpSyncConfig,
+    config: SheetSyncConfig,
     auth: AuthClient,
     /// A token per campaign, reused until shortly before it expires.
     sessions: Mutex<HashMap<Uuid, Session>>,
+}
+
+/// Idempotency keys: what a command spends is keyed by the command itself;
+/// giving it back has a key of its own for each reason.
+fn give_back_key(command: Uuid, why: &str) -> Uuid {
+    Uuid::new_v5(&command, why.as_bytes())
+}
+
+/// Giving back what a refused command spent.
+pub fn refused_key(command: Uuid) -> Uuid {
+    give_back_key(command, "refused")
+}
+
+fn undone_key(command: Uuid) -> Uuid {
+    give_back_key(command, "undone")
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -55,8 +74,8 @@ enum SyncError {
     Characters(#[from] ClientError),
 }
 
-impl HpSync {
-    pub fn new(store: Store, config: HpSyncConfig) -> Self {
+impl SheetSync {
+    pub fn new(store: Store, config: SheetSyncConfig) -> Self {
         Self {
             store,
             auth: AuthClient::new(&config.auth_service),
@@ -81,6 +100,37 @@ impl HpSync {
             }
         };
         Ok(Client::new(&self.config.character_service).with_token(&session.token))
+    }
+
+    /// Spends `cost` on `character`'s sheet for `command`, once however
+    /// often the command is sent.
+    pub async fn spend(
+        &self,
+        campaign: Uuid,
+        character: Uuid,
+        cost: &SheetCost,
+        command: Uuid,
+    ) -> Result<(), ClientError> {
+        let characters = self.characters(campaign).await?;
+        characters
+            .act_once(character, &cost.spend(), command)
+            .await
+            .map(drop)
+    }
+
+    /// Gives `cost` back to `character`'s sheet, once per `key`.
+    pub async fn give_back(
+        &self,
+        campaign: Uuid,
+        character: Uuid,
+        cost: &SheetCost,
+        key: Uuid,
+    ) -> Result<(), ClientError> {
+        let characters = self.characters(campaign).await?;
+        match characters.act_once(character, &cost.give_back(), key).await {
+            Ok(_) | Err(ClientError::NotFound) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 
     /// Syncs `combat` until it is up to date, unless another instance is
@@ -141,10 +191,17 @@ impl HpSync {
         };
 
         let changes = hp_changes(&log, synced);
+        let refunds = undone_costs(&log, synced);
         let campaign = CombatState::replay(log.iter().map(|e| &e.event)).campaign;
-        if !changes.is_empty() {
+        if !changes.is_empty() || !refunds.is_empty() {
             match campaign.parse() {
-                Ok(campaign) => self.write(combat, campaign, &changes).await?,
+                Ok(campaign) => {
+                    self.write(combat, campaign, &changes).await?;
+                    for (character, cost, command) in &refunds {
+                        self.give_back(campaign, *character, cost, undone_key(*command))
+                            .await?;
+                    }
+                }
                 Err(_) => {
                     tracing::warn!(%combat, %campaign, "combat has no valid campaign; not syncing");
                 }
@@ -211,6 +268,37 @@ fn hp_changes(log: &[LoggedEvent], after: u64) -> HashMap<Uuid, HitPoints> {
         }
     }
     changes
+}
+
+/// What the commands undone after log position `after` had spent on
+/// characters' sheets: the character, the cost, and the undone command.
+fn undone_costs(log: &[LoggedEvent], after: u64) -> Vec<(Uuid, SheetCost, Uuid)> {
+    // Combatants may have left by the time their command is undone.
+    let mut characters: HashMap<Uuid, Uuid> = HashMap::new();
+    for event in log {
+        if let CombatEvent::CombatantAdded { combatant }
+        | CombatEvent::CombatantRestored { combatant } = &event.event
+            && let Some(character) = combatant.character_id
+        {
+            characters.insert(combatant.id, character);
+        }
+    }
+    log.iter()
+        .filter(|e| e.seq > after)
+        .filter_map(|e| match e.event {
+            CombatEvent::Undone { command } => Some(command),
+            _ => None,
+        })
+        .flat_map(|command| {
+            log.iter()
+                .filter(move |e| e.command_id == Some(command))
+                .filter_map(|e| e.event.sheet_cost())
+                .filter_map(|(combatant, cost)| {
+                    characters.get(&combatant).map(|c| (*c, cost, command))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 
 #[cfg(test)]

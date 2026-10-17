@@ -7,10 +7,12 @@
 //! run them too, showing the outcome of their own commands immediately and
 //! reconciling when the server's events arrive.
 
+mod cost;
 mod protocol;
 mod rules;
 pub mod undo;
 
+pub use cost::SheetCost;
 pub use protocol::{
     ClientMessage, CombatSnapshot, CombatSummary, CommandEnvelope, LoggedEvent, ServerMessage,
 };
@@ -226,7 +228,8 @@ pub enum CombatEvent {
         #[serde(default)]
         targets: Vec<Uuid>,
     },
-    /// A record only: the use was spent on the character's sheet.
+    /// A record; the combat service spends the use on the character's
+    /// sheet before logging it.
     FeatureUsed {
         combatant: Uuid,
         feature: String,

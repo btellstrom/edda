@@ -20,7 +20,7 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 pub struct Config {
     /// Where and as whom to write combatants' hit points back to character
     /// sheets. `None` turns the write-back off.
-    pub hp_sync: Option<sync::HpSyncConfig>,
+    pub sheet_sync: Option<sync::SheetSyncConfig>,
 }
 
 /// Connects to the database, creating it if needed, and applies migrations.
@@ -52,10 +52,10 @@ pub async fn app(
     config: Config,
 ) -> Result<Router, sqlx::Error> {
     let store = store::Store::new(pool);
-    let hp_sync = config
-        .hp_sync
-        .map(|config| sync::HpSync::new(store.clone(), config));
-    let hub = hub::Hub::start(store, hp_sync).await?;
+    let sheet_sync = config
+        .sheet_sync
+        .map(|config| sync::SheetSync::new(store.clone(), config));
+    let hub = hub::Hub::start(store, sheet_sync).await?;
     Ok(Router::new()
         .merge(routes::router())
         .merge(encounters::router())

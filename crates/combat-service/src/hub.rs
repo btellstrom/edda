@@ -21,7 +21,8 @@ use std::{
 };
 
 use campaign_types::combat::{
-    CombatCommand, CombatSnapshot, CombatState, CommandEnvelope, Dice, LoggedEvent, decide, undo,
+    CombatCommand, CombatEvent, CombatSnapshot, CombatState, CommandEnvelope, Dice, LoggedEvent,
+    SheetCost, decide, undo,
 };
 use sqlx::postgres::PgListener;
 use tokio::sync::{Mutex, broadcast};
@@ -30,7 +31,7 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     store::{self, Notice, Store},
-    sync::HpSync,
+    sync::SheetSync,
 };
 
 /// How many events a slow subscriber may fall behind before it is resynced
@@ -43,7 +44,7 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 pub struct Hub {
     store: Store,
     live: Mutex<HashMap<Uuid, Arc<LiveCombat>>>,
-    hp_sync: Option<Arc<HpSync>>,
+    sheet_sync: Option<Arc<SheetSync>>,
 }
 
 pub struct LiveCombat {
@@ -88,17 +89,20 @@ impl Dice for ServerDice {
 impl Hub {
     /// Starts listening for events from all instances, and the background
     /// upkeep: evicting idle combats and retrying HP write-back.
-    pub async fn start(store: Store, hp_sync: Option<HpSync>) -> Result<Arc<Self>, sqlx::Error> {
+    pub async fn start(
+        store: Store,
+        sheet_sync: Option<SheetSync>,
+    ) -> Result<Arc<Self>, sqlx::Error> {
         let mut listener = PgListener::connect_with(store.pool()).await?;
         listener.listen(store::CHANNEL).await?;
         let hub = Arc::new(Self {
             store,
             live: Mutex::new(HashMap::new()),
-            hp_sync: hp_sync.map(Arc::new),
+            sheet_sync: sheet_sync.map(Arc::new),
         });
         tokio::spawn(hub.clone().listen(listener));
         tokio::spawn(hub.clone().evict_idle());
-        if let Some(sync) = &hub.hp_sync {
+        if let Some(sync) = &hub.sheet_sync {
             tokio::spawn(sync.clone().retry_forever());
         }
         Ok(hub)
@@ -138,22 +142,69 @@ impl Hub {
         Ok(combat)
     }
 
-    /// Runs a command sent by the device with `actor_key`.
+    /// Runs a command sent by the device with `actor_key`. What it costs a
+    /// character's sheet is spent first (no slot left, no cast), and given
+    /// back if the command is then refused.
     pub async fn execute(
         &self,
         id: Uuid,
         envelope: CommandEnvelope,
         actor_key: &str,
     ) -> Result<Outcome, ApiError> {
-        let outcome = self
-            .combat(id)
-            .await?
-            .execute(&self.store, envelope, actor_key)
-            .await?;
-        if let (Outcome::Applied(_), Some(sync)) = (&outcome, &self.hp_sync) {
-            tokio::spawn(sync.clone().run(id));
+        let combat = self.combat(id).await?;
+        let command_id = envelope.command_id;
+        let spent = self.spend(&combat, &envelope).await?;
+        let outcome = combat.execute(&self.store, envelope, actor_key).await;
+        if let (Err(_), Some((sync, campaign, character, cost))) = (&outcome, &spent) {
+            let key = crate::sync::refused_key(command_id);
+            if let Err(e) = sync.give_back(*campaign, *character, cost, key).await {
+                tracing::error!(%id, %character, error = %e, "giving back what a refused command spent failed");
+            }
+        }
+        let outcome = outcome?;
+        if let (Outcome::Applied(events), Some(sync)) = (&outcome, &self.sheet_sync) {
+            let undo = events
+                .iter()
+                .any(|e| matches!(e.event, CombatEvent::Undone { .. }));
+            if undo {
+                // What the undone command spent is back on the sheet before
+                // anyone is told it was undone.
+                sync.clone().run(id).await;
+            } else {
+                tokio::spawn(sync.clone().run(id));
+            }
         }
         Ok(outcome)
+    }
+
+    /// Spends what `envelope`'s command costs a character's sheet, if
+    /// anything; what to give back if the command is then refused.
+    async fn spend(
+        &self,
+        combat: &LiveCombat,
+        envelope: &CommandEnvelope,
+    ) -> Result<Option<(Arc<SheetSync>, Uuid, Uuid, SheetCost)>, ApiError> {
+        let (Some(sync), Some((combatant, cost))) =
+            (&self.sheet_sync, envelope.command.sheet_cost())
+        else {
+            return Ok(None);
+        };
+        let snapshot = combat.snapshot(&self.store).await?;
+        let Some(character) = snapshot
+            .state
+            .combatant(combatant)
+            .and_then(|c| c.character_id)
+        else {
+            return Ok(None);
+        };
+        let campaign: Uuid = combat
+            .campaign
+            .parse()
+            .map_err(|e: uuid::Error| ApiError::Corrupt(e.to_string()))?;
+        sync.spend(campaign, character, &cost, envelope.command_id)
+            .await
+            .map_err(ApiError::from_sheet)?;
+        Ok(Some((sync.clone(), campaign, character, cost)))
     }
 
     async fn listen(self: Arc<Self>, mut listener: PgListener) {

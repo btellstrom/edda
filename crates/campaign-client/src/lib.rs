@@ -133,6 +133,23 @@ impl Client {
         send(self.http.post(url).json(action)).await
     }
 
+    /// Like [`Client::act`], but only once per `key`: sending it again
+    /// with the same key changes nothing, so it's safe to retry.
+    pub async fn act_once(
+        &self,
+        id: Uuid,
+        action: &CharacterAction,
+        key: Uuid,
+    ) -> Result<Character, ClientError> {
+        let url = format!("{}/actions", self.character_url(id));
+        let request = self
+            .http
+            .post(url)
+            .header("Idempotency-Key", key.to_string())
+            .json(action);
+        send(request).await
+    }
+
     fn url(&self, path: &str) -> String {
         format!("{}{path}", self.base_url)
     }

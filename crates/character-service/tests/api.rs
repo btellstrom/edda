@@ -335,6 +335,66 @@ async fn actions_spend_and_recover_resources() {
 }
 
 #[tokio::test]
+async fn an_action_with_an_idempotency_key_is_applied_once() {
+    let app = test_app().await;
+    let (_, created) = send(&app, Method::POST, "/characters", Some(caster())).await;
+    let actions = format!("/characters/{}/actions", created["id"].as_str().unwrap());
+    let act = |key: &'static str, body: Value| {
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri(&actions)
+            .header(
+                header::AUTHORIZATION,
+                format!("Bearer {}", app.token.as_ref().unwrap()),
+            )
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("Idempotency-Key", key)
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let router = app.router.clone();
+        async move {
+            let res = router.oneshot(req).await.unwrap();
+            let status = res.status();
+            let bytes = res.into_body().collect().await.unwrap().to_bytes();
+            (status, serde_json::from_slice::<Value>(&bytes).unwrap())
+        }
+    };
+    let spend = json!({ "type": "expend_spell_slot", "level": 1 });
+    let (status, c) = act("cast-1", spend.clone()).await;
+    assert_eq!(
+        (status, c["spellcasting"]["slots"]["1"]["used"].clone()),
+        (StatusCode::OK, json!(1))
+    );
+    let (status, c) = act("cast-1", spend.clone()).await;
+    assert_eq!(
+        (status, c["spellcasting"]["slots"]["1"]["used"].clone()),
+        (StatusCode::OK, json!(1)),
+        "a retry changes nothing"
+    );
+    let (_, c) = act("cast-2", spend).await;
+    assert_eq!(
+        c["spellcasting"]["slots"]["1"]["used"], 2,
+        "another key is another action"
+    );
+    // An action that fails isn't remembered, so it can be tried again.
+    let (status, _) = act(
+        "surge",
+        json!({ "type": "use_resource", "name": "Action Surge", "amount": 5 }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, c) = act(
+        "surge",
+        json!({ "type": "use_resource", "name": "Action Surge" }),
+    )
+    .await;
+    assert_eq!(
+        (status, c["resources"][0]["used"].clone()),
+        (StatusCode::OK, json!(1))
+    );
+}
+
+#[tokio::test]
 async fn concurrent_actions_never_overspend() {
     // Needs a real file so the pool can hold several connections.
     let path = std::env::temp_dir().join(format!("cm-test-{}.db", uuid::Uuid::new_v4()));

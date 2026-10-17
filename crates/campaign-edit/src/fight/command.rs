@@ -48,12 +48,9 @@ pub enum Topic {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Step {
+    /// A combat command. What it costs a sheet (a slot, uses) the combat
+    /// service spends.
     Combat(CombatCommand),
-    /// Something done to a character's sheet, like spending a slot.
-    Character {
-        id: Uuid,
-        action: CharacterAction,
-    },
     /// Add a campaign character, as their sheet currently stands.
     Join(Uuid),
     /// Add `count` of a monster, at their maximum hit points or rolled.
@@ -662,7 +659,8 @@ fn cast(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interpreted 
         Err(e) => return (sentence, Err(e)),
     };
 
-    let character = actor.character_id.expect("has a sheet");
+    // Checked against the sheet here only to say what's wrong before
+    // sending; the combat service spends the slot.
     let action = |pact| CharacterAction::CastSpell {
         spell: spell.name.clone(),
         at_level,
@@ -683,8 +681,7 @@ fn cast(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interpreted 
             .map(|p| SpellSlot::Pact(p.slot_level)),
         _ => Some(SpellSlot::Level(at_level.unwrap_or(spell.level))),
     };
-    // The slot is spent on the sheet first; the cast then goes in the log
-    // and, if it needs concentration, into play.
+    // The cast goes in the log and, if it needs concentration, into play.
     let cast = CombatCommand::CastSpell {
         caster: actor.id,
         spell: spell.name.clone(),
@@ -692,14 +689,7 @@ fn cast(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interpreted 
         targets: targets.iter().map(|t| t.id).collect(),
         concentration: spell.concentration.then(Uuid::new_v4),
     };
-    let steps = vec![
-        Step::Character {
-            id: character,
-            action,
-        },
-        Step::Combat(cast),
-    ];
-    (sentence, Ok(steps))
+    (sentence, Ok(vec![Step::Combat(cast)]))
 }
 
 /// `effect <name> [who…] [for <rounds>]`: targets are optional, for things
@@ -826,16 +816,12 @@ fn use_feature(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Inter
     if let Err(e) = sheet.clone().apply(&action) {
         return (sentence, Err(e.to_string()));
     }
-    let id = actor.character_id.expect("has a sheet");
     let used = CombatCommand::UseFeature {
         combatant: actor.id,
         feature: name.to_string(),
         amount,
     };
-    (
-        sentence,
-        Ok(vec![Step::Character { id, action }, Step::Combat(used)]),
-    )
+    (sentence, Ok(vec![Step::Combat(used)]))
 }
 
 /// `add`: a campaign character, `[count] <monster> [roll]` from the
@@ -1641,7 +1627,7 @@ mod tests {
     }
 
     #[test]
-    fn spells_spend_the_casters_slot_and_concentration_becomes_an_effect() {
+    fn casting_names_the_slot_and_concentration_becomes_an_effect() {
         let w = world();
         let p = w.parse("cast hunter's mark 3");
         assert_eq!(
@@ -1649,16 +1635,10 @@ mod tests {
             "Vex casts Hunter's Mark on Goblin (concentration)"
         );
         let steps = p.plan.unwrap();
-        let vex = w.state.combatants[0].character_id.unwrap();
         assert!(matches!(
-            &steps[0],
-            Step::Character { id, action: CharacterAction::CastSpell { spell, .. } }
-                if *id == vex && spell == "Hunter's Mark"
-        ));
-        assert!(matches!(
-            &steps[1],
-            Step::Combat(CombatCommand::CastSpell { caster, slot: Some(SpellSlot::Level(1)), targets, concentration: Some(_), .. })
-                if *caster == w.id(1) && *targets == [w.id(3)]
+            steps.as_slice(),
+            [Step::Combat(CombatCommand::CastSpell { caster, spell, slot: Some(SpellSlot::Level(1)), targets, concentration: Some(_) })]
+                if *caster == w.id(1) && spell == "Hunter's Mark" && *targets == [w.id(3)]
         ));
 
         // The longest matching name wins; no effect without concentration.
@@ -1667,7 +1647,7 @@ mod tests {
         assert_eq!(p.plan, Err("no level 5 spell slots".into()));
         let steps = w.parse("cast cure wounds 2 at 2").plan.unwrap();
         assert!(matches!(
-            &steps[1],
+            &steps[0],
             Step::Combat(CombatCommand::CastSpell {
                 slot: Some(SpellSlot::Level(2)),
                 concentration: None,
@@ -1686,7 +1666,7 @@ mod tests {
         let p = w.parse("use favored foe 2");
         assert_eq!(p.sentence, "Vex uses Favored Foe ×2");
         assert!(matches!(
-            &p.plan.unwrap()[1],
+            &p.plan.unwrap()[0],
             Step::Combat(CombatCommand::UseFeature { combatant, amount: 2, .. }) if *combatant == w.id(1)
         ));
         assert!(w.parse("use favored foe 3 1").plan.is_err());

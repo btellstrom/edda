@@ -17,10 +17,10 @@ use campaign_client::{
     monsters::MonsterClient,
 };
 use campaign_types::{
-    Character, CharacterAction, CharacterSummary,
+    Character, CharacterSummary,
     combat::{
         CombatCommand, CombatEvent, CombatStatus, CombatSummary, Combatant, CommandEnvelope,
-        LoggedEvent, ServerMessage, SpellSlot,
+        LoggedEvent, ServerMessage,
     },
     encounter::EncounterPlan,
     monster::{Monster, MonsterSummary},
@@ -89,18 +89,14 @@ impl Login {
     }
 }
 
-/// Something a cast or feature use spent on a character sheet.
-enum Spent {
-    Slot(SpellSlot),
-    Feature(String, u16),
-}
-
 /// What the WebSocket reader passes to the screen.
 enum Incoming {
     Message(ServerMessage),
     Closed(String),
     /// Time to try reconnecting again.
     Retry,
+    /// Time to read this character's sheet again.
+    Sheet(Uuid),
 }
 
 pub struct App {
@@ -424,15 +420,6 @@ impl App {
                     count,
                     roll,
                 } => self.summon(monster, count, roll).await,
-                Step::Character { id, action } => {
-                    let acted = match self.login.characters().await {
-                        Ok(client) => client.act(id, &action).await.map_err(Into::into),
-                        Err(e) => Err(e),
-                    };
-                    acted.map(|character| {
-                        self.sheets.insert(id, character);
-                    })
-                }
             };
             if let Err(e) = outcome {
                 self.status = Some((format!("{}: {e:#}", parsed.sentence), true));
@@ -533,7 +520,9 @@ impl App {
             .filter_map(|c| c.monster_id)
             .collect();
         for id in monsters {
-            let _ = self.monster(id).await;
+            if let Err(e) = self.monster(id).await {
+                self.status = Some((format!("couldn't load a stat block: {e:#}"), true));
+            }
         }
     }
 
@@ -549,69 +538,21 @@ impl App {
                 self.reconnect().await;
                 return;
             }
+            Incoming::Sheet(character) => {
+                self.fetch_or_say(character).await;
+                return;
+            }
         };
         let event = match &message {
             ServerMessage::Event(event) => Some(event.clone()),
             _ => None,
         };
-        // An undo this screen sent: what the undone command spent on a
-        // sheet is given back here, as the combat can't do it.
-        let undone = match &event {
-            Some(LoggedEvent {
-                command_id: Some(id),
-                event: CombatEvent::Undone { command },
-                ..
-            }) if self.replica.pending().iter().any(|p| p.command_id == *id) => Some(*command),
-            _ => None,
-        };
         match self.replica.receive(message) {
             Received::Updated => {}
-            Received::Rejected { envelope, error } => {
-                self.status = Some((error, true));
-                // Refused, so it never happened: give back what it spent.
-                let spent = match envelope.command {
-                    CombatCommand::CastSpell {
-                        caster,
-                        slot: Some(slot),
-                        ..
-                    } => Some((caster, Spent::Slot(slot))),
-                    CombatCommand::UseFeature {
-                        combatant,
-                        feature,
-                        amount,
-                    } => Some((combatant, Spent::Feature(feature, amount))),
-                    _ => None,
-                };
-                if let Some((combatant, spent)) = spent {
-                    self.give_back(combatant, spent).await;
-                }
-            }
+            Received::Rejected { error, .. } => self.status = Some((error, true)),
             Received::NeedsResync => {
                 self.reconnect().await;
                 return;
-            }
-        }
-        if let Some(command) = undone {
-            let spent: Vec<_> = self
-                .log
-                .iter()
-                .filter(|e| e.command_id == Some(command))
-                .filter_map(|e| match &e.event {
-                    CombatEvent::SpellCast {
-                        caster,
-                        slot: Some(slot),
-                        ..
-                    } => Some((*caster, Spent::Slot(*slot))),
-                    CombatEvent::FeatureUsed {
-                        combatant,
-                        feature,
-                        amount,
-                    } => Some((*combatant, Spent::Feature(feature.clone(), *amount))),
-                    _ => None,
-                })
-                .collect();
-            for (combatant, spent) in spent {
-                self.give_back(combatant, spent).await;
             }
         }
         let Some(event) = event else { return };
@@ -620,68 +561,61 @@ impl App {
         }
         log::learn(&mut self.names, &event.event);
         self.log.push(event.clone());
-        // Sheets change outside the combat too (slots, features, HP
-        // written back); catch up with whoever's turn it now is, and with
-        // characters who join.
-        use CombatEvent as E;
-        let character = match &event.event {
-            E::TurnStarted { combatant } => self
-                .replica
-                .state()
-                .combatant(*combatant)
-                .and_then(|c| c.character_id),
-            E::CombatantAdded { combatant } | E::CombatantRestored { combatant } => {
-                if let Some(monster) = combatant.monster_id {
-                    let _ = self.monster(monster).await;
-                }
-                combatant.character_id
+        for character in self.sheets_changed_by(&event.event) {
+            self.fetch_or_say(character).await;
+        }
+        if let CombatEvent::Undone { command } = event.event {
+            // The combat service gives back what the undone command spent
+            // right after logging the undo; read those sheets again then.
+            for character in self.sheets_spent_by(command) {
+                let incoming = self.incoming.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    let _ = incoming.send(Incoming::Sheet(character));
+                });
             }
-            _ => None,
-        };
-        if let Some(id) = character {
-            let _ = self.fetch(id).await;
+        }
+        if let CombatEvent::CombatantAdded { combatant }
+        | CombatEvent::CombatantRestored { combatant } = &event.event
+            && let Some(monster) = combatant.monster_id
+            && let Err(e) = self.monster(monster).await
+        {
+            self.status = Some((format!("couldn't load a stat block: {e:#}"), true));
         }
     }
 
-    /// Restores a spent slot or feature use on the combatant's sheet.
-    async fn give_back(&mut self, combatant: Uuid, spent: Spent) {
+    /// The characters whose sheets `event` means have changed: whoever's
+    /// turn starts, who joins, and who spent a slot or uses (the combat
+    /// service spends them; sheets change outside the combat too).
+    fn sheets_changed_by(&self, event: &CombatEvent) -> Vec<Uuid> {
         let state = self.replica.state();
-        let Some(character) = state.combatant(combatant).and_then(|c| c.character_id) else {
-            return;
+        let character = |combatant: Uuid| state.combatant(combatant).and_then(|c| c.character_id);
+        let found = match event {
+            CombatEvent::TurnStarted { combatant } => character(*combatant),
+            CombatEvent::CombatantAdded { combatant }
+            | CombatEvent::CombatantRestored { combatant } => combatant.character_id,
+            other => other
+                .sheet_cost()
+                .and_then(|(combatant, _)| character(combatant)),
         };
-        let (action, what) = match spent {
-            Spent::Slot(SpellSlot::Level(level)) => (
-                CharacterAction::RestoreSpellSlot { level },
-                format!("a {} level slot", crate::display::ordinal(level)),
-            ),
-            Spent::Slot(SpellSlot::Pact(_)) => {
-                (CharacterAction::RestorePactSlot, "a pact slot".to_string())
-            }
-            Spent::Feature(name, amount) => (
-                CharacterAction::RestoreResource {
-                    name: name.clone(),
-                    amount,
-                },
-                name,
-            ),
-        };
-        let restored = match self.login.characters().await {
-            Ok(client) => client.act(character, &action).await.map_err(Into::into),
-            Err(e) => Err(e),
-        };
-        match restored {
-            Ok(saved) => {
-                let name = saved.sheet.name.clone();
-                self.sheets.insert(character, saved);
-                let note = format!("gave {name} back {what}");
-                self.status = Some(match self.status.take() {
-                    Some((text, failed)) => (format!("{text}; {note}"), failed),
-                    None => (note, false),
-                });
-            }
-            Err(e) => {
-                self.status = Some((format!("couldn't give back {what}: {e:#}"), true));
-            }
+        found.into_iter().collect()
+    }
+
+    /// The characters whose sheets `command` spent something from.
+    fn sheets_spent_by(&self, command: Uuid) -> Vec<Uuid> {
+        let state = self.replica.state();
+        self.log
+            .iter()
+            .filter(|e| e.command_id == Some(command))
+            .filter_map(|e| e.event.sheet_cost())
+            .filter_map(|(combatant, _)| state.combatant(combatant).and_then(|c| c.character_id))
+            .collect()
+    }
+
+    /// Reads a sheet again, saying so if that fails.
+    async fn fetch_or_say(&mut self, character: Uuid) {
+        if let Err(e) = self.fetch(character).await {
+            self.status = Some((format!("couldn't load a character sheet: {e:#}"), true));
         }
     }
 

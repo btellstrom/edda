@@ -5,12 +5,15 @@
 use std::{sync::Arc, time::Duration};
 
 use campaign_auth::{DeviceKey, protocol::Session, server::TokenVerifier};
-use campaign_client::combat::{CombatClient, Received, Replica, live::CombatConnection};
+use campaign_client::{
+    ClientError,
+    combat::{CombatClient, Received, Replica, live::CombatConnection},
+};
 use campaign_types::combat::{
     CombatCommand, CombatEvent, CombatState, CombatStatus, Combatant, CommandEnvelope, NewEffect,
-    ServerMessage,
+    ServerMessage, SpellSlot,
 };
-use combat_service::sync::HpSyncConfig;
+use combat_service::sync::SheetSyncConfig;
 use uuid::Uuid;
 
 mod support;
@@ -549,21 +552,7 @@ async fn hit_points_are_written_back_to_character_sheets() {
         ..Default::default()
     };
     let vex = characters.create(&sheet).await.unwrap();
-    // The combat service writes back as itself, with a key registered with
-    // the auth service.
-    let service_key = DeviceKey::generate();
-    auth.store
-        .add_service("combat-service", service_key.public())
-        .await
-        .unwrap();
-    let config = combat_service::Config {
-        hp_sync: Some(HpSyncConfig {
-            character_service: characters.base_url().to_string(),
-            auth_service: auth.url.clone(),
-            auth_key: auth.key,
-            key: Arc::new(service_key),
-        }),
-    };
+    let config = writing_to(&auth, &characters).await;
     let a = Server::start_with(&auth, config.clone()).await;
     let b = Server::start_with(&auth, config).await;
     let (a, b) = (a.client(&party.dm), b.client(&party.dm));
@@ -616,6 +605,104 @@ async fn hit_points_are_written_back_to_character_sheets() {
     // Undoing the heal reaches the sheet too.
     run(&a, combat, CombatCommand::Undo { command: None }).await;
     wait_for_hp(&characters, vex.id, (20, 0)).await;
+}
+
+/// A combat service config that keeps `characters`' sheets in step. The
+/// combat service does it as itself, with a key registered with the auth
+/// service.
+async fn writing_to(auth: &Auth, characters: &campaign_client::Client) -> combat_service::Config {
+    let service_key = DeviceKey::generate();
+    auth.store
+        .add_service(
+            &format!("combat-service-{}", Uuid::new_v4()),
+            service_key.public(),
+        )
+        .await
+        .unwrap();
+    combat_service::Config {
+        sheet_sync: Some(SheetSyncConfig {
+            character_service: characters.base_url().to_string(),
+            auth_service: auth.url.clone(),
+            auth_key: auth.key,
+            key: Arc::new(service_key),
+        }),
+    }
+}
+
+#[tokio::test]
+async fn casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back() {
+    let (auth, party, _) = setup().await;
+    let characters = character_service(&auth).await.with_token(&party.dm.token);
+    let sheet: campaign_types::CharacterSheet = serde_json::from_value(serde_json::json!({
+        "name": "Pike",
+        "classes": [{ "name": "Cleric", "level": 3, "spellcasting_ability": "wisdom" }],
+        "spellcasting": { "spells": [{ "name": "Bless", "level": 1, "concentration": true }] },
+        "resources": [{ "name": "Channel Divinity", "max": 1, "recharge": "short_rest" }]
+    }))
+    .unwrap();
+    let pike = characters.create(&sheet).await.unwrap();
+    let server = Server::start_with(&auth, writing_to(&auth, &characters).await).await;
+    let combats = server.client(&party.dm);
+    let combat = combats.create("Crypt").await.unwrap().id;
+    let combatant = Combatant::from_character(&pike);
+    let id = combatant.id;
+    run(&combats, combat, CombatCommand::AddCombatant { combatant }).await;
+    let used = |level: u8| {
+        let characters = characters.clone();
+        async move {
+            let sheet = characters.get(pike.id).await.unwrap().sheet;
+            sheet.spellcasting.slots[&level].used
+        }
+    };
+    let cast = |level: u8, targets: Vec<Uuid>| {
+        CommandEnvelope::new(CombatCommand::CastSpell {
+            caster: id,
+            spell: "Bless".into(),
+            slot: Some(SpellSlot::Level(level)),
+            targets,
+            concentration: None,
+        })
+    };
+
+    // The cast spends the slot; sending it again spends nothing more.
+    let bless = cast(1, vec![id]);
+    combats.command(combat, &bless).await.unwrap();
+    assert_eq!(used(1).await, 1);
+    combats.command(combat, &bless).await.unwrap();
+    assert_eq!(used(1).await, 1, "a resent command is spent once");
+
+    // No slot of that level: refused, and nothing is spent.
+    let refused = combats.command(combat, &cast(9, vec![id])).await;
+    assert!(
+        matches!(refused, Err(ClientError::Rejected(_))),
+        "{refused:?}"
+    );
+
+    // Refused by the rules after the slot was spent: it's given back.
+    let nobody = cast(1, vec![Uuid::new_v4()]);
+    assert!(combats.command(combat, &nobody).await.is_err());
+    assert_eq!(used(1).await, 1, "the refused cast's slot is back");
+
+    // Undoing the cast gives the slot back, before the undo returns.
+    run(&combats, combat, CombatCommand::Undo { command: None }).await;
+    assert_eq!(used(1).await, 0);
+
+    // Features the same way.
+    let feature = CombatCommand::UseFeature {
+        combatant: id,
+        feature: "Channel Divinity".into(),
+        amount: 1,
+    };
+    run(&combats, combat, feature.clone()).await;
+    let uses = characters.get(pike.id).await.unwrap().sheet.resources[0].uses;
+    assert_eq!(uses.used, 1);
+    let again = combats
+        .command(combat, &CommandEnvelope::new(feature))
+        .await;
+    assert!(
+        matches!(again, Err(ClientError::Rejected(_))),
+        "no uses left: {again:?}"
+    );
 }
 
 async fn character_service(auth: &Auth) -> campaign_client::Client {

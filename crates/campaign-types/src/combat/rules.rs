@@ -65,8 +65,8 @@ pub enum CombatCommand {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         concentration: Option<Uuid>,
     },
-    /// Record the use of a limited feature (Rage, Action Surge...), spent
-    /// on the character sheet separately.
+    /// Use a limited feature (Rage, Action Surge...). For a character, the
+    /// combat service spends the uses on their sheet first.
     UseFeature {
         combatant: Uuid,
         feature: String,

@@ -95,7 +95,7 @@ cargo run -p character-service
 cargo run -p combat-service
 # DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/combats
 #   (created on first start), BIND_ADDR to 127.0.0.1:3001,
-# CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty turns HP write-back off)
+# CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty leaves character sheets alone)
 cargo run -p monster-service -- import data/monsters/*.json   # the SRD, once
 cargo run -p monster-service -- import --kind spells data/spells/*.json
 cargo run -p monster-service -- import --kind conditions data/conditions/*.json
@@ -264,11 +264,12 @@ how long it has left. `show` keeps a description, or a combatant's sheet,
 there while the fight goes on, until another line runs or Esc on an empty
 line.
 
-Casting spends the caster's slot on their sheet (a pact slot when that's
-what works), records the cast in the combat log and, for concentration
-spells, puts the spell into play as an effect on its targets; `use` spends
-a feature's use and logs it. If the server refuses one of these, or you
-`undo` it, the screen gives the slot or use back. Changes show at once and are confirmed by the
+Casting records the cast in the combat log (from a pact slot when that's
+what works) and, for concentration spells, puts the spell into play as an
+effect on its targets; `use` logs a feature's use. The combat service spends
+the slot or use on the sheet (see [Character
+sheets](#character-sheets-in-step-with-combats)), and gives it back if the
+cast is refused or undone. Changes show at once and are confirmed by the
 server; if the connection drops the screen keeps working, queues what you
 do and sends it once it has reconnected.
 
@@ -490,7 +491,10 @@ Magic. Classes the service doesn't know give no slots.
 ```
 
 In-play changes go through `POST /characters/{id}/actions`. Each action is
-applied atomically, so two clients can't both spend the last slot:
+applied atomically, so two clients can't both spend the last slot. Sent
+with an `Idempotency-Key` header, an action is applied once per key:
+sending it again returns the character unchanged, so it's safe to retry
+(one that failed isn't remembered, and can be):
 
 ```json
 { "type": "cast_spell", "spell": "Shield" }
@@ -618,9 +622,8 @@ made since are kept:
 
 An ended combat accepts only the undo of `end`. An undo can't itself be
 undone. HP write-back follows undos like any other change. Undoing a cast
-ends the effect it put into play, but the slot (like a feature's use) lives
-on the character sheet: whoever undoes gives it back, as the fight screen
-does.
+ends the effect it put into play and gives its slot back on the sheet, and
+undoing a feature's use gives the use back.
 
 **Optimistic UIs.** `campaign_client::combat::Replica` keeps the confirmed
 state plus the client's in-flight commands and shows their predicted result
@@ -646,15 +649,29 @@ recognised through the `combat_commands` table. Combats nobody is connected
 to are dropped from memory after ten minutes and rebuilt from the log when
 next used.
 
-**Hit points on character sheets.** A combatant added with
-`Combatant::from_character` carries a `character_id`. After every command
-that changes such a combatant's HP, the service writes its current and
-temporary HP back to the character sheet (current capped at the sheet's
-maximum). Progress is tracked per combat in `combat_hp_sync`, so if the
-character service is unreachable the write-back is retried every 30
+<a id="character-sheets-in-step-with-combats"></a>
+**Character sheets in step with combats.** A combatant added with
+`Combatant::from_character` carries a `character_id`, and the service keeps
+that character's sheet in step, so every frontend gets it for free:
+
+- *Slots and uses.* Before running a `cast_spell` with a slot or a
+  `use_feature`, the service spends the slot or uses on the sheet; with
+  none left the command is refused (`422`), with the sheet's own reason. If
+  the rules then refuse the command it gives them back, and undoing it gives
+  them back before the undo returns. Each of these carries an
+  `Idempotency-Key` (the command's id, or one derived from it), which the
+  character service applies once, so a resent command or a retry never
+  spends or gives back twice.
+- *Hit points.* After every command that changes such a combatant's HP, the
+  service writes its current and temporary HP back to the sheet (current
+  capped at the sheet's maximum). The write-back is one-way: editing a
+  sheet's HP during a combat doesn't change the combatant.
+
+Progress is tracked per combat in `combat_hp_sync`, so if the character
+service is unreachable, write-back and give-backs are retried every 30
 seconds; only one instance syncs a combat at a time and it always writes
-the latest values, so sheets never go backwards. The write-back is one-way:
-editing a sheet's HP during a combat doesn't change the combatant.
+the latest HP, so sheets never go backwards. With `CHARACTER_SERVICE_URL`
+empty, sheets are left alone entirely.
 
 ## Authentication
 

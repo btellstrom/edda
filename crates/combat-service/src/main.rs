@@ -1,7 +1,7 @@
 use std::{env, path::Path, sync::Arc};
 
 use campaign_auth::{DeviceKey, PublicKey, server::TokenVerifier};
-use combat_service::sync::HpSyncConfig;
+use combat_service::sync::SheetSyncConfig;
 
 use tracing_subscriber::EnvFilter;
 
@@ -46,22 +46,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string());
     let auth_key = auth_key(&auth_service).await?;
 
-    // Set CHARACTER_SERVICE_URL to an empty string to turn HP write-back off.
+    // Set CHARACTER_SERVICE_URL to an empty string to leave character sheets
+    // alone: no HP written back, no slots or feature uses spent.
     let character_service =
         env::var("CHARACTER_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-    let hp_sync = if character_service.is_empty() {
+    let sheet_sync = if character_service.is_empty() {
         None
     } else {
         let key_file =
             env::var("SERVICE_KEY_FILE").unwrap_or_else(|_| DEFAULT_KEY_FILE.to_string());
-        Some(HpSyncConfig {
+        Some(SheetSyncConfig {
             character_service,
             auth_service,
             auth_key,
             key: Arc::new(service_key(Path::new(&key_file))?),
         })
     };
-    let config = combat_service::Config { hp_sync };
+    let config = combat_service::Config { sheet_sync };
 
     let pool = combat_service::connect(&database_url).await?;
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;

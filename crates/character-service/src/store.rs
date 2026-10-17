@@ -142,11 +142,14 @@ impl CharacterStore {
     /// Applies an in-play action atomically. `BEGIN IMMEDIATE` takes the
     /// write lock up front so concurrent actions (e.g. two clients spending
     /// the same slot) serialize instead of overwriting each other.
+    /// Applies `action` to the sheet. With a `key`, only once: sent again
+    /// with the same key, the character is returned as it now is.
     pub async fn apply(
         &self,
         scope: Scope,
         id: Uuid,
         action: &CharacterAction,
+        key: Option<&str>,
     ) -> Result<Character, ApiError> {
         let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
         let row: Option<Row> = sqlx::query_as(
@@ -157,6 +160,25 @@ impl CharacterStore {
         .fetch_optional(&mut *tx)
         .await?;
         let mut character = row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?;
+        if let Some(key) = key {
+            let seen: Option<(i64,)> =
+                sqlx::query_as("SELECT 1 FROM applied_actions WHERE character = ? AND key = ?")
+                    .bind(id.to_string())
+                    .bind(key)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            if seen.is_some() {
+                return Ok(character);
+            }
+            sqlx::query(
+                "INSERT INTO applied_actions (character, key, applied_at) VALUES (?, ?, ?)",
+            )
+            .bind(id.to_string())
+            .bind(key)
+            .bind(Utc::now())
+            .execute(&mut *tx)
+            .await?;
+        }
 
         // Sheets saved before their slots followed the classes catch up here.
         character.sheet.derive_slots(scope.edition);
@@ -179,22 +201,37 @@ impl CharacterStore {
 
     /// Deletes every character of a campaign; returns how many there were.
     pub async fn delete_campaign(&self, campaign: Uuid) -> Result<u64, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "DELETE FROM applied_actions WHERE character IN \
+             (SELECT id FROM characters WHERE campaign = ?)",
+        )
+        .bind(campaign.to_string())
+        .execute(&mut *tx)
+        .await?;
         let result = sqlx::query("DELETE FROM characters WHERE campaign = ?")
             .bind(campaign.to_string())
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
+        tx.commit().await?;
         Ok(result.rows_affected())
     }
 
     pub async fn delete(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
+        let mut tx = self.pool.begin().await?;
         let result = sqlx::query("DELETE FROM characters WHERE id = ? AND campaign = ?")
             .bind(id.to_string())
             .bind(scope.campaign.to_string())
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
         if result.rows_affected() == 0 {
             return Err(ApiError::NotFound);
         }
+        sqlx::query("DELETE FROM applied_actions WHERE character = ?")
+            .bind(id.to_string())
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
         Ok(())
     }
 }

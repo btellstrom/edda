@@ -110,16 +110,25 @@ async fn remove(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Applies an action; with an `Idempotency-Key` header, once per key.
 async fn apply_action(
     State(state): State<AppState>,
     Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
+    headers: HeaderMap,
     Json(action): Json<CharacterAction>,
 ) -> Result<impl IntoResponse, ApiError> {
+    let key = headers
+        .get("idempotency-key")
+        .map(|v| {
+            v.to_str()
+                .map_err(|_| ApiError::BadRequest("Idempotency-Key is not valid text".into()))
+        })
+        .transpose()?;
     Ok(tagged(
         state
             .characters
-            .apply((&claims).into(), id, &action)
+            .apply((&claims).into(), id, &action, key)
             .await?,
     ))
 }
