@@ -78,7 +78,7 @@ jobs:
       # does, never lower it.
       - name: Coverage floor
         run: cargo llvm-cov report --fail-under-lines "$(make -s coverage-floor)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: lcov.info
