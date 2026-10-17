@@ -58,7 +58,9 @@ auth-service setup-code <CAMPAIGN ID>` prints a new setup code for it.
 with its method, path, status and time, and the campaign it was for.
 `LOG_FORMAT=json` makes each line a JSON object, for a log collector;
 `RUST_LOG` sets how much (`RUST_LOG=debug`). They never hold what was
-sent or asked, only whose it was. Every response carries an
+sent or asked, only whose it was. With `OTEL_EXPORTER_OTLP_ENDPOINT` set
+(say `http://collector:4318`), each request is also sent as a trace to
+that OpenTelemetry collector, over HTTP. Every response carries an
 `x-request-id`, also in the logs, so a user's report can be found there.
 
 **Metrics** for Prometheus: with `METRICS_ADDR` set (say

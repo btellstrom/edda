@@ -1,7 +1,10 @@
 //! What a service logs about each request: a span with its method, path,
 //! request id, and whose it is (the campaign, once its token is checked,
-//! and the account, as the proxy says), in plain text or JSON lines. Never
-//! a body, and never the query string, which may hold what someone typed.
+//! and the account, as the proxy says), in plain text or JSON lines, and
+//! as traces to an OpenTelemetry collector if there is one. Never a body,
+//! and never the query string, which may hold what someone typed.
+
+use std::sync::OnceLock;
 
 use axum::{
     Router,
@@ -10,12 +13,18 @@ use axum::{
     middleware::{self, Next},
     response::Response,
 };
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_otlp::{ExporterBuildError, SpanExporter, WithExportConfig as _};
+use opentelemetry_sdk::{Resource, trace::SdkTracerProvider};
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::{DefaultOnResponse, TraceLayer},
 };
 use tracing::{Level, Span, Subscriber, field};
-use tracing_subscriber::{EnvFilter, fmt::MakeWriter};
+use tracing_subscriber::{EnvFilter, Layer as _, fmt, fmt::MakeWriter, layer::SubscriberExt as _};
+
+/// Where traces go, once [`traces`] has set it up; flushed by [`flush`].
+static TRACES: OnceLock<SdkTracerProvider> = OnceLock::new();
 
 /// The request's id: the proxy's, or one of the service's own. Answered in
 /// the response too, so a user's report can be found in the logs.
@@ -70,24 +79,71 @@ fn span(request: &Request, trust_proxy: bool) -> Span {
 }
 
 /// The subscriber `init_logging` installs, writing to `writer`: JSON lines
-/// when `json`, otherwise text for people.
-pub fn subscriber<W>(json: bool, filter: EnvFilter, writer: W) -> Box<dyn Subscriber + Send + Sync>
+/// when `json`, otherwise text for people; and with `traces`, sending each
+/// span on as a trace too.
+pub fn subscriber<W>(
+    json: bool,
+    filter: EnvFilter,
+    writer: W,
+    traces: Option<&SdkTracerProvider>,
+) -> Box<dyn Subscriber + Send + Sync>
 where
     W: for<'w> MakeWriter<'w> + Send + Sync + 'static,
 {
-    let builder = tracing_subscriber::fmt()
-        .with_writer(writer)
-        .with_env_filter(filter);
-    if json {
-        Box::new(
-            builder
-                .json()
-                .with_current_span(true)
-                .with_span_list(false)
-                .finish(),
-        )
+    let lines = if json {
+        fmt::layer()
+            .with_writer(writer)
+            .json()
+            .with_current_span(true)
+            .with_span_list(false)
+            .boxed()
     } else {
-        Box::new(builder.finish())
+        fmt::layer().with_writer(writer).boxed()
+    };
+    let traces = traces.map(|p| tracing_opentelemetry::layer().with_tracer(p.tracer("edda")));
+    Box::new(
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(lines)
+            .with(traces),
+    )
+}
+
+/// Sends spans as traces, as `service`, to the OpenTelemetry collector at
+/// `OTEL_EXPORTER_OTLP_ENDPOINT` (such as `http://collector:4318`), over
+/// HTTP; `None` without one.
+pub fn traces(service: &str) -> Result<Option<&'static SdkTracerProvider>, ExporterBuildError> {
+    let Some(endpoint) = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+        .ok()
+        .filter(|e| !e.is_empty())
+    else {
+        return Ok(None);
+    };
+    let provider = tracer_provider(service, &endpoint)?;
+    Ok(Some(TRACES.get_or_init(|| provider)))
+}
+
+fn tracer_provider(service: &str, endpoint: &str) -> Result<SdkTracerProvider, ExporterBuildError> {
+    let exporter = SpanExporter::builder()
+        .with_http()
+        .with_endpoint(format!("{}/v1/traces", endpoint.trim_end_matches('/')))
+        .build()?;
+    Ok(SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_resource(
+            Resource::builder()
+                .with_service_name(service.to_owned())
+                .build(),
+        )
+        .build())
+}
+
+/// Sends the traces not sent yet, before the service stops.
+pub fn flush() {
+    if let Some(provider) = TRACES.get()
+        && let Err(e) = provider.shutdown()
+    {
+        tracing::warn!(error = %e, "sending the last traces failed");
     }
 }
 
@@ -149,6 +205,7 @@ mod tests {
             true,
             EnvFilter::new("info"),
             logged.clone(),
+            None,
         ));
         let handler = || async {
             Span::current().record("campaign", "c-1");
@@ -197,5 +254,40 @@ mod tests {
             assert_eq!(span["request_id"], id.as_str());
             assert!(span.get("account").is_none(), "{span}");
         }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn spans_go_to_the_collector_as_traces() {
+        // A collector that only counts what it's sent.
+        let received = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen = received.clone();
+        let collector = Router::new().route(
+            "/v1/traces",
+            axum::routing::post(move |request: Request| {
+                let seen = seen.clone();
+                async move {
+                    let kind = request.headers()["content-type"]
+                        .to_str()
+                        .unwrap()
+                        .to_owned();
+                    seen.lock().unwrap().push(kind);
+                    ""
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move { axum::serve(listener, collector).await });
+
+        let provider = tracer_provider("test service", &endpoint).unwrap();
+        let logging = subscriber(false, EnvFilter::new("info"), io::sink, Some(&provider));
+        tracing::subscriber::with_default(logging, || {
+            tracing::info_span!("request", path = "/characters").in_scope(|| {});
+        });
+        tokio::task::spawn_blocking(move || provider.shutdown())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(*received.lock().unwrap(), ["application/x-protobuf"]);
     }
 }

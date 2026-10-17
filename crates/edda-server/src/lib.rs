@@ -90,13 +90,23 @@ pub async fn ready(axum::extract::State(pool): axum::extract::State<PgPool>) -> 
 /// Logs to stderr: `crate_name`'s own messages, this crate's (serving,
 /// internal errors) and each request, at info, unless `RUST_LOG` says
 /// otherwise. `LOG_FORMAT=json` writes a JSON object a line, for a log
-/// collector; see [`observe`].
+/// collector, and `OTEL_EXPORTER_OTLP_ENDPOINT` sends traces to an
+/// OpenTelemetry collector; see [`observe`].
 pub fn init_logging(crate_name: &str) {
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| format!("{crate_name}=info,edda_server=info,tower_http=info").into());
     let json = std::env::var("LOG_FORMAT").is_ok_and(|f| f == "json");
-    tracing::subscriber::set_global_default(observe::subscriber(json, filter, std::io::stderr))
-        .expect("logging is set up once");
+    let traces = observe::traces(crate_name).unwrap_or_else(|e| {
+        eprintln!("not sending traces: {e}");
+        None
+    });
+    tracing::subscriber::set_global_default(observe::subscriber(
+        json,
+        filter,
+        std::io::stderr,
+        traces,
+    ))
+    .expect("logging is set up once");
 }
 
 /// A connection pool to the service's Postgres database at `url`, after
@@ -191,6 +201,7 @@ pub async fn serve(
         .with_graceful_shutdown(stopping())
         .await?;
     tracing::info!("{name} stopped");
+    observe::flush();
     Ok(())
 }
 
