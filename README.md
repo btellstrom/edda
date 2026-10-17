@@ -245,7 +245,13 @@ order, and the sheet panel shows whoever acts. Tab completes the action,
 spell, feature, effect (the conditions, and effects already in play) or
 character; typing a name where a combatant goes, first target included,
 completes it to their number. ↑/↓ pick among the suggestions, Esc clears
-the line, PgUp/PgDn scroll the log, Ctrl-C quits.
+the line, PgUp/PgDn scroll the log, Alt-↑/↓ scroll the sheet panel, Ctrl-C
+quits.
+
+When the sheet doesn't fit its panel, it opens at the part the line needs:
+spellcasting for a cast, features for a use, a monster's actions for
+whatever it does. The panel's bottom edge says how much is hidden above and
+below.
 
 Casting spends the caster's slot on their sheet (a pact slot when that's
 what works), records the cast in the combat log and, for concentration
@@ -264,7 +270,7 @@ campaign-edit plan "Goblin ambush"     # that one, or a new one by that name
 
 A screen for putting fights together ahead of time. It shows the open
 plan's monsters, how hard they'd be for the party, the campaign's plans, and
-the stat block of the monster you're typing. Plans are kept in the campaign
+the stat block of the monster you're typing (Alt-↑/↓ scroll it). Plans are kept in the campaign
 (by the combat service), so every DM device sees them, and they can be used
 again and again:
 

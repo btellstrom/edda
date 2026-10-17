@@ -6,7 +6,11 @@
 //! bullet, labels are dim beside their values, and wrapped lines keep their
 //! indent, so a long entry never looks like the start of a new one.
 
-use std::io::IsTerminal;
+use std::{
+    cell::Cell,
+    hash::{DefaultHasher, Hash, Hasher},
+    io::IsTerminal,
+};
 
 use ratatui::{
     style::{Color, Modifier, Style, Stylize},
@@ -123,6 +127,79 @@ pub fn scroll_to(lines: &[Line<'static>], heading: Option<&str>, height: usize) 
                 && line.spans[1].content == heading
         })
         .map_or(0, |at| at.min(lines.len() - height))
+}
+
+/// A panel scrolled by hand (Alt-↑/↓), on top of wherever it would be
+/// anyway. What was scrolled is forgotten when the panel shows something
+/// else. Kept in cells, because only drawing knows how far it can go.
+#[derive(Debug, Default)]
+pub struct PanelScroll {
+    /// Lines scrolled by hand: down if positive.
+    by_hand: Cell<isize>,
+    /// What the panel showed when last drawn, as a hash.
+    showing: Cell<u64>,
+    /// When last drawn: where it would have been, and how far it can go.
+    bounds: Cell<(usize, usize)>,
+}
+
+/// What a scrolled panel shows: from which line, and how many are hidden
+/// above and below.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Scrolled {
+    pub offset: usize,
+    pub above: usize,
+    pub below: usize,
+}
+
+impl PanelScroll {
+    /// Scrolls by `lines`, as far as the last drawing allows.
+    pub fn by(&self, lines: isize) {
+        let (automatic, most) = self.bounds.get();
+        let wanted = automatic.saturating_add_signed(self.by_hand.get() + lines);
+        let at = wanted.min(most);
+        self.by_hand.set(at as isize - automatic as isize);
+    }
+
+    /// Where to draw `lines` lines in `height` rows, given where they'd be
+    /// without scrolling by hand and what they show.
+    pub fn place(
+        &self,
+        showing: impl Hash,
+        automatic: usize,
+        lines: usize,
+        height: usize,
+    ) -> Scrolled {
+        let mut hasher = DefaultHasher::new();
+        showing.hash(&mut hasher);
+        let showing = hasher.finish();
+        if self.showing.replace(showing) != showing {
+            self.by_hand.set(0);
+        }
+        let most = lines.saturating_sub(height);
+        let automatic = automatic.min(most);
+        self.bounds.set((automatic, most));
+        let offset = automatic
+            .saturating_add_signed(self.by_hand.get())
+            .min(most);
+        Scrolled {
+            offset,
+            above: offset,
+            below: most - offset,
+        }
+    }
+}
+
+impl Scrolled {
+    /// For the panel's bottom border: what's hidden, and how to see it.
+    pub fn hint(&self) -> Option<String> {
+        let hidden = match (self.above, self.below) {
+            (0, 0) => return None,
+            (0, below) => format!("↓ {below} more"),
+            (above, 0) => format!("↑ {above} more"),
+            (above, below) => format!("↑ {above} · ↓ {below} more"),
+        };
+        Some(format!(" {hidden} · Alt-↑↓ scrolls "))
+    }
 }
 
 /// A run of text without spaces, perhaps in more than one style ("(C),").
@@ -345,6 +422,31 @@ mod tests {
         );
         assert_eq!(scroll_to(&lines, Some("Features"), 3), 0, "no such section");
         assert_eq!(scroll_to(&lines, None, 3), 0);
+    }
+
+    #[test]
+    fn panels_scroll_by_hand_within_bounds_until_they_show_something_else() {
+        let scroll = PanelScroll::default();
+        // 20 lines in 5 rows, automatically at line 6.
+        let at = scroll.place("Vex", 6, 20, 5);
+        assert_eq!((at.offset, at.above, at.below), (6, 6, 9));
+        scroll.by(-2);
+        assert_eq!(scroll.place("Vex", 6, 20, 5).offset, 4);
+        scroll.by(100);
+        assert_eq!(
+            scroll.place("Vex", 6, 20, 5).offset,
+            15,
+            "no further than the end"
+        );
+        scroll.by(-100);
+        assert_eq!(scroll.place("Vex", 6, 20, 5).offset, 0, "nor the start");
+        scroll.by(3);
+        assert_eq!(scroll.place("Grog", 0, 20, 5).offset, 0, "forgotten");
+        assert_eq!(scroll.place("Grog", 0, 4, 5).hint(), None, "it all fits");
+        assert_eq!(
+            scroll.place("Grog", 0, 20, 5).hint().unwrap(),
+            " ↓ 15 more · Alt-↑↓ scrolls "
+        );
     }
 
     #[test]

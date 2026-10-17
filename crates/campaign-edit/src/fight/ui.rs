@@ -285,18 +285,26 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
     };
     // When it doesn't all fit, show the part the line needs: spells for a
     // cast, a monster's actions for an attack.
-    let scroll = crate::styled::scroll_to(&text.lines, app.parsed().section, height);
+    let section = app.parsed().section;
+    let automatic = crate::styled::scroll_to(&text.lines, section, height);
+    let scrolled = app
+        .panel
+        .place((combatant.id, section), automatic, text.lines.len(), height);
     let turn = app.replica.state().current_turn == Some(combatant.id);
     let title = if turn {
         format!(" {} · their turn ", combatant.name)
     } else {
         format!(" {} ", combatant.name)
     };
+    let mut block = Block::bordered().title(title);
+    if let Some(hint) = scrolled.hint() {
+        block = block.title_bottom(Line::from(hint).dark_gray().right_aligned());
+    }
     frame.render_widget(
         Paragraph::new(text)
-            .scroll((u16::try_from(scroll).unwrap_or(u16::MAX), 0))
+            .scroll((u16::try_from(scrolled.offset).unwrap_or(u16::MAX), 0))
             .wrap(Wrap { trim: false })
-            .block(Block::bordered().title(title)),
+            .block(block),
         area,
     );
 }

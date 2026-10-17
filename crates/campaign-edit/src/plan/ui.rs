@@ -257,26 +257,31 @@ fn draw_plans(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_stat_block(frame: &mut Frame, app: &App, area: Rect) {
     let shown = app.shown();
-    let (title, text) = match shown.and_then(|id| app.stat_blocks.get(&id)) {
+    let (title, lines) = match shown.and_then(|id| app.stat_blocks.get(&id)) {
         Some(monster) => (
             format!(" {} ", monster.sheet.name),
-            Text::from(crate::display::monster(
+            crate::display::monster(
                 &monster.sheet,
                 usize::from(area.width.saturating_sub(2)),
                 crate::display::Detail::Panel,
-            )),
+            ),
         ),
         None => (
             " Stat block ".to_string(),
-            Text::from(
-                Line::from("A monster's stat block shows here as you type its name.").dark_gray(),
-            ),
+            vec![Line::from("A monster's stat block shows here as you type its name.").dark_gray()],
         ),
     };
+    let height = usize::from(area.height.saturating_sub(2));
+    let scrolled = app.panel.place(shown, 0, lines.len(), height);
+    let mut block = Block::bordered().title(title);
+    if let Some(hint) = scrolled.hint() {
+        block = block.title_bottom(Line::from(hint).dark_gray().right_aligned());
+    }
     frame.render_widget(
-        Paragraph::new(text)
+        Paragraph::new(Text::from(lines))
+            .scroll((u16::try_from(scrolled.offset).unwrap_or(u16::MAX), 0))
             .wrap(Wrap { trim: false })
-            .block(Block::bordered().title(title)),
+            .block(block),
         area,
     );
 }

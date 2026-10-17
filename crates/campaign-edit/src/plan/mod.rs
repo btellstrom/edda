@@ -38,6 +38,8 @@ pub struct App {
     selected: usize,
     /// The outcome of the last line, and whether it was a failure.
     status: Option<(String, bool)>,
+    /// The stat block panel, scrolled by hand.
+    panel: crate::styled::PanelScroll,
 }
 
 /// Opens the planner on the plan `wanted` (a new one, if there's none by
@@ -80,6 +82,7 @@ pub async fn run(
         input: String::new(),
         selected: 0,
         status: None,
+        panel: Default::default(),
     };
     app.sort();
 
@@ -171,7 +174,16 @@ impl App {
 
     async fn key(&mut self, key: KeyEvent) -> Leave {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
         match key.code {
+            KeyCode::Up if alt => {
+                self.panel.by(-1);
+                return Leave::Stay;
+            }
+            KeyCode::Down if alt => {
+                self.panel.by(1);
+                return Leave::Stay;
+            }
             KeyCode::Char('c' | 'd') if ctrl => return Leave::Quit,
             KeyCode::Char('u') if ctrl => self.input.clear(),
             KeyCode::Char('w') if ctrl => {

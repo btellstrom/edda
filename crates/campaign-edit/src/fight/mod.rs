@@ -123,6 +123,8 @@ pub struct App {
     status: Option<(String, bool)>,
     /// How many lines the log is scrolled back.
     scroll: usize,
+    /// The sheet panel, scrolled by hand.
+    panel: crate::styled::PanelScroll,
     /// Failed reconnection attempts in a row.
     retries: u32,
 }
@@ -173,6 +175,7 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
         selected: 0,
         status: monster_problem.map(|problem| (problem, true)),
         scroll: 0,
+        panel: Default::default(),
         retries: 0,
     };
     app.refresh_sheets().await;
@@ -299,7 +302,16 @@ impl App {
     /// Handles a key; `false` to leave.
     async fn key(&mut self, key: KeyEvent) -> bool {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
         match key.code {
+            KeyCode::Up if alt => {
+                self.panel.by(-1);
+                return true;
+            }
+            KeyCode::Down if alt => {
+                self.panel.by(1);
+                return true;
+            }
             KeyCode::Char('c' | 'd') if ctrl => return false,
             KeyCode::Char('u') if ctrl => self.input.clear(),
             KeyCode::Char('w') if ctrl => {
