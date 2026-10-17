@@ -69,6 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!(?config, "combat service configured");
 
     let pool = combat_service::connect(&database_url).await?;
+    edda_server::measure::watch_pool(&pool);
 
     let limits = config.limits.clone();
     let app = combat_service::app(pool, TokenVerifier::new(auth_key), config).await?;

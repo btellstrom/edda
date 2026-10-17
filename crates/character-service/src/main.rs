@@ -30,6 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         edda_server::auth_key(&edda_server::auth_service_url()).await?,
     );
     let pool = character_service::connect(&database_url).await?;
+    edda_server::measure::watch_pool(&pool);
 
     let limits = edda_server::Limits::from_env()?;
     let app = character_service::app(pool, verifier, limits.clone());

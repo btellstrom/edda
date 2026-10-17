@@ -142,6 +142,7 @@ impl Limits {
     /// given its limit `max`; if not, what to tell it.
     pub fn room_for(&self, used: i64, more: u32, max: u32, what: &str) -> Result<(), String> {
         if self.enabled && used.saturating_add(i64::from(more)) > i64::from(max) {
+            crate::measure::refused(what);
             return Err(format!(
                 "this campaign has reached its limit of {max} {what}"
             ));
@@ -155,7 +156,7 @@ impl Limits {
         if !self.enabled {
             return router;
         }
-        let limiter = RateLimiter::new(self.requests_per_minute, self.trust_proxy);
+        let limiter = RateLimiter::new("requests", self.requests_per_minute, self.trust_proxy);
         router
             .layer(middleware::from_fn_with_state(limiter, limit))
             .layer(DefaultBodyLimit::max(self.body_bytes))
@@ -167,7 +168,7 @@ impl Limits {
         if !self.enabled {
             return router;
         }
-        let limiter = RateLimiter::new(self.sign_ins_per_minute, self.trust_proxy);
+        let limiter = RateLimiter::new("sign-ins", self.sign_ins_per_minute, self.trust_proxy);
         router.route_layer(middleware::from_fn_with_state(limiter, limit))
     }
 }
@@ -175,6 +176,8 @@ impl Limits {
 /// Counts each client address's requests in one-minute windows.
 #[derive(Clone)]
 struct RateLimiter {
+    /// Which limit it keeps, for the metrics.
+    name: &'static str,
     per_minute: u32,
     trust_proxy: bool,
     windows: Arc<Mutex<HashMap<IpAddr, (Instant, u32)>>>,
@@ -185,8 +188,9 @@ const WINDOW: Duration = Duration::from_mins(1);
 const REMEMBERED: usize = 10_000;
 
 impl RateLimiter {
-    fn new(per_minute: u32, trust_proxy: bool) -> Self {
+    fn new(name: &'static str, per_minute: u32, trust_proxy: bool) -> Self {
         Self {
+            name,
             per_minute,
             trust_proxy,
             windows: Arc::default(),
@@ -241,6 +245,7 @@ async fn limit(State(limiter): State<RateLimiter>, request: Request, next: Next)
         && let Err(wait) = limiter.count(client, Instant::now())
     {
         tracing::debug!(%client, "too many requests");
+        crate::measure::refused(limiter.name);
         let mut response = (
             StatusCode::TOO_MANY_REQUESTS,
             Json(json!({ "error": format!("too many requests; try again in {wait} s") })),
@@ -348,7 +353,7 @@ mod tests {
 
     #[test]
     fn each_address_gets_its_requests_per_minute() {
-        let limiter = RateLimiter::new(3, false);
+        let limiter = RateLimiter::new("requests", 3, false);
         let (a, b): (IpAddr, IpAddr) = ("192.0.2.1".parse().unwrap(), "192.0.2.2".parse().unwrap());
         let now = Instant::now();
         for _ in 0..3 {

@@ -13,6 +13,8 @@ testing = ["dep:uuid", "tokio/sync"]
 axum = "0.8.9"
 edda-auth = { version = "0.1.0", path = "../edda-auth" }
 edda-client = { version = "0.1.0", path = "../edda-client", default-features = false }
+metrics = "0.24.6"
+metrics-exporter-prometheus = { version = "0.18.3", default-features = false }
 serde_json = "1.0.154"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "migrate"] }
 tokio = { version = "1.53.3", features = ["net", "signal"] }
@@ -23,6 +25,7 @@ utoipa = "6.0.0"
 uuid = { version = "1.28.0", features = ["v4"], optional = true }
 
 [dev-dependencies]
+http-body-util = "0.1.5"
 tokio = { version = "1.53.3", features = ["macros", "rt"] }
 tower = { version = "0.5.3", features = ["util"] }
 

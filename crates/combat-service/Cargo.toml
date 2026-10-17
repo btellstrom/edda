@@ -12,6 +12,7 @@ edda-server = { version = "0.1.0", path = "../edda-server" }
 edda-types = { version = "0.1.0", path = "../edda-types", features = ["openapi"] }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
 futures-util = { version = "0.3.34", default-features = false }
+metrics = "0.24.6"
 rand = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
@@ -23,6 +24,7 @@ utoipa = { version = "6.0.0", features = ["chrono", "uuid"] }
 uuid = { version = "1.28.0", features = ["v4", "v5", "serde"] }
 
 [dev-dependencies]
+metrics-exporter-prometheus = { version = "0.18.3", default-features = false }
 tokio-tungstenite = "0.30.0"
 
 [lints]

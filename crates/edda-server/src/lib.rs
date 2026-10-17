@@ -4,6 +4,7 @@
 //! descriptions.
 
 pub mod limits;
+pub mod measure;
 pub mod observe;
 pub mod openapi;
 #[cfg(feature = "testing")]
@@ -144,6 +145,20 @@ pub async fn serve(
     name: &str,
     limits: &Limits,
 ) -> Result<(), Box<dyn Error>> {
+    let app = match std::env::var("METRICS_ADDR") {
+        Ok(address) => {
+            let measured = measure::endpoint(measure::install(name)?);
+            let listener = tokio::net::TcpListener::bind(&address).await?;
+            tracing::info!(%address, "{name}'s metrics at /metrics");
+            tokio::spawn(async move {
+                if let Err(e) = axum::serve(listener, measured).await {
+                    tracing::error!(error = %e, "serving metrics failed");
+                }
+            });
+            measure::requests(app)
+        }
+        Err(_) => app,
+    };
     let app = observe::requests(limits.apply(app.layer(cors()?)), limits.trust_proxy);
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(%bind, limits = limits.enabled(), "{name} listening");

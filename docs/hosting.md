@@ -61,6 +61,21 @@ with its method, path, status and time, and the campaign it was for.
 sent or asked, only whose it was. Every response carries an
 `x-request-id`, also in the logs, so a user's report can be found there.
 
+**Metrics** for Prometheus: with `METRICS_ADDR` set (say
+`0.0.0.0:9100`), a service serves `/metrics` there, an address of its own
+that the proxy never serves; without it, nothing is measured.
+
+| Metric | |
+| --- | --- |
+| `edda_http_requests_total` | requests, by `route` (its template, `/characters/{id}`), `method` and `status` |
+| `edda_http_request_duration_seconds` | how long they took, by `route` and `method` |
+| `edda_limits_refused_total` | requests a [limit](#limits) refused, by `limit` |
+| `edda_db_connections` | the service's database connections, `busy` or `idle` |
+| `edda_combat_watchers` | open WebSockets to combats, by `account` (from the hosting's proxy) |
+| `edda_combat_hp_sync_behind` | combats whose hit points haven't reached the sheets yet |
+
+Each is labelled with its `service`.
+
 ## Letting players in: HTTPS
 
 To let players' devices in, put the stack behind HTTPS rather than

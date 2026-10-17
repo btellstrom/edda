@@ -54,6 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     edda_server::init_logging("auth_service");
     let cli = Cli::parse();
     let pool = auth_service::connect(&cli.database_url).await?;
+    edda_server::measure::watch_pool(&pool);
     let store = auth_service::Store::new(pool.clone());
 
     match cli.command {

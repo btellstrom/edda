@@ -154,6 +154,8 @@ impl SheetSync {
             .await;
             match behind {
                 Ok(combats) => {
+                    metrics::gauge!("edda_combat_hp_sync_behind")
+                        .set(edda_server::measure::as_f64(combats.len()));
                     for (combat,) in combats {
                         self.clone().run(combat).await;
                     }

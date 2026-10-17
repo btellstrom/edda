@@ -6,7 +6,7 @@ use axum::{
         Path, Query, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{StatusCode, header},
+    http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -253,6 +253,7 @@ async fn websocket(
     State(hub): State<AppState>,
     Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
+    headers: HeaderMap,
     upgrade: WebSocketUpgrade,
 ) -> Result<Response, ApiError> {
     // Resolve the combat first so an unknown id is a plain 404.
@@ -267,7 +268,36 @@ async fn websocket(
             "devices watching a combat",
         )
         .map_err(ApiError::Forbidden)?;
-    Ok(upgrade.on_upgrade(move |socket| session(socket, hub, combat, id, claims)))
+    // Whose devices are connected, so an outage can be told to them.
+    let account = headers
+        .get(edda_server::observe::ACCOUNT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    Ok(upgrade.on_upgrade(move |socket| {
+        let watching = Watching::new(account);
+        async move {
+            session(socket, hub, combat, id, claims).await;
+            drop(watching);
+        }
+    }))
+}
+
+/// An open WebSocket, counted by account while it lasts:
+/// `edda_combat_watchers`.
+struct Watching(String);
+
+impl Watching {
+    fn new(account: String) -> Self {
+        metrics::gauge!("edda_combat_watchers", "account" => account.clone()).increment(1.0);
+        Self(account)
+    }
+}
+
+impl Drop for Watching {
+    fn drop(&mut self) {
+        metrics::gauge!("edda_combat_watchers", "account" => self.0.clone()).decrement(1.0);
+    }
 }
 
 /// The log records who sent a command as the authenticated device's name,
@@ -390,4 +420,33 @@ async fn send(
 ) -> Result<(), axum::Error> {
     let text = serde_json::to_string(message).expect("server messages always serialize");
     sink.send(Message::Text(text.into())).await
+}
+
+#[cfg(test)]
+mod tests {
+    use metrics_exporter_prometheus::PrometheusBuilder;
+
+    use super::Watching;
+
+    #[test]
+    fn open_websockets_are_counted_by_account_while_they_last() {
+        let recorder = PrometheusBuilder::new().build_recorder();
+        let measured = recorder.handle();
+        metrics::with_local_recorder(&recorder, || {
+            let first = Watching::new("vox".into());
+            let second = Watching::new("vox".into());
+            assert!(
+                measured
+                    .render()
+                    .contains(r#"edda_combat_watchers{account="vox"} 2"#)
+            );
+            drop(first);
+            drop(second);
+            assert!(
+                measured
+                    .render()
+                    .contains(r#"edda_combat_watchers{account="vox"} 0"#)
+            );
+        });
+    }
 }

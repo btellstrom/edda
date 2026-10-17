@@ -61,6 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     edda_server::init_logging("monster_service");
     let cli = Cli::parse();
     let pool = monster_service::connect(&cli.database_url).await?;
+    edda_server::measure::watch_pool(&pool);
 
     match cli.command {
         None => {
