@@ -273,12 +273,29 @@ async fn importing_again_updates_and_campaigns_can_be_deleted() {
     broken.push(sheet("", "Homebrew", None));
     assert!(app.store.import(Some(campaign), &broken).await.is_err());
 
-    assert_eq!(app.store.delete_campaign(campaign).await.unwrap(), 1);
+    assert_eq!(deleted_through_admin(&app, campaign).await, 1);
     assert_eq!(
         ours.names("?search=troll").await,
         ["Troll", "Troll Limb"],
         "the shared library stays"
     );
+}
+
+/// Deletes `campaign`'s own through the admin API; how many went.
+async fn deleted_through_admin(app: &App, campaign: Uuid) -> u64 {
+    let response = monster_service::admin::router(app.store.pool().clone())
+        .oneshot(
+            Request::delete(format!("/admin/campaigns/{campaign}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    serde_json::from_slice::<Value>(&bytes).unwrap()["deleted"]
+        .as_u64()
+        .unwrap()
 }
 
 fn spell(name: &str, level: u8, edition: Option<Edition>) -> SpellText {

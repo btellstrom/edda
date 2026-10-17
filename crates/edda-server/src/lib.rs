@@ -3,6 +3,7 @@
 //! and the limits), error responses, and the conventions of their `OpenAPI`
 //! descriptions.
 
+pub mod admin;
 pub mod limits;
 pub mod measure;
 pub mod observe;
@@ -170,14 +171,26 @@ pub fn auth_service_url() -> String {
     std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string())
 }
 
-/// Serves `app` on `bind` until Ctrl-C, within `limits`, answering web
-/// pages from the origins in `CORS_ORIGINS`.
+/// Serves `app` on `bind` until asked to stop, within `limits`, answering
+/// web pages from the origins in `CORS_ORIGINS`; and `admin` on
+/// `ADMIN_ADDR` and metrics on `METRICS_ADDR`, if set.
 pub async fn serve(
     app: Router,
+    admin: Router,
     bind: &str,
     name: &str,
     limits: &Limits,
 ) -> Result<(), Box<dyn Error>> {
+    if let Some(config) = admin::Admin::from_env()? {
+        let listener = tokio::net::TcpListener::bind(&config.address).await?;
+        tracing::info!(address = %config.address, "{name}'s admin API listening");
+        let admin = observe::requests(config.guard(admin), false);
+        tokio::spawn(async move {
+            if let Err(e) = axum::serve(listener, admin).await {
+                tracing::error!(error = %e, "serving the admin API failed");
+            }
+        });
+    }
     let app = match std::env::var("METRICS_ADDR") {
         Ok(address) => {
             let measured = measure::endpoint(measure::install(name)?);

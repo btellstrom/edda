@@ -111,7 +111,25 @@ pub struct Session {
     pub claims: Claims,
 }
 
-/// `POST /setup/lookup`
+/// `POST /admin/campaigns` (the admin API): a campaign to create.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct NewCampaign {
+    pub name: String,
+    pub edition: Edition,
+}
+
+/// `POST /admin/campaigns`: the campaign, and the one-time code its DM
+/// sets up their first device with.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct CreatedCampaign {
+    pub campaign: Campaign,
+    pub setup_code: String,
+}
+
+/// `POST /setup/lookup`, and the admin API's
+/// `POST /admin/campaigns/{id}/setup-code`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SetupCode {

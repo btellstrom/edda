@@ -3,6 +3,8 @@
 //! Several instances can run against the same database.
 
 /// Errors, as responses.
+/// What whoever runs the service asks of it over HTTP.
+pub mod admin;
 pub mod error;
 pub mod pairing;
 /// Setting up campaigns, logging in, and devices.

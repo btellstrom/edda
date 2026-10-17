@@ -5,6 +5,8 @@
 //! change only its own.
 
 /// Errors, as responses.
+/// What whoever runs the service asks of it over HTTP.
+pub mod admin;
 pub mod error;
 /// The HTTP routes.
 pub mod routes;

@@ -1,6 +1,7 @@
 //! Typed HTTP client for the Edda services. Shared by every
 //! frontend so none of them need to know about URLs, headers or status codes.
 
+pub mod admin;
 pub mod auth;
 pub mod combat;
 pub mod monsters;

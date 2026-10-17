@@ -140,8 +140,9 @@ async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error:
         edda_server::auth_key(&edda_server::auth_service_url()).await?,
     );
     let limits = edda_server::Limits::from_env()?;
+    let admin = monster_service::admin::router(pool.clone());
     let app = monster_service::app(pool, verifier, limits.clone());
-    edda_server::serve(app, bind, "monster service", &limits).await
+    edda_server::serve(app, admin, bind, "monster service", &limits).await
 }
 
 #[cfg(test)]

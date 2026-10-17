@@ -4,6 +4,7 @@
 //! used by every service *and* every frontend (native, CLI, or WASM).
 
 pub mod action;
+pub mod admin;
 /// Character sheets: classes, abilities, skills, hit points and items.
 pub mod character;
 pub mod combat;

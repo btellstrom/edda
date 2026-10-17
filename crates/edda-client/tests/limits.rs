@@ -117,7 +117,7 @@ async fn a_campaign_keeps_only_so_many_combats_events_and_watchers() {
 
     // Watching once the snapshot has come.
     let mut watching = combats.connect(combat).await.unwrap();
-    let first = tokio::time::timeout(std::time::Duration::from_secs(5), watching.recv()).await;
+    let first = tokio::time::timeout(std::time::Duration::from_secs(20), watching.recv()).await;
     assert!(matches!(first, Ok(Some(Ok(ServerMessage::Snapshot(_))))));
     assert!(
         combats.connect(combat).await.is_err(),

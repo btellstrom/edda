@@ -73,8 +73,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     edda_server::measure::watch_pool(&pool);
 
     let limits = config.limits.clone();
+    let admin = combat_service::admin::router(pool.clone());
     let app = combat_service::app(pool, TokenVerifier::new(auth_key), config).await?;
-    edda_server::serve(app, &bind_addr, "combat service", &limits).await
+    edda_server::serve(app, admin, &bind_addr, "combat service", &limits).await
 }
 
 /// This service's own key, for reaching the other services. Created on

@@ -77,8 +77,10 @@ async fn add(client: &CombatClient, combat: Uuid, name: &str, modifier: i8) -> U
     id
 }
 
+/// The server's next message. The timeout only keeps a broken test from
+/// hanging: a busy machine running every test at once can take seconds.
 async fn next(conn: &mut CombatConnection) -> ServerMessage {
-    tokio::time::timeout(Duration::from_secs(5), conn.recv())
+    tokio::time::timeout(Duration::from_secs(20), conn.recv())
         .await
         .expect("timed out waiting for the server")
         .expect("connection closed")
@@ -1220,14 +1222,17 @@ async fn deleting_a_campaign_deletes_its_combats_even_from_memory() {
     let other_api = server.client(&other.dm);
     let kept = other_api.create("Kept").await.unwrap().id;
 
-    // As `combat-service delete-campaign` does, from another process.
-    let store = combat_service::store::Store::new(
-        combat_service::connect(&database_url("combat_test").await)
-            .await
-            .unwrap(),
+    // Through the admin API, served apart from the instance in use.
+    let pool = combat_service::connect(&database_url("combat_test").await)
+        .await
+        .unwrap();
+    let token = "the-admin-token-of-this-test-0123456789";
+    let admin = edda_server::admin::Admin::new("unused", token).unwrap();
+    let admin = edda_client::admin::AdminClient::new(
+        support::serve(admin.guard(combat_service::admin::router(pool))).await,
+        token,
     );
-    let deleted = store.delete_campaign(&party.id().to_string()).await;
-    assert_eq!(deleted.unwrap(), 1);
+    assert_eq!(admin.delete_campaign(party.id()).await.unwrap(), 1);
 
     assert!(api.list(None).await.unwrap().is_empty());
     let not_found = |r| matches!(r, Err(edda_client::ClientError::NotFound));

@@ -33,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     edda_server::measure::watch_pool(&pool);
 
     let limits = edda_server::Limits::from_env()?;
+    let admin = character_service::admin::router(pool.clone());
     let app = character_service::app(pool, verifier, limits.clone());
-    edda_server::serve(app, &bind_addr, "character service", &limits).await
+    edda_server::serve(app, admin, &bind_addr, "character service", &limits).await
 }

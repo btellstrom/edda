@@ -78,6 +78,23 @@ that the proxy never serves; without it, nothing is measured.
 
 Each is labelled with its `service`.
 
+## The admin API
+
+What `make campaign` and `make delete-campaign` do, over HTTP, for a
+program that runs the servers (a hosting's control plane, say). With
+`ADMIN_ADDR` (an address only that program can reach, never the proxy)
+and `ADMIN_TOKEN` (32 or more printable ASCII characters) both set, a
+service serves it there; each request must bear the token
+(`Authorization: Bearer <token>`).
+
+| Service | Method | Path | Answers |
+| --- | --- | --- | --- |
+| auth | `POST` | `/admin/campaigns` `{"name", "edition"}` | `201` `{"campaign", "setup_code"}` |
+| auth | `POST` | `/admin/campaigns/{id}/setup-code` | `{"code"}`: a new code for a DM device |
+| every one | `DELETE` | `/admin/campaigns/{id}` | `{"deleted": n}`: its part of the campaign; safe to repeat |
+
+In Rust, `edda_client::admin::AdminClient` calls it.
+
 ## Letting players in: HTTPS
 
 To let players' devices in, put the stack behind HTTPS rather than

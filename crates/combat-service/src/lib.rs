@@ -2,8 +2,10 @@
 //! updates over WebSocket. Any number of instances can run against the same
 //! Postgres database.
 
-pub mod encounters;
 /// Errors, as responses.
+/// What whoever runs the service asks of it over HTTP.
+pub mod admin;
+pub mod encounters;
 pub mod error;
 pub mod hub;
 /// The `/combats` routes and the WebSocket.

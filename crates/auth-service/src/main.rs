@@ -9,7 +9,6 @@ use edda_types::Edition;
 use uuid::Uuid;
 
 /// How long a setup code stays usable.
-const SETUP_CODE_LIFETIME: chrono::Duration = chrono::Duration::hours(24);
 
 #[derive(Parser)]
 #[command(about = "Edda auth service")]
@@ -94,15 +93,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
     let limits = edda_server::Limits::from_env()?;
+    let admin = auth_service::admin::router(pool.clone());
     let app = auth_service::app(pool, limits.clone()).await?;
-    edda_server::serve(app, bind, "auth service", &limits).await
+    edda_server::serve(app, admin, bind, "auth service", &limits).await
 }
 
 async fn print_setup_code(
     store: &auth_service::Store,
     campaign: Uuid,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let code = store.new_setup_code(campaign, SETUP_CODE_LIFETIME).await?;
+    let code = store
+        .new_setup_code(campaign, auth_service::admin::SETUP_CODE_LIFETIME)
+        .await?;
     println!("DM setup code (valid for 24 hours, works once):\n\n    {code}\n");
     println!("On the DM's device:  edda auth setup {code} --name \"<device name>\"");
     Ok(())

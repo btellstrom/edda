@@ -6754,7 +6754,7 @@
       },
       "SetupCode": {
         "type": "object",
-        "description": "`POST /setup/lookup`",
+        "description": "`POST /setup/lookup`, and the admin API's\n`POST /admin/campaigns/{id}/setup-code`",
         "required": [
           "code"
         ],
