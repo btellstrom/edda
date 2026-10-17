@@ -546,6 +546,7 @@ mod tests {
             race: "Gnome".into(),
             level,
             classes: Vec::new(),
+            owners: Vec::new(),
             updated_at: Utc::now(),
         }
     }

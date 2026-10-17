@@ -14,6 +14,8 @@ pub enum ApiError {
     NotFound,
     #[error("{0}")]
     BadRequest(String),
+    #[error("{0}")]
+    Forbidden(String),
     #[error("an If-Match header with the character's current ETag is required")]
     PreconditionRequired,
     /// The client's copy is stale. Carries the current character so the
@@ -35,6 +37,7 @@ impl IntoResponse for ApiError {
         let status = match &self {
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
             ApiError::PreconditionRequired => StatusCode::PRECONDITION_REQUIRED,
             ApiError::VersionMismatch(_) => StatusCode::PRECONDITION_FAILED,
             ApiError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,

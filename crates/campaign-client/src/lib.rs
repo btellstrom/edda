@@ -128,6 +128,13 @@ impl Client {
         check(response).await.map(drop)
     }
 
+    /// Sets which player devices play the character, by key (DM devices
+    /// only).
+    pub async fn set_owners(&self, id: Uuid, owners: &[String]) -> Result<Character, ClientError> {
+        let url = format!("{}/owners", self.character_url(id));
+        send(self.http.put(url).json(owners)).await
+    }
+
     pub async fn act(&self, id: Uuid, action: &CharacterAction) -> Result<Character, ClientError> {
         let url = format!("{}/actions", self.character_url(id));
         send(self.http.post(url).json(action)).await

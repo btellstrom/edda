@@ -110,6 +110,7 @@ mod tests {
             race: String::new(),
             level: 1,
             classes: vec![],
+            owners: Vec::new(),
             updated_at: Default::default(),
         }
     }

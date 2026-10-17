@@ -401,6 +401,13 @@ pub enum CharacterCommand {
         yes: bool,
     },
 
+    /// Who plays the character: the player devices that may change it and
+    /// act for it in a fight. Only a DM device changes this.
+    Owners {
+        #[command(subcommand)]
+        change: Option<OwnersCommand>,
+    },
+
     /// Manage class levels.
     #[command(subcommand)]
     Class(ClassCommand),
@@ -589,6 +596,16 @@ pub enum PactCommand {
     Use,
     /// Regain a pact slot.
     Regain,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum OwnersCommand {
+    /// Let a device play the character, by name or key prefix (see `auth
+    /// devices`).
+    Add { device: String },
+    /// Stop a device playing the character.
+    #[command(visible_alias = "rm")]
+    Remove { device: String },
 }
 
 #[derive(Debug, Subcommand)]

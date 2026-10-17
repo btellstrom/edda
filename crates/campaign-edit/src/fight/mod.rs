@@ -10,6 +10,7 @@ mod ui;
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow, bail};
+use campaign_auth::protocol::Principal;
 use campaign_client::combat::{Received, Replica, live::CommandSender};
 use campaign_types::{
     Character, CharacterSummary,
@@ -71,6 +72,8 @@ pub struct App {
     panel: crate::styled::PanelScroll,
     /// Failed reconnection attempts in a row.
     retries: u32,
+    /// This device's key, if it's a player's.
+    player: Option<String>,
 }
 
 pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> Result<()> {
@@ -109,6 +112,8 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
 
     let (incoming, mut received) = mpsc::unbounded_channel();
     let (sender, snapshot) = connect(&mut login, combat, &incoming).await?;
+    let claims = &login.session.claims;
+    let player = (claims.role == Principal::Player).then(|| claims.key.to_string());
     let mut app = App {
         login,
         combat,
@@ -129,6 +134,7 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
         scroll: 0,
         panel: Default::default(),
         retries: 0,
+        player,
     };
     app.refresh_sheets().await;
 
@@ -233,6 +239,7 @@ impl App {
             bestiary: &self.bestiary,
             spells: &self.spells,
             conditions: &self.conditions,
+            player: self.player.as_deref(),
         }
     }
 

@@ -12,7 +12,7 @@ use campaign_client::{auth::AuthClient, pairing};
 use uuid::Uuid;
 
 use crate::{
-    cli::AuthCommand,
+    cli::{AuthCommand, OwnersCommand},
     identity::{Identity, Profile},
 };
 
@@ -243,6 +243,57 @@ async fn revoke(identity: &Identity, device: &str) -> Result<()> {
         revoked.cert.cert.name,
         target.device.fingerprint()
     );
+    Ok(())
+}
+
+/// Shows, or changes, which devices play a character.
+pub async fn owners(
+    characters: &campaign_client::Client,
+    character: Uuid,
+    change: Option<OwnersCommand>,
+) -> Result<()> {
+    let (_, _, auth) = logged_in(&Identity::locate()?).await?;
+    let devices = auth.devices().await?;
+    let mut current = characters.get(character).await?;
+    if let Some(change) = change {
+        let mut owners = current.owners.clone();
+        match change {
+            OwnersCommand::Add { device } => {
+                let cert = find_device(&devices, &device)?;
+                if cert.role != Role::Player {
+                    bail!(
+                        "{} is a DM device, which plays every character already",
+                        cert.name
+                    );
+                }
+                let key = cert.device.to_string();
+                if !owners.contains(&key) {
+                    owners.push(key);
+                }
+            }
+            OwnersCommand::Remove { device } => {
+                let key = find_device(&devices, &device)?.device.to_string();
+                owners.retain(|owner| *owner != key);
+            }
+        }
+        current = characters.set_owners(character, &owners).await?;
+    }
+    let name = &current.sheet.name;
+    if current.owners.is_empty() {
+        println!("Nobody plays {name} yet; only DM devices change them.");
+        println!("Let a player's device play them with: campaign-edit {name} owners add <DEVICE>");
+        return Ok(());
+    }
+    println!("{name} is played by:");
+    for owner in &current.owners {
+        let named = devices
+            .iter()
+            .find(|d| d.cert.cert.device.to_string() == *owner)
+            .map_or("(a device no longer in the campaign)", |d| {
+                d.cert.cert.name.as_str()
+            });
+        println!("  {}  {named}", &owner[..8.min(owner.len())]);
+    }
     Ok(())
 }
 

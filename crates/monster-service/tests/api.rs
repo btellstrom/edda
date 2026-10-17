@@ -53,13 +53,18 @@ impl App {
         }
     }
 
+    /// As a DM device of `campaign`.
     fn campaign(&self, campaign: Uuid, edition: Edition) -> As<'_> {
+        self.device(campaign, edition, Principal::Dm)
+    }
+
+    fn device(&self, campaign: Uuid, edition: Edition, role: Principal) -> As<'_> {
         let token = self
             .signer
             .issue(&Claims {
                 key: DeviceKey::generate().public(),
                 campaign,
-                role: Principal::Player,
+                role,
                 name: "Test".into(),
                 edition,
                 expires_at: Utc::now() + chrono::Duration::minutes(5),
@@ -370,4 +375,42 @@ async fn spells_and_conditions_are_kept_like_monsters() {
         .send(Method::GET, &format!("/spells/{zap_id}"), None)
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "deleted with the campaign");
+}
+
+#[tokio::test]
+async fn only_the_dm_changes_the_campaigns_monsters_spells_and_conditions() {
+    let app = App::new().await;
+    let campaign = Uuid::new_v4();
+    let dm = app.campaign(campaign, Edition::default());
+    let player = app.device(campaign, Edition::default(), Principal::Player);
+    let goblin = json!({ "name": "Goblin", "hit_points": 7 });
+    let (status, created) = dm
+        .send(Method::POST, "/monsters", Some(goblin.clone()))
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let uri = format!("/monsters/{}", created["id"].as_str().unwrap());
+
+    // Players read them, and that's all.
+    assert_eq!(player.send(Method::GET, &uri, None).await.0, StatusCode::OK);
+    let (status, body) = player
+        .send(Method::POST, "/monsters", Some(goblin.clone()))
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        body["error"],
+        "only a DM device can change the campaign's monsters, spells and conditions"
+    );
+    assert_eq!(
+        player.send(Method::PUT, &uri, Some(goblin)).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        player.send(Method::DELETE, &uri, None).await.0,
+        StatusCode::FORBIDDEN
+    );
+    let spell = json!({ "name": "Firebolt", "level": 0 });
+    assert_eq!(
+        player.send(Method::POST, "/spells", Some(spell)).await.0,
+        StatusCode::FORBIDDEN
+    );
 }

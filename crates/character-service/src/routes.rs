@@ -3,9 +3,9 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode, header},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, post, put},
 };
-use campaign_auth::server::Authenticated;
+use campaign_auth::{PublicKey, server::Authenticated};
 use campaign_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
 use uuid::Uuid;
 
@@ -17,6 +17,7 @@ pub fn router() -> Router<AppState> {
         .route("/characters", get(list).post(create))
         .route("/characters/{id}", get(fetch).put(replace).delete(remove))
         .route("/characters/{id}/actions", post(apply_action))
+        .route("/characters/{id}/owners", put(set_owners))
 }
 
 /// Strong ETag for a character: its version, quoted per RFC 9110.
@@ -129,6 +130,31 @@ async fn apply_action(
         state
             .characters
             .apply((&claims).into(), id, &action, key)
+            .await?,
+    ))
+}
+
+/// Sets which player devices play a character (DM devices only): a list of
+/// device keys, as `auth devices` shows them.
+async fn set_owners(
+    State(state): State<AppState>,
+    Authenticated(claims): Authenticated,
+    Path(id): Path<Uuid>,
+    Json(owners): Json<Vec<String>>,
+) -> Result<impl IntoResponse, ApiError> {
+    if !claims.is_dm() {
+        return Err(ApiError::Forbidden(
+            "only a DM device chooses who plays a character".into(),
+        ));
+    }
+    for key in &owners {
+        key.parse::<PublicKey>()
+            .map_err(|_| ApiError::BadRequest(format!("{key} isn't a device key")))?;
+    }
+    Ok(tagged(
+        state
+            .characters
+            .set_owners((&claims).into(), id, &owners)
             .await?,
     ))
 }

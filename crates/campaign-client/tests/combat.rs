@@ -4,7 +4,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use campaign_auth::{DeviceKey, protocol::Session, server::TokenVerifier};
+use campaign_auth::{DeviceKey, Role, protocol::Session, server::TokenVerifier};
 use campaign_client::{
     ClientError,
     combat::{CombatClient, Received, Replica, live::CombatConnection},
@@ -193,7 +193,8 @@ async fn changes_are_pushed_to_every_connected_client() {
     let combat = api.create("Live").await.unwrap().id;
     let goblin = add(api, combat, "Goblin", 0).await;
 
-    let vex = party.player(&auth, "Vex").await;
+    // Another DM device: players can't hit goblins.
+    let vex = party.join(&auth, "Vex", Role::Dm).await.1;
     let mut dm = api.connect(combat).await.unwrap();
     let mut player = server.client(&vex).connect(combat).await.unwrap();
     let ServerMessage::Snapshot(snapshot) = next(&mut player).await else {
@@ -679,6 +680,101 @@ fn added(events: &[CombatEvent]) -> Vec<(String, u16)> {
 }
 
 #[tokio::test]
+async fn players_change_only_their_own_combatants_and_end_only_their_own_turn() {
+    let (auth, party, without) = setup().await;
+    let characters = character_service(&auth).await;
+    let (laura_key, laura) = party.join(&auth, "Laura's phone", Role::Player).await;
+    let vex = characters
+        .clone()
+        .with_token(&laura.token)
+        .create(&serde_json::from_value(serde_json::json!({ "name": "Vex" })).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(vex.owners, [laura_key.public().to_string()]);
+    let server = Server::start_with(&auth, writing_to(&auth, &characters).await).await;
+    let dm = server.client(&party.dm);
+    let player = server.client(&laura);
+    let combat = dm.create("Ambush").await.unwrap().id;
+    let mut vex_combatant = Combatant::from_character(&vex);
+    vex_combatant.initiative = Some(5);
+    let vex_id = vex_combatant.id;
+    run(
+        &dm,
+        combat,
+        CombatCommand::AddCombatant {
+            combatant: vex_combatant,
+        },
+    )
+    .await;
+    let goblin = add(&dm, combat, "Goblin", 0).await;
+    run(
+        &dm,
+        combat,
+        CombatCommand::SetInitiative {
+            combatant: goblin,
+            total: 15,
+        },
+    )
+    .await;
+    run(&dm, combat, CombatCommand::Start).await;
+
+    let refused = |command| {
+        let player = player.clone();
+        async move {
+            match player.command(combat, &CommandEnvelope::new(command)).await {
+                Err(ClientError::Forbidden(message)) => message,
+                other => panic!("expected a refusal, got {other:?}"),
+            }
+        }
+    };
+    let damage = |combatant| CombatCommand::Damage {
+        combatant,
+        amount: 2,
+    };
+    run(&player, combat, damage(vex_id)).await;
+    assert_eq!(
+        refused(damage(goblin)).await,
+        "Goblin isn't yours; the DM or their player changes them"
+    );
+    let heal = CombatCommand::CastSpell {
+        caster: vex_id,
+        spell: "Cure Wounds".into(),
+        slot: None,
+        targets: vec![goblin],
+        concentration: None,
+    };
+    assert!(refused(heal).await.contains("Goblin isn't yours"));
+    assert_eq!(refused(CombatCommand::End).await, "only the DM can do that");
+    // The goblin's turn first, then Vex's.
+    assert_eq!(refused(CombatCommand::NextTurn).await, "it isn't your turn");
+    run(&dm, combat, CombatCommand::NextTurn).await;
+    run(&player, combat, CombatCommand::NextTurn).await;
+    assert_eq!(
+        refused(CombatCommand::RollInitiativeForAll).await,
+        "only the DM can do that"
+    );
+    // Starting combats is the DM's too.
+    assert!(matches!(
+        player.create("Mine").await,
+        Err(ClientError::Forbidden(_))
+    ));
+
+    // A combat service that can't see whose characters are whose lets
+    // players do nothing.
+    let combat = without.client(&party.dm).create("Blind").await.unwrap().id;
+    let refused = without
+        .client(&laura)
+        .command(
+            combat,
+            &CommandEnvelope::new(CombatCommand::Undo { command: None }),
+        )
+        .await;
+    assert!(
+        matches!(refused, Err(ClientError::Forbidden(m)) if m.contains("can't reach the character sheets"))
+    );
+}
+
+#[tokio::test]
 async fn monsters_are_added_numbered_and_rolled_by_the_server() {
     let (auth, party, without) = setup().await;
     let (monsters, goblin) = goblins(&auth, &party).await;
@@ -933,7 +1029,7 @@ async fn combats_are_private_to_their_campaign() {
 async fn the_log_names_the_device_not_whoever_the_client_claims() {
     let (auth, party, server) = setup().await;
     let combat = server.client(&party.dm).create("Trust").await.unwrap().id;
-    let vex = server.client(&party.player(&auth, "Vex's laptop").await);
+    let vex = server.client(&party.join(&auth, "Vex's laptop", Role::Dm).await.1);
     let goblin = add(&vex, combat, "Goblin", 0).await;
     let lie = CommandEnvelope::new(CombatCommand::Damage {
         combatant: goblin,
@@ -977,8 +1073,8 @@ async fn undo_takes_back_only_the_devices_own_commands() {
     let combat = dm.create("Oops").await.unwrap().id;
     let goblin = add(&dm, combat, "Goblin", 0).await;
     // Two devices with the same name: ownership goes by key, not name.
-    let vex = server.client(&party.player(&auth, "Laptop").await);
-    let grog = server.client(&party.player(&auth, "Laptop").await);
+    let vex = server.client(&party.join(&auth, "Laptop", Role::Dm).await.1);
+    let grog = server.client(&party.join(&auth, "Laptop", Role::Dm).await.1);
     let damage = |amount| CombatCommand::Damage {
         combatant: goblin,
         amount,

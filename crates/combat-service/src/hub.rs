@@ -15,15 +15,16 @@
 //! rebuilt from its log when next used, so combats can sit paused for days.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex as StdMutex},
     time::{Duration, Instant},
 };
 
+use campaign_auth::protocol::{Claims, Principal};
 use campaign_types::{
     combat::{
         CombatCommand, CombatEvent, CombatSnapshot, CombatState, CommandEnvelope, Dice,
-        LoggedEvent, SheetCost, add_monsters, decide, undo,
+        LoggedEvent, SheetCost, add_monsters, decide, player_may, undo,
     },
     monster::Monster,
 };
@@ -165,6 +166,24 @@ impl Hub {
         self.combat(id).await?.snapshot(&self.store).await
     }
 
+    /// The characters a player's device plays, which are its combatants.
+    async fn played_by(
+        &self,
+        combat: &LiveCombat,
+        device: &str,
+    ) -> Result<HashSet<Uuid>, ApiError> {
+        let sync = self.sheet_sync.as_ref().ok_or_else(|| {
+            ApiError::Forbidden(
+                "players can't act here: this combat service can't reach the character sheets \
+                 to know whose they are"
+                    .into(),
+            )
+        })?;
+        sync.played_by(combat.campaign_id()?, device)
+            .await
+            .map_err(|e| ApiError::SheetUnavailable(e.to_string()))
+    }
+
     /// A monster's stat block, from the monster service.
     async fn stat_block(&self, campaign: Uuid, monster: Uuid) -> Result<Monster, ApiError> {
         let monsters = self.monsters.as_ref().ok_or_else(|| {
@@ -203,17 +222,30 @@ impl Hub {
         Ok(combat)
     }
 
-    /// Runs a command sent by the device with `actor_key`. What it costs a
-    /// character's sheet is spent first (no slot left, no cast), and given
-    /// back if the command is then refused.
+    /// Runs a command sent by the device `claims` are for. A player's
+    /// device may only change its own combatants (see [`player_may`]).
+    /// What the command costs a character's sheet is spent first (no slot
+    /// left, no cast), and given back if the command is then refused.
     pub async fn execute(
         &self,
         id: Uuid,
         envelope: CommandEnvelope,
-        actor_key: &str,
+        claims: &Claims,
     ) -> Result<Outcome, ApiError> {
         let combat = self.combat(id).await?;
         let command_id = envelope.command_id;
+        let actor_key = claims.key.to_string();
+        // Checked before anything is spent, and again under the combat's
+        // lock against the latest state.
+        let played = match claims.role {
+            Principal::Player => {
+                let played = self.played_by(&combat, &actor_key).await?;
+                let state = combat.snapshot(&self.store).await?.state;
+                permit(&state, &envelope.command, Some(&played))?;
+                Some(played)
+            }
+            Principal::Dm | Principal::Service => None,
+        };
         let stat_block = match &envelope.command {
             CombatCommand::AddMonsters { monster, .. } => {
                 Some(self.stat_block(combat.campaign_id()?, *monster).await?)
@@ -222,7 +254,13 @@ impl Hub {
         };
         let spent = self.spend(&combat, &envelope).await?;
         let outcome = combat
-            .execute(&self.store, envelope, actor_key, stat_block.as_ref())
+            .execute(
+                &self.store,
+                envelope,
+                &actor_key,
+                played.as_ref(),
+                stat_block.as_ref(),
+            )
             .await;
         if let (Err(_), Some((sync, campaign, character, cost))) = (&outcome, &spent) {
             let key = crate::sync::refused_key(command_id);
@@ -400,12 +438,14 @@ impl LiveCombat {
         Ok(())
     }
 
-    /// Runs a command. `AddMonsters` needs the monster's `stat_block`.
+    /// Runs a command. For a player's device, `played` are the characters
+    /// it plays; `AddMonsters` needs the monster's `stat_block`.
     async fn execute(
         &self,
         store: &Store,
         envelope: CommandEnvelope,
         actor_key: &str,
+        played: Option<&HashSet<Uuid>>,
         stat_block: Option<&Monster>,
     ) -> Result<Outcome, ApiError> {
         let mut core = self.core.lock().await;
@@ -421,6 +461,7 @@ impl LiveCombat {
                 core.apply(&event);
             }
         }
+        permit(&core.state, &envelope.command, played)?;
         if !store
             .record_command(&mut tx, self.id, envelope.command_id, actor_key)
             .await?
@@ -463,4 +504,21 @@ impl LiveCombat {
         *core = next;
         Ok(Outcome::Applied(logged))
     }
+}
+
+/// Whether the device may send `command`: anything for a DM device or a
+/// service (`played` is `None`), only what [`player_may`] allows for a
+/// player's device, which plays the characters `played`.
+fn permit(
+    state: &CombatState,
+    command: &CombatCommand,
+    played: Option<&HashSet<Uuid>>,
+) -> Result<(), ApiError> {
+    let Some(played) = played else {
+        return Ok(());
+    };
+    player_may(state, command, |c| {
+        c.character_id.is_some_and(|id| played.contains(&id))
+    })
+    .map_err(|e| ApiError::Forbidden(e.to_string()))
 }

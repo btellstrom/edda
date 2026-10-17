@@ -10,6 +10,11 @@ pub struct Character {
     pub id: Uuid,
     /// The campaign it belongs to; only that campaign's devices can see it.
     pub campaign: Uuid,
+    /// The player devices that play it, by key (as `auth devices` shows
+    /// them): they may change it, and act for it in a fight. The DM's
+    /// devices may change any character.
+    #[serde(default)]
+    pub owners: Vec<String>,
     #[serde(flatten)]
     pub sheet: CharacterSheet,
     /// Incremented on every change. Send it back in `If-Match` when replacing
@@ -28,6 +33,9 @@ pub struct CharacterSummary {
     pub race: String,
     pub level: u8,
     pub classes: Vec<ClassLevel>,
+    /// The player devices that play it, by key.
+    #[serde(default)]
+    pub owners: Vec<String>,
     pub updated_at: DateTime<Utc>,
 }
 
@@ -40,6 +48,7 @@ impl From<&Character> for CharacterSummary {
             race: c.sheet.race.clone(),
             level: c.sheet.total_level(),
             classes: c.sheet.classes.clone(),
+            owners: c.owners.clone(),
             updated_at: c.updated_at,
         }
     }
@@ -461,6 +470,7 @@ mod tests {
         let character = Character {
             campaign: Uuid::nil(),
             id: Uuid::nil(),
+            owners: vec!["a-device-key".into()],
             sheet,
             version: 7,
             created_at: Utc::now(),

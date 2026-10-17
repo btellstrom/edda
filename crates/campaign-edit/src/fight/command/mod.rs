@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use campaign_types::{
     Character, CharacterSheet, CharacterSummary, Spell,
-    combat::{CombatCommand, CombatError, CombatState, Combatant, NoDice, decide},
+    combat::{CombatCommand, CombatError, CombatState, Combatant, NoDice, decide, player_may},
     monster::MonsterSummary,
     rules_text::{self, ConditionEntry, SpellEntry},
 };
@@ -38,6 +38,9 @@ pub struct Context<'a> {
     /// The spells' and conditions' descriptions.
     pub spells: &'a [SpellEntry],
     pub conditions: &'a [ConditionEntry],
+    /// The player device using the screen, by key; `None` for a DM device.
+    /// A player changes only their own combatants.
+    pub player: Option<&'a str>,
 }
 
 /// What a line is about, whose description the side panel can show.
@@ -274,6 +277,14 @@ impl Context<'_> {
             .filter(|s| s.name.eq_ignore_ascii_case(name.trim()))
     }
 
+    /// Whether `combatant` plays a character the device `device` owns.
+    fn played_by(&self, device: &str, combatant: &Combatant) -> bool {
+        self.roster.iter().any(|character| {
+            Some(character.id) == combatant.character_id
+                && character.owners.iter().any(|owner| owner == device)
+        })
+    }
+
     /// The combatant called `name`, in any case.
     pub fn named_combatant(&self, name: &str) -> Option<&Combatant> {
         self.state
@@ -283,11 +294,19 @@ impl Context<'_> {
     }
 }
 
-/// Catches combat commands that would certainly be refused, before sending.
+/// Catches combat commands that would certainly be refused, before sending:
+/// by the rules, or because a player may not.
 fn check(steps: Vec<Step>, ctx: &Context) -> Result<Vec<Step>, String> {
     let mut state = ctx.state.clone();
     for step in &steps {
+        if let (Some(_), Step::Join(_)) = (ctx.player, step) {
+            return Err(CombatError::DmOnly.to_string());
+        }
         if let Step::Combat(command) = step {
+            if let Some(device) = ctx.player {
+                player_may(&state, command, |c| ctx.played_by(device, c))
+                    .map_err(|e| e.to_string())?;
+            }
             match decide(&state, command, &mut NoDice) {
                 Ok(events) => events.iter().for_each(|e| state.apply(e)),
                 Err(CombatError::DiceUnavailable | CombatError::ServerOnly) => {}

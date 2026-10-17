@@ -427,11 +427,14 @@ one. In descriptions, each line is a paragraph, `- ` starts a list item and
 | `PUT` | `/characters/{id}` | sheet + `If-Match` header | `200` character (full replace) |
 | `DELETE` | `/characters/{id}` | | `204` |
 | `POST` | `/characters/{id}/actions` | action | `200` updated character |
+| `PUT` | `/characters/{id}/owners` | device keys | `200` character (DM devices only) |
 
 Every route but `/health` needs `Authorization: Bearer <token>` and only
-sees the token's campaign: another campaign's characters are `404`.
+sees the token's campaign: another campaign's characters are `404`. Every
+device sees every character, but a player's device changes only those it
+plays (see [Who may do what](#who-may-do-what)).
 Errors are `{"error": "..."}` with `400` (malformed request), `401` (no or
-invalid token), `404` (not found),
+invalid token), `403` (not yours to change), `404` (not found),
 `409` (out of slots or uses), `412`/`428` (see below) or `422` (invalid sheet
 or action).
 
@@ -770,8 +773,28 @@ certificate).
 **Roles.** DM devices admit and revoke devices; the campaign always keeps at
 least one. Players use the services. Services (registered with `auth-service
 add-service`) may log in to any campaign, so the combat service can write
-hit points back. Beyond that, every member of a campaign can do everything
-in it for now.
+hit points back.
+
+### Who may do what
+
+A player changes only their own character. Whatever happens to anyone
+else, the DM or that character's player enters on their own screen. So:
+
+- **Characters.** A character belongs to the devices that play it: a
+  player's device plays what it creates, and the DM chooses who plays the
+  rest (`campaign-edit <CHARACTER> owners add <DEVICE>`, with the device's
+  name or key prefix from `auth devices`; a player's phone and laptop can
+  both play one). A player's device changes only the characters it plays;
+  a DM's changes any. Every device sees every character.
+- **Fights.** A player damages, heals and gives temporary hit points only
+  to their own combatants, uses only their features, and casts spells and
+  puts down effects that name only themselves. They end their own turn and
+  undo their own commands. Everything else (starting a combat, who's in
+  it, initiative, pausing and ending) is the DM's. The combat service
+  checks this, asking the character service whose characters are whose,
+  and the fight screen says so before sending.
+- **Monsters, spells, conditions and plans** are the DM's to change; plans
+  are hidden from players altogether.
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |

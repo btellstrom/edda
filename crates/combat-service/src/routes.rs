@@ -21,7 +21,6 @@ use tokio::sync::broadcast::error::RecvError;
 use uuid::Uuid;
 
 use crate::{
-    encounters,
     error::ApiError,
     hub::{Hub, LiveCombat, Outcome},
     store::ListFilter,
@@ -49,15 +48,20 @@ struct NewCombat {
     encounter: Option<Uuid>,
 }
 
-/// Creates a combat in the caller's campaign, empty or from a plan.
+/// Creates a combat in the caller's campaign (DM devices only), empty or
+/// from a plan.
 async fn create(
     State(hub): State<AppState>,
     Authenticated(claims): Authenticated,
     Json(body): Json<NewCombat>,
 ) -> Result<impl IntoResponse, ApiError> {
+    if !claims.is_dm() {
+        return Err(ApiError::Forbidden(
+            "only a DM device can start a combat".into(),
+        ));
+    }
     let snapshot = match (body.encounter, body.name) {
         (Some(encounter), name) => {
-            encounters::dm_only(&claims)?;
             hub.create_from_plan(claims.campaign, encounter, name.as_deref())
                 .await?
         }
@@ -132,7 +136,7 @@ async fn command(
     hub.combat_in(id, claims.campaign).await?;
     let envelope = attributed(envelope, &claims);
     let command_id = envelope.command_id;
-    match hub.execute(id, envelope, &claims.key.to_string()).await? {
+    match hub.execute(id, envelope, &claims).await? {
         Outcome::Applied(events) => Ok(Json(events)),
         Outcome::AlreadyApplied => Ok(Json(hub.store().events_for_command(id, command_id).await?)),
     }
@@ -218,10 +222,7 @@ async fn handle(hub: &Hub, id: Uuid, text: &str, claims: &Claims) -> Option<Serv
         }
     };
     let command_id = envelope.command_id;
-    match hub
-        .execute(id, attributed(envelope, claims), &claims.key.to_string())
-        .await
-    {
+    match hub.execute(id, attributed(envelope, claims), claims).await {
         Ok(Outcome::Applied(_)) => None,
         Ok(Outcome::AlreadyApplied) => Some(ServerMessage::AlreadyApplied { command_id }),
         Err(e) => Some(ServerMessage::Rejected {

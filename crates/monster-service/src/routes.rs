@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use campaign_auth::server::Authenticated;
+use campaign_auth::{protocol::Claims, server::Authenticated};
 use campaign_types::{
     monster::{Monster, MonsterSheet, MonsterSummary},
     rules_text::{ConditionText, Entry, RulesText, SpellText},
@@ -64,6 +64,7 @@ async fn create_text<T: RulesText>(
     Authenticated(claims): Authenticated,
     Json(text): Json<T>,
 ) -> Result<impl IntoResponse, ApiError> {
+    dm_only(&claims)?;
     let entry = store.create_text((&claims).into(), text).await?;
     let location = format!("/{}/{}", T::KIND, entry.id);
     Ok((
@@ -79,6 +80,7 @@ async fn replace_text<T: RulesText>(
     Path(id): Path<Uuid>,
     Json(text): Json<T>,
 ) -> Result<Json<Entry<T>>, ApiError> {
+    dm_only(&claims)?;
     Ok(Json(store.replace_text((&claims).into(), id, text).await?))
 }
 
@@ -87,6 +89,7 @@ async fn remove_text<T: RulesText>(
     Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
+    dm_only(&claims)?;
     store.delete_text::<T>((&claims).into(), id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -129,6 +132,7 @@ async fn create(
     Authenticated(claims): Authenticated,
     Json(sheet): Json<MonsterSheet>,
 ) -> Result<impl IntoResponse, ApiError> {
+    dm_only(&claims)?;
     let monster = store.create((&claims).into(), sheet).await?;
     let location = format!("/monsters/{}", monster.id);
     Ok((
@@ -144,6 +148,7 @@ async fn replace(
     Path(id): Path<Uuid>,
     Json(sheet): Json<MonsterSheet>,
 ) -> Result<Json<Monster>, ApiError> {
+    dm_only(&claims)?;
     Ok(Json(store.replace((&claims).into(), id, sheet).await?))
 }
 
@@ -152,6 +157,16 @@ async fn remove(
     Authenticated(claims): Authenticated,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
+    dm_only(&claims)?;
     store.delete((&claims).into(), id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Players' devices read; only the DM's change anything.
+fn dm_only(claims: &Claims) -> Result<(), ApiError> {
+    if claims.is_dm() {
+        Ok(())
+    } else {
+        Err(ApiError::DmOnly)
+    }
 }

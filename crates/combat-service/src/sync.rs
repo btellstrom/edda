@@ -13,7 +13,11 @@
 //!
 //! It writes as this service itself (see [`crate::services`]).
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
 
 use campaign_client::{Client, ClientError};
 use campaign_types::{
@@ -69,6 +73,21 @@ impl SheetSync {
     async fn characters(&self, campaign: Uuid) -> Result<Client, ClientError> {
         let token = self.login.token(campaign).await?;
         Ok(Client::new(&self.character_service).with_token(&token))
+    }
+
+    /// The characters of `campaign` that the player device `device` (a key)
+    /// plays.
+    pub async fn played_by(
+        &self,
+        campaign: Uuid,
+        device: &str,
+    ) -> Result<HashSet<Uuid>, ClientError> {
+        let characters = self.characters(campaign).await?.list().await?;
+        Ok(characters
+            .into_iter()
+            .filter(|c| c.owners.iter().any(|owner| owner == device))
+            .map(|c| c.id)
+            .collect())
     }
 
     /// Spends `cost` on `character`'s sheet for `command`, once however

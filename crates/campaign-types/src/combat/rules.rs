@@ -139,6 +139,13 @@ pub enum CombatError {
     NothingToRoll,
     #[error("add at least one")]
     NothingToAdd,
+    /// A player's command would change someone who isn't theirs.
+    #[error("{0} isn't yours; the DM or their player changes them")]
+    NotYours(String),
+    #[error("it isn't your turn")]
+    NotYourTurn,
+    #[error("only the DM can do that")]
+    DmOnly,
     #[error("nobody has initiative yet")]
     NoInitiative,
     #[error("combat has not started")]

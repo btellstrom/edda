@@ -9,12 +9,14 @@
 
 mod cost;
 mod monsters;
+mod permission;
 mod protocol;
 mod rules;
 pub mod undo;
 
 pub use cost::SheetCost;
 pub use monsters::{add_monsters, monster_names};
+pub use permission::player_may;
 pub use protocol::{
     ClientMessage, CombatSnapshot, CombatSummary, CommandEnvelope, LoggedEvent, ServerMessage,
 };

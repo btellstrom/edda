@@ -1,4 +1,4 @@
-use campaign_auth::protocol::Claims;
+use campaign_auth::protocol::{Claims, Principal};
 use campaign_types::{Character, CharacterAction, CharacterSheet, Edition};
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
@@ -6,14 +6,26 @@ use uuid::Uuid;
 
 use crate::error::ApiError;
 
-type Row = (String, String, String, i64, DateTime<Utc>, DateTime<Utc>);
+type Row = (
+    String,
+    String,
+    String,
+    String,
+    i64,
+    DateTime<Utc>,
+    DateTime<Utc>,
+);
 
-/// Whose characters, and by which rules: every operation is scoped to one
-/// campaign, and spell slots follow the classes under its edition.
-#[derive(Debug, Clone, Copy)]
+/// Whose characters, by which rules, and who's asking: every operation is
+/// scoped to one campaign, spell slots follow the classes under its
+/// edition, and a player's device changes only the characters it owns.
+#[derive(Debug, Clone)]
 pub struct Scope {
     pub campaign: Uuid,
     pub edition: Edition,
+    /// The player device asking, by key; `None` for a DM device or a
+    /// service, which may change any character.
+    pub player: Option<String>,
 }
 
 impl From<&Claims> for Scope {
@@ -21,6 +33,7 @@ impl From<&Claims> for Scope {
         Self {
             campaign: claims.campaign,
             edition: claims.edition,
+            player: (claims.role == Principal::Player).then(|| claims.key.to_string()),
         }
     }
 }
@@ -28,9 +41,21 @@ impl From<&Claims> for Scope {
 impl Scope {
     /// A stored character as it stands under the campaign's rules: sheets
     /// saved before their slots followed the classes show the right ones.
-    fn view(self, mut character: Character) -> Result<Character, ApiError> {
+    fn view(&self, mut character: Character) -> Result<Character, ApiError> {
         character.sheet.derive_slots(self.edition);
         Ok(character)
+    }
+
+    /// Whether the asker may change `character`: a DM device or a service
+    /// may change any, a player's device only one it owns.
+    fn may_change(&self, character: &Character) -> Result<(), ApiError> {
+        match &self.player {
+            Some(key) if !character.owners.contains(key) => Err(ApiError::Forbidden(format!(
+                "{} isn't yours; the DM or their player changes them",
+                character.sheet.name
+            ))),
+            _ => Ok(()),
+        }
     }
 }
 
@@ -48,7 +73,7 @@ impl CharacterStore {
 
     pub async fn list(&self, scope: Scope) -> Result<Vec<Character>, ApiError> {
         let rows: Vec<Row> = sqlx::query_as(
-            "SELECT id, campaign, sheet, version, created_at, updated_at FROM characters \
+            "SELECT id, campaign, owners, sheet, version, created_at, updated_at FROM characters \
              WHERE campaign = ? ORDER BY name COLLATE NOCASE",
         )
         .bind(scope.campaign.to_string())
@@ -61,7 +86,7 @@ impl CharacterStore {
 
     pub async fn get(&self, scope: Scope, id: Uuid) -> Result<Character, ApiError> {
         let row: Option<Row> = sqlx::query_as(
-            "SELECT id, campaign, sheet, version, created_at, updated_at FROM characters WHERE id = ? AND campaign = ?",
+            "SELECT id, campaign, owners, sheet, version, created_at, updated_at FROM characters WHERE id = ? AND campaign = ?",
         )
         .bind(id.to_string())
         .bind(scope.campaign.to_string())
@@ -81,17 +106,20 @@ impl CharacterStore {
         let character = Character {
             id: Uuid::new_v4(),
             campaign: scope.campaign,
+            // A player's device plays what it creates.
+            owners: scope.player.iter().cloned().collect(),
             sheet,
             version: 1,
             created_at: now,
             updated_at: now,
         };
         sqlx::query(
-            "INSERT INTO characters (id, campaign, name, sheet, version, created_at, updated_at) \
-             VALUES (?, ?, ?, ?, 1, ?, ?)",
+            "INSERT INTO characters (id, campaign, owners, name, sheet, version, created_at, updated_at) \
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
         )
         .bind(character.id.to_string())
         .bind(scope.campaign.to_string())
+        .bind(owners_json(&character.owners)?)
         .bind(&character.sheet.name)
         .bind(to_json(&character.sheet)?)
         .bind(character.created_at)
@@ -111,6 +139,9 @@ impl CharacterStore {
         expected_version: Option<u64>,
         mut sheet: CharacterSheet,
     ) -> Result<Character, ApiError> {
+        if scope.player.is_some() {
+            scope.may_change(&self.get(scope.clone(), id).await?)?;
+        }
         sheet.derive_slots(scope.edition);
         sheet.validate()?;
         // SQLite integers are signed; a version beyond i64 can't match any
@@ -119,7 +150,7 @@ impl CharacterStore {
         let row: Option<Row> = sqlx::query_as(
             "UPDATE characters SET name = ?, sheet = ?, updated_at = ?, version = version + 1 \
              WHERE id = ? AND campaign = ? AND version = COALESCE(?, version) \
-             RETURNING id, campaign, sheet, version, created_at, updated_at",
+             RETURNING id, campaign, owners, sheet, version, created_at, updated_at",
         )
         .bind(&sheet.name)
         .bind(to_json(&sheet)?)
@@ -153,13 +184,14 @@ impl CharacterStore {
     ) -> Result<Character, ApiError> {
         let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
         let row: Option<Row> = sqlx::query_as(
-            "SELECT id, campaign, sheet, version, created_at, updated_at FROM characters WHERE id = ? AND campaign = ?",
+            "SELECT id, campaign, owners, sheet, version, created_at, updated_at FROM characters WHERE id = ? AND campaign = ?",
         )
         .bind(id.to_string())
         .bind(scope.campaign.to_string())
         .fetch_optional(&mut *tx)
         .await?;
         let mut character = row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?;
+        scope.may_change(&character)?;
         if let Some(key) = key {
             let seen: Option<(i64,)> =
                 sqlx::query_as("SELECT 1 FROM applied_actions WHERE character = ? AND key = ?")
@@ -199,6 +231,28 @@ impl CharacterStore {
         Ok(character)
     }
 
+    /// Sets which player devices play the character, by key. That's a
+    /// change like any other: the version moves on.
+    pub async fn set_owners(
+        &self,
+        scope: Scope,
+        id: Uuid,
+        owners: &[String],
+    ) -> Result<Character, ApiError> {
+        let row: Option<Row> = sqlx::query_as(
+            "UPDATE characters SET owners = ?, updated_at = ?, version = version + 1 \
+             WHERE id = ? AND campaign = ? \
+             RETURNING id, campaign, owners, sheet, version, created_at, updated_at",
+        )
+        .bind(owners_json(owners)?)
+        .bind(Utc::now())
+        .bind(id.to_string())
+        .bind(scope.campaign.to_string())
+        .fetch_optional(&self.pool)
+        .await?;
+        scope.view(row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?)
+    }
+
     /// Deletes every character of a campaign; returns how many there were.
     pub async fn delete_campaign(&self, campaign: Uuid) -> Result<u64, ApiError> {
         let mut tx = self.pool.begin().await?;
@@ -218,6 +272,9 @@ impl CharacterStore {
     }
 
     pub async fn delete(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
+        if scope.player.is_some() {
+            scope.may_change(&self.get(scope.clone(), id).await?)?;
+        }
         let mut tx = self.pool.begin().await?;
         let result = sqlx::query("DELETE FROM characters WHERE id = ? AND campaign = ?")
             .bind(id.to_string())
@@ -236,12 +293,16 @@ impl CharacterStore {
     }
 }
 
+fn owners_json(owners: &[String]) -> Result<String, ApiError> {
+    serde_json::to_string(owners).map_err(|e| ApiError::Corrupt(e.to_string()))
+}
+
 fn to_json(sheet: &CharacterSheet) -> Result<String, ApiError> {
     serde_json::to_string(sheet).map_err(|e| ApiError::Corrupt(e.to_string()))
 }
 
 fn from_row(
-    (id, campaign, sheet, version, created_at, updated_at): Row,
+    (id, campaign, owners, sheet, version, created_at, updated_at): Row,
 ) -> Result<Character, ApiError> {
     let parse = |id: &str| {
         id.parse()
@@ -250,6 +311,7 @@ fn from_row(
     Ok(Character {
         id: parse(&id)?,
         campaign: parse(&campaign)?,
+        owners: serde_json::from_str(&owners).map_err(|e| ApiError::Corrupt(e.to_string()))?,
         sheet: serde_json::from_str(&sheet).map_err(|e| ApiError::Corrupt(e.to_string()))?,
         version: u64::try_from(version).map_err(|e| ApiError::Corrupt(e.to_string()))?,
         created_at,

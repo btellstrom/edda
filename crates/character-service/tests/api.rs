@@ -11,7 +11,7 @@ use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 
 use campaign_auth::{
-    DeviceKey,
+    DeviceKey, PublicKey,
     protocol::{Claims, Principal},
     server::{TokenSigner, TokenVerifier},
 };
@@ -20,11 +20,15 @@ use chrono::Utc;
 use tower::ServiceExt;
 use uuid::Uuid;
 
-/// The service, plus a token for one campaign that it accepts.
+/// The service, plus a token for one campaign that it accepts, for one
+/// device: a player's, unless asked otherwise.
 #[derive(Clone)]
 struct App {
     router: Router,
     signer: Arc<TokenSigner>,
+    key: PublicKey,
+    role: Principal,
+    campaign: Uuid,
     token: Option<String>,
 }
 
@@ -35,41 +39,52 @@ impl App {
         let app = App {
             router: character_service::app(pool, verifier),
             signer,
+            key: DeviceKey::generate().public(),
+            role: Principal::Player,
+            campaign: Uuid::nil(),
             token: None,
         };
         app.as_campaign(Some(Uuid::new_v4()))
     }
 
-    /// The same service, with a token for some other campaign (or none).
+    /// The same service and device, with a token for some other campaign
+    /// (or none).
     fn as_campaign(&self, campaign: Option<Uuid>) -> App {
-        App {
-            router: self.router.clone(),
-            signer: self.signer.clone(),
-            token: campaign.map(|c| token(&self.signer, c, Edition::default())),
-        }
+        let mut app = self.clone();
+        app.campaign = campaign.unwrap_or(self.campaign);
+        app.token = campaign.map(|c| app.token(c, Edition::default()));
+        app
     }
 
-    /// The same service, for a campaign playing by `edition`'s rules.
+    /// The same device, for a campaign playing by `edition`'s rules.
     fn with_edition(&self, campaign: Uuid, edition: Edition) -> App {
-        App {
-            router: self.router.clone(),
-            signer: self.signer.clone(),
-            token: Some(token(&self.signer, campaign, edition)),
-        }
+        let mut app = self.clone();
+        app.campaign = campaign;
+        app.token = Some(app.token(campaign, edition));
+        app
     }
-}
 
-fn token(signer: &TokenSigner, campaign: Uuid, edition: Edition) -> String {
-    signer
-        .issue(&Claims {
-            key: DeviceKey::generate().public(),
-            campaign,
-            role: Principal::Player,
-            name: "Test".into(),
-            edition,
-            expires_at: Utc::now() + chrono::Duration::minutes(5),
-        })
-        .unwrap()
+    /// Another device in the same campaign: another player's, or a DM's.
+    fn another(&self, role: Principal) -> App {
+        let mut app = self.clone();
+        app.key = DeviceKey::generate().public();
+        app.role = role;
+        app.token = Some(app.token(self.campaign, Edition::default()));
+        app
+    }
+
+    fn token(&self, campaign: Uuid, edition: Edition) -> String {
+        self.signer
+            .issue(&Claims {
+                key: self.key,
+                campaign,
+                role: self.role,
+                name: "Test".into(),
+                edition,
+                expires_at: Utc::now() + chrono::Duration::minutes(5),
+            })
+            .unwrap()
+    }
 }
 
 async fn test_app() -> App {
@@ -511,11 +526,11 @@ async fn requests_need_a_valid_token() {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
     // A token from some other auth service is worthless here.
-    let forger = TokenSigner::new(&DeviceKey::generate());
     let forged = App {
-        token: Some(token(&forger, Uuid::new_v4(), Edition::default())),
-        ..app.as_campaign(None)
-    };
+        signer: Arc::new(TokenSigner::new(&DeviceKey::generate())),
+        ..app.clone()
+    }
+    .as_campaign(Some(Uuid::new_v4()));
     let (status, body) = send(&forged, Method::POST, "/characters", Some(sample())).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(body["error"], "invalid or expired token");
@@ -578,4 +593,93 @@ async fn deleting_a_campaign_deletes_only_its_characters() {
     let (_, kept) = send(&other, Method::GET, "/characters", None).await;
     assert_eq!(kept.as_array().unwrap().len(), 1);
     assert_eq!(store.delete_campaign(campaign).await.unwrap(), 0);
+}
+
+#[tokio::test]
+async fn players_change_only_the_characters_their_device_plays() {
+    let laura = test_app().await;
+    let travis = laura.another(Principal::Player);
+    let dm = laura.another(Principal::Dm);
+    let (_, vex) = send(
+        &laura,
+        Method::POST,
+        "/characters",
+        Some(json!({ "name": "Vex" })),
+    )
+    .await;
+    assert_eq!(vex["owners"], json!([laura.key.to_string()]));
+    let uri = format!("/characters/{}", vex["id"].as_str().unwrap());
+    let rest = json!({ "type": "rest", "kind": "long" });
+
+    // Everyone sees it; only its player and the DM change it.
+    assert_eq!(
+        send(&travis, Method::GET, &uri, None).await.0,
+        StatusCode::OK
+    );
+    let (status, body) = send(
+        &travis,
+        Method::POST,
+        &format!("{uri}/actions"),
+        Some(rest.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        body["error"],
+        "Vex isn't yours; the DM or their player changes them"
+    );
+    assert_eq!(
+        put(&travis, &uri, Some("*"), json!({ "name": "Vex" }))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        send(&travis, Method::DELETE, &uri, None).await.0,
+        StatusCode::FORBIDDEN
+    );
+    for app in [&laura, &dm] {
+        let (status, _) = send(
+            app,
+            Method::POST,
+            &format!("{uri}/actions"),
+            Some(rest.clone()),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    // The DM chooses who plays it; a DM-made character has nobody yet.
+    let owners = format!("{uri}/owners");
+    let both = json!([laura.key.to_string(), travis.key.to_string()]);
+    assert_eq!(
+        send(&travis, Method::PUT, &owners, Some(both.clone()))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, vex) = send(&dm, Method::PUT, &owners, Some(both.clone())).await;
+    assert_eq!((status, &vex["owners"]), (StatusCode::OK, &both));
+    let (status, _) = send(&travis, Method::POST, &format!("{uri}/actions"), Some(rest)).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send(&dm, Method::PUT, &owners, Some(json!(["not a key"]))).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (_, grog) = send(
+        &dm,
+        Method::POST,
+        "/characters",
+        Some(json!({ "name": "Grog" })),
+    )
+    .await;
+    assert_eq!(grog["owners"], json!([]));
+    let (_, list) = send(&travis, Method::GET, "/characters", None).await;
+    let owners_of = |name: &str| {
+        list.as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap()["owners"]
+            .clone()
+    };
+    assert_eq!((owners_of("Vex"), owners_of("Grog")), (both, json!([])));
 }

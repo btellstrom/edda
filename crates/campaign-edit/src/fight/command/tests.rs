@@ -13,6 +13,8 @@ struct World {
     bestiary: Vec<MonsterSummary>,
     spells: Vec<SpellEntry>,
     conditions: Vec<ConditionEntry>,
+    /// The player device using the screen, if not the DM's.
+    player: Option<String>,
 }
 
 fn entry<T: rules_text::RulesText>(text: T) -> rules_text::Entry<T> {
@@ -46,6 +48,7 @@ fn character(sheet: CharacterSheet) -> Character {
     Character {
         id: Uuid::new_v4(),
         campaign: Uuid::nil(),
+        owners: vec!["laura".into()],
         sheet,
         version: 1,
         created_at: Utc::now(),
@@ -125,6 +128,7 @@ fn world() -> World {
             name: "Prone".into(),
             ..Default::default()
         })],
+        player: None,
     }
 }
 
@@ -137,6 +141,7 @@ impl World {
             bestiary: &self.bestiary,
             spells: &self.spells,
             conditions: &self.conditions,
+            player: self.player.as_deref(),
         }
     }
 
@@ -517,4 +522,29 @@ fn effects_complete_their_name_and_every_target_including_the_first() {
     });
     assert_eq!(w.lines("effect hu"), ["effect Hunter's Mark "]);
     assert_eq!(w.lines("effect hunter's m"), ["effect Hunter's Mark "]);
+}
+
+#[test]
+fn a_player_is_told_before_sending_what_only_others_may_do() {
+    let w = World {
+        player: Some("laura".into()),
+        ..world()
+    };
+    // Vex (number 1) is Laura's and has the turn; Grog and the goblin aren't.
+    assert!(w.parse("damage 1 3").plan.is_ok());
+    assert_eq!(
+        w.parse("damage 3 3").plan,
+        Err("Goblin isn't yours; the DM or their player changes them".into())
+    );
+    assert!(w.parse("next").plan.is_ok());
+    assert_eq!(w.parse("end").plan, Err("only the DM can do that".into()));
+    assert_eq!(
+        w.parse("add pike").plan,
+        Err("only the DM can do that".into())
+    );
+    let other = World {
+        player: Some("travis".into()),
+        ..world()
+    };
+    assert_eq!(other.parse("next").plan, Err("it isn't your turn".into()));
 }

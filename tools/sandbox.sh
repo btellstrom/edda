@@ -9,12 +9,13 @@
 #   tools/sandbox.sh run <args>         campaign-edit <args> in it
 #   tools/sandbox.sh tmux <name> <args> campaign-edit <args> in a detached tmux
 #                                       session <name>, for the full screens
+#   tools/sandbox.sh player <name>      a player's device, joined to the campaign
 #   tools/sandbox.sh status             what's running
 #   tools/sandbox.sh down               stop it and delete everything in it
 #
 # `run` and `tmux` always use this checkout's target/debug/campaign-edit,
 # with the sandbox's config and servers, and refuse to run without a
-# sandbox up.
+# sandbox up. They're the DM's device, or with SANDBOX_AS=<name> a player's.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -27,9 +28,19 @@ characters_port=23000 combat_port=23001 auth_port=23002 monsters_port=23003
 
 die() { echo "sandbox: $*" >&2; exit 1; }
 
+# The config of the device to run as: the DM's, or SANDBOX_AS's.
+config() {
+    if [ -n "${SANDBOX_AS:-}" ]; then
+        [ -d "$dir/players/$SANDBOX_AS" ] || die "no player $SANDBOX_AS; add one with: tools/sandbox.sh player $SANDBOX_AS"
+        echo "$dir/players/$SANDBOX_AS"
+    else
+        echo "$dir/config"
+    fi
+}
+
 # campaign-edit, in the sandbox and nowhere else.
 edit_env() {
-    env CAMPAIGN_CONFIG_DIR="$dir/config" \
+    env CAMPAIGN_CONFIG_DIR="$(config)" \
         CAMPAIGN_SERVER="http://127.0.0.1:$characters_port" \
         CAMPAIGN_COMBAT_SERVER="http://127.0.0.1:$combat_port" \
         CAMPAIGN_AUTH_SERVER="http://127.0.0.1:$auth_port" \
@@ -119,7 +130,7 @@ session() { # name, then campaign-edit's arguments
     shift
     local command
     command=$(printf '%q ' env \
-        CAMPAIGN_CONFIG_DIR="$dir/config" \
+        CAMPAIGN_CONFIG_DIR="$(config)" \
         CAMPAIGN_SERVER="http://127.0.0.1:$characters_port" \
         CAMPAIGN_COMBAT_SERVER="http://127.0.0.1:$combat_port" \
         CAMPAIGN_AUTH_SERVER="http://127.0.0.1:$auth_port" \
@@ -127,6 +138,20 @@ session() { # name, then campaign-edit's arguments
         "$bin/campaign-edit" "$@")
     tmux new-session -d -s "$name" -x "${COLUMNS:-110}" -y "${LINES:-46}" "$command; sleep 3600"
     echo "$name" >>"$dir/sessions"
+}
+
+player() { # name
+    require_up
+    [ $# -eq 1 ] || die "usage: tools/sandbox.sh player <name>"
+    local name=$1
+    [ -e "$dir/players/$name" ] && die "there's already a player $name"
+    mkdir -p "$dir/players/$name"
+    local key campaign
+    key=$(SANDBOX_AS=$name edit_env "$bin/campaign-edit" auth key 2>/dev/null)
+    campaign=$(edit_env "$bin/campaign-edit" auth status | sed -n 's/^Campaign .*(\(.*\))$/\1/p')
+    edit_env "$bin/campaign-edit" auth approve "$key" --name "$name" >/dev/null
+    SANDBOX_AS=$name edit_env "$bin/campaign-edit" auth join "$campaign" >/dev/null
+    echo "Player $name joined; act as them with SANDBOX_AS=$name"
 }
 
 status() {
@@ -154,7 +179,8 @@ case "${1:-}" in
     up) up ;;
     run) shift; run "$@" ;;
     tmux) shift; session "$@" ;;
+    player) shift; player "$@" ;;
     status) status ;;
     down) down ;;
-    *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+    *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

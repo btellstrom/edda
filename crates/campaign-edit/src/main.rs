@@ -216,6 +216,8 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
             println!("Deleted {name}");
         }
 
+        C::Owners { change } => auth::owners(client, id, change).await?,
+
         C::Class(c) => {
             // The classes decide the spell slots; show what they come to.
             let saved = modify(client, id, |s| edit::class(s, &c)).await?;
