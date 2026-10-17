@@ -13,7 +13,7 @@ name: edda
 # services themselves.
 
 # Every service keeps limits on how much one client or campaign may ask
-# of it (see the README); `LIMITS=off` (say, in a .env file) turns them off
+# of it (see docs/hosting.md); `LIMITS=off` (say, in a .env file) turns them off
 # on your own machine. They trust the proxy's word for where a request
 # came from, as only it and the other services reach them.
 x-app: &app

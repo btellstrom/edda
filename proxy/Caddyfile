@@ -1,7 +1,7 @@
 # HTTPS in front of the four services, on one address: EDDA_HOST. A
 # real domain gets a certificate from Let's Encrypt by itself; localhost or
 # an IP address gets one from Caddy's own authority, whose root each
-# client must trust once (see the README). Live fights' WebSockets pass
+# client must trust once (see docs/hosting.md). Live fights' WebSockets pass
 # through too.
 #
 # The rest defaults to compose's setup; tools/sandbox.sh changes it to run

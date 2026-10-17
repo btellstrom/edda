@@ -40,7 +40,7 @@ impl Server {
     async fn start_with(auth: &Auth, config: combat_service::Config) -> Self {
         let pool = combat_service::connect(&database_url("combat_test").await)
             .await
-            .expect("Postgres must be running for these tests (see README)");
+            .expect("Postgres must be running for these tests (make test starts one; see docs/development.md)");
         let verifier = TokenVerifier::new(auth.key);
         let app = combat_service::app(pool, verifier, config).await.unwrap();
         Self {
