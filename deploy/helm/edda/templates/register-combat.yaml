@@ -1,0 +1,59 @@
+{{- /*
+Lets the combat service log in to any campaign with its key, to write hit
+points back to sheets: on every install and upgrade, as the key may have
+changed. Doing it again is harmless.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "edda.fullname" . }}-register-combat
+  labels:
+    {{- include "edda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: register-combat
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "edda.labels" . | nindent 8 }}
+        app.kubernetes.io/component: register-combat
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: register
+          image: {{ include "edda.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - auth-service add-service combat-service "$(combat-service public-key)"
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.secret }}
+                  key: auth
+            {{- if .Values.database.direct }}
+            - name: DATABASE_DIRECT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.secret }}
+                  key: auth-direct
+            {{- end }}
+            - name: SERVICE_KEY_FILE
+              value: /keys/combat-service.key
+          volumeMounts:
+            - name: keys
+              mountPath: /keys
+              readOnly: true
+      volumes:
+        - name: keys
+          secret:
+            secretName: {{ .Values.combat.keySecret }}

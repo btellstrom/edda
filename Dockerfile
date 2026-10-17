@@ -16,7 +16,7 @@ FROM docker.io/library/debian:trixie-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --home-dir /data campaign \
+    && useradd --system --uid 10001 --home-dir /data campaign \
     && mkdir /data && chown campaign /data
 COPY --from=build /out/ /usr/local/bin/
 USER campaign

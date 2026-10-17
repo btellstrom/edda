@@ -1,0 +1,44 @@
+{{- if .Values.ingress.enabled }}
+{{- $routes := list
+  (list "characters" (list "/characters"))
+  (list "combat" (list "/combats" "/encounters"))
+  (list "monsters" (list "/monsters" "/spells" "/conditions"))
+  (list "auth" (list "/")) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "edda.fullname" . }}
+  labels:
+    {{- include "edda.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tlsSecret }}
+  tls:
+    - hosts: [{{ $.Values.ingress.host | quote }}]
+      secretName: {{ . }}
+  {{- end }}
+  rules:
+    - {{- with .Values.ingress.host }}
+      host: {{ . | quote }}
+      {{- end }}
+      http:
+        paths:
+          {{- range $route := $routes }}
+          {{- $service := index $route 0 }}
+          {{- range $path := index $route 1 }}
+          - path: {{ $path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "edda.fullname" $ }}-{{ $service }}
+                port:
+                  name: http
+          {{- end }}
+          {{- end }}
+{{- end }}

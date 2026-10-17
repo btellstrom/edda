@@ -1,0 +1,14 @@
+Edda's services are starting: {{ include "edda.fullname" . }}-auth, -characters, -combat and -monsters.
+
+{{- if .Values.ingress.enabled }}
+Devices reach them at https://{{ .Values.ingress.host }}.
+{{- else }}
+No Ingress: reach them inside the cluster, or with
+  kubectl port-forward svc/{{ include "edda.fullname" . }}-auth {{ .Values.services.auth.port }}
+{{- end }}
+
+Create a campaign (its DM's setup code is printed):
+  kubectl exec deploy/{{ include "edda.fullname" . }}-auth -- auth-service new-campaign "Vox Machina" --edition 2024
+{{- if .Values.admin.tokenSecret }}
+or through the admin API on port {{ .Values.admin.port }} (docs/hosting.md).
+{{- end }}

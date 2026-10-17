@@ -191,6 +191,33 @@ service's key. Restoring stops the four services, puts it all back and
 starts them again. Copy `backups/` somewhere else: a backup on the same
 disk is lost with it.
 
+## On Kubernetes
+
+`deploy/helm/edda` is a Helm chart for the four services, with what
+they're checked by (`/health` keeps them running, `/ready` sends them
+requests), metrics, optional autoscaling and an optional Ingress routing
+one address to all four, as the compose stack's proxy does. Postgres
+isn't part of it: run one (CloudNativePG, say) and give the chart three
+Secrets, made outside it so no password is in its values:
+
+```sh
+kubectl create secret generic edda-database \
+  --from-literal=auth=postgres://user:password@db:5432/auth \
+  --from-literal=characters=postgres://user:password@db:5432/characters \
+  --from-literal=combats=postgres://user:password@db:5432/combats \
+  --from-literal=monsters=postgres://user:password@db:5432/monsters
+SERVICE_KEY_FILE=combat-service.key combat-service public-key   # makes the file
+kubectl create secret generic edda-combat-key --from-file=combat-service.key
+helm install edda deploy/helm/edda --set ingress.enabled=true --set ingress.host=dnd.example.com
+```
+
+The user needs to be able to create databases: each service makes its
+own on first start. `values.yaml` says what else can be set: a shared
+token key (`auth.tokenKeySecret`), the admin API (`admin.tokenSecret`),
+PgBouncer (`database.direct`), the limits, and where traces go.
+`make kind` installs the chart in a throwaway cluster and plays it
+through; CI does too.
+
 ## Running without containers
 
 Every service needs Postgres. Start one with `podman compose up -d

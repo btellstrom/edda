@@ -1,0 +1,18 @@
+{{- /* With more than one of a service, one at a time may go (a node drained, say). */}}
+{{- range $service, $config := .Values.services }}
+{{- if or $.Values.autoscaling.enabled (gt (int $config.replicas) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "edda.fullname" $ }}-{{ $service }}
+  labels:
+    {{- include "edda.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $service }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "edda.selector" (dict "root" $ "service" $service) | nindent 6 }}
+{{- end }}
+{{- end }}

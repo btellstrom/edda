@@ -1,0 +1,27 @@
+{{- range $service, $config := .Values.services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "edda.fullname" $ }}-{{ $service }}
+  labels:
+    {{- include "edda.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $service }}
+spec:
+  selector:
+    {{- include "edda.selector" (dict "root" $ "service" $service) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $config.port }}
+      targetPort: http
+    {{- if $.Values.metrics.enabled }}
+    - name: metrics
+      port: {{ $.Values.metrics.port }}
+      targetPort: metrics
+    {{- end }}
+    {{- if $.Values.admin.tokenSecret }}
+    - name: admin
+      port: {{ $.Values.admin.port }}
+      targetPort: admin
+    {{- end }}
+{{- end }}

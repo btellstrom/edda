@@ -109,3 +109,32 @@ jobs:
       - run: tools/smoke-test.sh
         env:
           CONTAINER: docker
+
+  kubernetes:
+    name: Kubernetes
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+      # kind only; the test makes its own cluster. Helm and kubectl are on
+      # the runner already.
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+      - run: helm lint deploy/helm/edda
+      - name: The chart's manifests, all options on, as Kubernetes reads them
+        run: |
+          base=https://github.com/yannh/kubeconform/releases/download/v0.8.0
+          curl -fsSLO "$base/kubeconform-linux-amd64.tar.gz"
+          curl -fsSL "$base/CHECKSUMS" | grep 'kubeconform-linux-amd64.tar.gz$' | sha256sum -c
+          tar -xzf kubeconform-linux-amd64.tar.gz kubeconform
+          helm template edda deploy/helm/edda --set ingress.enabled=true \
+              --set ingress.host=dnd.example.com --set admin.tokenSecret=edda-admin \
+              --set auth.tokenKeySecret=edda-token-key --set autoscaling.enabled=true \
+              --set database.direct=true | ./kubeconform -strict -summary
+      - run: cargo build --release --locked -p edda
+      - run: tools/kind-test.sh
+        env:
+          CONTAINER: docker

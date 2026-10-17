@@ -39,6 +39,12 @@ deletes it afterwards. There's no default: `cargo test` without
 `TEST_POSTGRES_URL` stops, and a server holding any of a real stack's
 databases is refused (`edda_server::testing`).
 
+`make kind` (`tools/kind-test.sh`) does the same for the Helm chart: a
+kind cluster of its own, with Postgres, the chart with its admin API and
+a shared token key, a campaign made through the admin API and played
+through edda, all deleted afterwards. It needs kind, kubectl and helm,
+and leaves `~/.kube` alone.
+
 The smoke test runs the stack as its own compose project (`edda-smoke`):
 its own image, volumes and ports (13000–13003 and 15432), all deleted
 afterwards. It goes through a campaign end to end with edda, HTTPS
@@ -108,7 +114,8 @@ about 40% smaller.
 `.github/workflows/ci.yml` runs on every push to master and every pull
 request: formatting, lints and the docs; the tests against a Postgres service, the
 SRD ones included, with a coverage report and floor; cargo-deny and cargo-machete
-(unused dependencies); and the smoke test. Dependabot opens weekly pull
+(unused dependencies); the smoke test; and the Helm chart, linted,
+validated by kubeconform and installed in kind. Dependabot opens weekly pull
 requests for newer crates, base images and actions.
 
 A `v*` tag runs `release.yml`: the server image goes to the GitHub

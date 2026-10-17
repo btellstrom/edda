@@ -1,0 +1,109 @@
+# Edda's services on Kubernetes. Postgres isn't part of the chart: point it
+# at one (CloudNativePG, say) through the database Secret below.
+
+image:
+  repository: ghcr.io/btellstrom/edda
+  # The chart's appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# A Secret, made outside the chart so no password is in its values, with
+# each service's DATABASE_URL under its name: auth, characters, combats and
+# monsters. The services create their databases on first start, so the
+# user needs CREATEDB.
+database:
+  secret: edda-database
+  # Behind PgBouncer in transaction mode: the same Secret also holds
+  # auth-direct, characters-direct, combats-direct and monsters-direct, URLs
+  # straight to Postgres (DATABASE_DIRECT_URL).
+  direct: false
+
+# The combat service's own key, for writing hit points back to sheets as
+# itself: a Secret with combat-service.key in it. Make the file with
+#   SERVICE_KEY_FILE=combat-service.key combat-service public-key
+# and the chart registers it with the auth service on every install and
+# upgrade.
+combat:
+  keySecret: edda-combat-key
+
+auth:
+  # A Secret with token.key in it (`auth-service new-token-key token.key`):
+  # the key tokens are signed with, the same wherever a campaign may move.
+  # Empty: the auth service keeps one of its own in its database.
+  tokenKeySecret: ""
+
+# The admin API (docs/hosting.md), on its own port, which the Ingress never
+# serves: a Secret with the token under `token`. Empty: no admin API.
+admin:
+  tokenSecret: ""
+  port: 9200
+
+# Prometheus metrics at /metrics on their own port.
+metrics:
+  enabled: true
+  port: 9100
+
+# The limits (docs/hosting.md): `off` turns them all off; `env` sets any
+# of them, such as LIMIT_REQUESTS_PER_MINUTE: "300".
+limits:
+  enabled: true
+  env: {}
+
+# Believe the proxy (the Ingress controller) about where requests come
+# from and whose account they are for. Only where nothing else reaches
+# the services.
+trustProxy: true
+logFormat: json
+# An OpenTelemetry collector to send traces to, such as
+# http://otel-collector:4318.
+otlpEndpoint: ""
+# Web pages of other origins that may call the services.
+corsOrigins: ""
+
+services:
+  auth:
+    replicas: 1
+    port: 3002
+    resources: {}
+  characters:
+    replicas: 1
+    port: 3000
+    resources: {}
+  combat:
+    replicas: 1
+    port: 3001
+    resources: {}
+  monsters:
+    replicas: 1
+    port: 3003
+    resources: {}
+
+# Scaling on CPU, for every service; replicas above are then ignored.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# One address for all four, as the compose stack's proxy does.
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  # A Secret with the certificate, for HTTPS; cert-manager can make it.
+  tlsSecret: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
