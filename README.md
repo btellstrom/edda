@@ -9,6 +9,7 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | --- | --- |
 | `crates/campaign-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
 | `crates/campaign-auth` | Device keys, signed device certificates and tokens. Shared by the services and clients. |
+| `crates/campaign-server` | What every service shares: logging, the auth service's key, serving (with the CORS setting), error responses and SQLite backups. |
 | `crates/auth-service` | Campaigns, the devices admitted to them, and login (axum + Postgres). |
 | `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
 | `crates/combat-service` | Live, event-sourced combat encounters (axum + Postgres + WebSocket). Runs as any number of instances. |

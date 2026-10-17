@@ -45,15 +45,9 @@ impl IntoResponse for ApiError {
             // state; anything else means the request itself was wrong.
             ApiError::Action(e) if e.is_exhausted() => StatusCode::CONFLICT,
             ApiError::Action(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            ApiError::Database(_) | ApiError::Corrupt(_) => {
-                tracing::error!(error = %self, "internal error");
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
+            ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        let message = match status {
-            StatusCode::INTERNAL_SERVER_ERROR => "internal server error".to_string(),
-            _ => self.to_string(),
-        };
+        let message = campaign_server::error_message(status, &self);
         match self {
             ApiError::VersionMismatch(current) => (
                 status,

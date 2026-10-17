@@ -137,14 +137,11 @@ dependencies = [
  "chrono",
  "clap",
  "rand 0.10.3",
- "serde_json",
  "sha2 0.11.1",
  "sqlx",
  "thiserror 2.0.21",
  "tokio",
  "tower-http 0.7.1",
- "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
@@ -392,8 +389,14 @@ name = "campaign-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "campaign-auth",
+ "campaign-client",
+ "serde_json",
  "sqlx",
+ "tokio",
  "tower-http 0.7.1",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -470,7 +473,6 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "campaign-auth",
- "campaign-client",
  "campaign-server",
  "campaign-types",
  "chrono",
@@ -481,8 +483,6 @@ dependencies = [
  "tokio",
  "tower",
  "tower-http 0.7.1",
- "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
@@ -611,7 +611,6 @@ dependencies = [
  "tokio-tungstenite 0.30.0",
  "tower-http 0.7.1",
  "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
@@ -2002,7 +2001,6 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "campaign-auth",
- "campaign-client",
  "campaign-server",
  "campaign-types",
  "chrono",
@@ -2015,8 +2013,6 @@ dependencies = [
  "tokio",
  "tower",
  "tower-http 0.7.1",
- "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 

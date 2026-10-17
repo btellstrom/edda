@@ -3,7 +3,6 @@ use std::env;
 use campaign_auth::PublicKey;
 use campaign_types::Edition;
 use clap::{Parser, Subcommand};
-use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
 /// How long a setup code stays usable.
@@ -49,13 +48,7 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "auth_service=info,tower_http=info".into()),
-        )
-        .init();
+    campaign_server::init_logging("auth_service");
     let cli = Cli::parse();
     let pool = auth_service::connect(&cli.database_url).await?;
     let store = auth_service::Store::new(pool.clone());
@@ -96,17 +89,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let app = auth_service::app(pool)
-        .await?
-        .layer(campaign_server::cors()?);
-    let listener = tokio::net::TcpListener::bind(bind).await?;
-    tracing::info!(%bind, "auth service listening");
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await?;
-    Ok(())
+    let app = auth_service::app(pool).await?;
+    campaign_server::serve(app, bind, "auth service").await
 }
 
 async fn print_setup_code(

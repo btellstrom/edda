@@ -1,11 +1,9 @@
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use campaign_client::ClientError;
 use campaign_types::combat::CombatError;
-use serde_json::json;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
@@ -64,15 +62,8 @@ impl IntoResponse for ApiError {
                 StatusCode::BAD_GATEWAY
             }
             ApiError::Combat(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            ApiError::Database(_) | ApiError::Corrupt(_) => {
-                tracing::error!(error = %self, "internal error");
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
+            ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        let message = match status {
-            StatusCode::INTERNAL_SERVER_ERROR => "internal server error".to_string(),
-            _ => self.to_string(),
-        };
-        (status, Json(json!({ "error": message }))).into_response()
+        campaign_server::error_response(status, &self)
     }
 }

@@ -1,14 +1,99 @@
-//! What every campaign-manager service shares.
+//! What every campaign-manager service shares: logging, finding the auth
+//! service's key, serving (with the CORS setting), error responses, and
+//! for the SQLite ones, backups.
 
-use axum::http::{HeaderValue, header};
+use std::{error::Error, fmt::Display, time::Duration};
+
+use axum::{
+    Json, Router,
+    http::{HeaderValue, StatusCode, header},
+    response::{IntoResponse, Response},
+};
+use campaign_auth::PublicKey;
+use campaign_client::auth::AuthClient;
+use serde_json::json;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+use tracing_subscriber::EnvFilter;
+
+/// Logs to stderr: `crate_name`'s own messages, this crate's (serving,
+/// internal errors) and each request, at info, unless `RUST_LOG` says
+/// otherwise.
+pub fn init_logging(crate_name: &str) {
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            format!("{crate_name}=info,campaign_server=info,tower_http=info").into()
+        }))
+        .init();
+}
+
+/// The key the auth service signs tokens with: `AUTH_PUBLIC_KEY` if set,
+/// otherwise fetched from the auth service at `auth_service` (waiting a
+/// while for it to start). Set the key explicitly unless the network
+/// between the services is trusted.
+pub async fn auth_key(auth_service: &str) -> Result<PublicKey, Box<dyn Error>> {
+    if let Ok(key) = std::env::var("AUTH_PUBLIC_KEY") {
+        return Ok(key.parse()?);
+    }
+    let key = AuthClient::new(auth_service)
+        .wait_for_server_key(Duration::from_secs(30))
+        .await
+        .map_err(|e| {
+            format!(
+                "could not fetch the auth service's key from {auth_service} ({e}); \
+                 start it or set AUTH_PUBLIC_KEY"
+            )
+        })?;
+    tracing::info!(%key, "using the auth service's token key");
+    Ok(key)
+}
+
+/// `AUTH_SERVICE_URL`, or the auth service on this machine.
+pub fn auth_service_url() -> String {
+    std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string())
+}
+
+/// Serves `app` on `bind` until Ctrl-C, answering web pages from the
+/// origins in `CORS_ORIGINS`.
+pub async fn serve(app: Router, bind: &str, name: &str) -> Result<(), Box<dyn Error>> {
+    let app = app.layer(cors()?);
+    let listener = tokio::net::TcpListener::bind(bind).await?;
+    tracing::info!(%bind, "{name} listening");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            let _ = tokio::signal::ctrl_c().await;
+        })
+        .await?;
+    Ok(())
+}
+
+/// What an error response says: the error itself, unless it's internal
+/// (a 500), which is logged and not shown.
+pub fn error_message(status: StatusCode, error: &dyn Display) -> String {
+    if status == StatusCode::INTERNAL_SERVER_ERROR {
+        tracing::error!(%error, "internal error");
+        "internal server error".to_string()
+    } else {
+        error.to_string()
+    }
+}
+
+/// An error response: `{"error": "..."}` with `status` (see
+/// [`error_message`]).
+pub fn error_response(status: StatusCode, error: &dyn Display) -> Response {
+    (
+        status,
+        Json(json!({ "error": error_message(status, error) })),
+    )
+        .into_response()
+}
 
 /// Which web pages may call the service from a browser, from
 /// `CORS_ORIGINS`: a comma-separated list of origins (such as
 /// `https://dnd.example.com`), or `*` for any (for development). Unset,
 /// none may: `campaign-edit` doesn't need it, and neither does a web page
 /// served from the same address as the services (behind the proxy).
-pub fn cors() -> Result<CorsLayer, String> {
+fn cors() -> Result<CorsLayer, String> {
     let setting = std::env::var("CORS_ORIGINS").unwrap_or_default();
     cors_for(&setting)
 }

@@ -1,21 +1,13 @@
 use std::{env, path::Path, sync::Arc};
 
-use campaign_auth::{DeviceKey, PublicKey, server::TokenVerifier};
+use campaign_auth::{DeviceKey, server::TokenVerifier};
 use combat_service::services::ServicesConfig;
-
-use tracing_subscriber::EnvFilter;
 
 const DEFAULT_KEY_FILE: &str = "combat-service.key";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "combat_service=info,tower_http=info".into()),
-        )
-        .init();
+    campaign_server::init_logging("combat_service");
 
     // `combat-service public-key` prints this service's key, creating it if
     // needed, so it can be registered: auth-service add-service combat-service <KEY>
@@ -42,9 +34,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3001".to_string());
-    let auth_service =
-        env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string());
-    let auth_key = auth_key(&auth_service).await?;
+    let auth_service = campaign_server::auth_service_url();
+    let auth_key = campaign_server::auth_key(&auth_service).await?;
 
     // Set CHARACTER_SERVICE_URL to an empty string to leave character sheets
     // alone (no HP written back, no slots or feature uses spent), and
@@ -69,40 +60,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
     };
     let config = combat_service::Config { services };
+    tracing::info!(?config, "combat service configured");
 
     let pool = combat_service::connect(&database_url).await?;
-    let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
-    tracing::info!(%bind_addr, ?config, "combat service listening");
 
-    let app = combat_service::app(pool, TokenVerifier::new(auth_key), config)
-        .await?
-        .layer(campaign_server::cors()?);
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await?;
-    Ok(())
-}
-
-/// The key tokens are signed with: `AUTH_PUBLIC_KEY` if set, otherwise
-/// fetched from the auth service. Set the key explicitly unless the network
-/// between the services is trusted.
-async fn auth_key(auth_service: &str) -> Result<PublicKey, Box<dyn std::error::Error>> {
-    if let Ok(key) = env::var("AUTH_PUBLIC_KEY") {
-        return Ok(key.parse()?);
-    }
-    let key = campaign_client::auth::AuthClient::new(auth_service)
-        .wait_for_server_key(std::time::Duration::from_secs(30))
-        .await
-        .map_err(|e| {
-            format!(
-                "could not fetch the auth service's key from {auth_service} ({e}); \
-                 start it or set AUTH_PUBLIC_KEY"
-            )
-        })?;
-    tracing::info!(%key, "using the auth service's token key");
-    Ok(key)
+    let app = combat_service::app(pool, TokenVerifier::new(auth_key), config).await?;
+    campaign_server::serve(app, &bind_addr, "combat service").await
 }
 
 /// This service's own key, for reaching the other services. Created on
