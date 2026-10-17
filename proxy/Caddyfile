@@ -3,22 +3,31 @@
 # an IP address gets one from Caddy's own authority, whose root each
 # client must trust once (see the README). Live fights' WebSockets pass
 # through too.
+#
+# The rest defaults to compose's setup; tools/sandbox.sh changes it to run
+# the same proxy in front of the sandbox.
+{
+	admin {$CADDY_ADMIN:localhost:2019}
+	# Plain HTTP: redirects, and Let's Encrypt's challenges.
+	http_port {$CADDY_HTTP_PORT:80}
+}
+
 {$CAMPAIGN_HOST} {
 	@characters path /characters /characters/*
 	@combat path /combats /combats/* /encounters /encounters/*
 	@monsters path /monsters /monsters/* /spells /spells/* /conditions /conditions/*
 
 	handle @characters {
-		reverse_proxy characters:3000
+		reverse_proxy {$CHARACTERS_UPSTREAM:characters:3000}
 	}
 	handle @combat {
-		reverse_proxy combat:3001
+		reverse_proxy {$COMBAT_UPSTREAM:combat:3001}
 	}
 	handle @monsters {
-		reverse_proxy monsters:3003
+		reverse_proxy {$MONSTERS_UPSTREAM:monsters:3003}
 	}
 	# Logging in, devices and pairing.
 	handle {
-		reverse_proxy auth:3002
+		reverse_proxy {$AUTH_UPSTREAM:auth:3002}
 	}
 }

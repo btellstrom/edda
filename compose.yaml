@@ -30,6 +30,10 @@ services:
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 2s
+      # A first start sets up the database before it accepts connections,
+      # which takes a while on a busy machine.
+      start_period: 30s
+      retries: 10
     restart: unless-stopped
 
   auth:

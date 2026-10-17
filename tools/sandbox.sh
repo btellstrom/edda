@@ -10,12 +10,15 @@
 #   tools/sandbox.sh tmux <name> <args> campaign-edit <args> in a detached tmux
 #                                       session <name>, for the full screens
 #   tools/sandbox.sh player <name>      a player's device, joined to the campaign
+#   tools/sandbox.sh https              the HTTPS proxy (proxy/Caddyfile) in front
 #   tools/sandbox.sh status             what's running
 #   tools/sandbox.sh down               stop it and delete everything in it
 #
 # `run` and `tmux` always use this checkout's target/debug/campaign-edit,
 # with the sandbox's config and servers, and refuse to run without a
-# sandbox up. They're the DM's device, or with SANDBOX_AS=<name> a player's.
+# sandbox up. They're the DM's device, or with SANDBOX_AS=<name> a player's,
+# and with SANDBOX_HTTPS=1 they go through the proxy, trusting its
+# certificate authority alone.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -23,8 +26,10 @@ dir="$root/target/sandbox"
 bin="$root/target/debug"
 container=${CONTAINER:-podman}
 pg=campaign-manager-sandbox-pg
+proxy=campaign-manager-sandbox-proxy
 pg_port=25432
 characters_port=23000 combat_port=23001 auth_port=23002 monsters_port=23003
+https_port=28443 http_port=28080
 
 die() { echo "sandbox: $*" >&2; exit 1; }
 
@@ -38,14 +43,29 @@ config() {
     fi
 }
 
+# Where campaign-edit finds the servers, into `settings`: directly, or
+# (SANDBOX_HTTPS=1) all through the proxy, trusting its authority and
+# nothing else.
+servers() {
+    if [ -n "${SANDBOX_HTTPS:-}" ]; then
+        [ -f "$dir/https" ] || die "no proxy; start it with: tools/sandbox.sh https"
+        local https="https://localhost:$https_port"
+        settings=("SSL_CERT_FILE=$root_cert" "CAMPAIGN_SERVER=$https" "CAMPAIGN_COMBAT_SERVER=$https"
+            "CAMPAIGN_AUTH_SERVER=$https" "CAMPAIGN_MONSTER_SERVER=$https")
+    else
+        settings=("CAMPAIGN_SERVER=http://127.0.0.1:$characters_port"
+            "CAMPAIGN_COMBAT_SERVER=http://127.0.0.1:$combat_port"
+            "CAMPAIGN_AUTH_SERVER=http://127.0.0.1:$auth_port"
+            "CAMPAIGN_MONSTER_SERVER=http://127.0.0.1:$monsters_port")
+    fi
+}
+root_cert="$dir/caddy/caddy/pki/authorities/local/root.crt"
+
 # campaign-edit, in the sandbox and nowhere else.
 edit_env() {
-    env CAMPAIGN_CONFIG_DIR="$(config)" \
-        CAMPAIGN_SERVER="http://127.0.0.1:$characters_port" \
-        CAMPAIGN_COMBAT_SERVER="http://127.0.0.1:$combat_port" \
-        CAMPAIGN_AUTH_SERVER="http://127.0.0.1:$auth_port" \
-        CAMPAIGN_MONSTER_SERVER="http://127.0.0.1:$monsters_port" \
-        "$@"
+    local settings
+    servers
+    env CAMPAIGN_CONFIG_DIR="$(config)" "${settings[@]}" "$@"
 }
 
 require_up() {
@@ -128,13 +148,9 @@ session() { # name, then campaign-edit's arguments
     [ $# -ge 1 ] || die "usage: tools/sandbox.sh tmux <name> [campaign-edit arguments]"
     local name=$1
     shift
-    local command
-    command=$(printf '%q ' env \
-        CAMPAIGN_CONFIG_DIR="$(config)" \
-        CAMPAIGN_SERVER="http://127.0.0.1:$characters_port" \
-        CAMPAIGN_COMBAT_SERVER="http://127.0.0.1:$combat_port" \
-        CAMPAIGN_AUTH_SERVER="http://127.0.0.1:$auth_port" \
-        CAMPAIGN_MONSTER_SERVER="http://127.0.0.1:$monsters_port" \
+    local command settings
+    servers
+    command=$(printf '%q ' env CAMPAIGN_CONFIG_DIR="$(config)" "${settings[@]}" \
         "$bin/campaign-edit" "$@")
     tmux new-session -d -s "$name" -x "${COLUMNS:-110}" -y "${LINES:-46}" "$command; sleep 3600"
     echo "$name" >>"$dir/sessions"
@@ -154,6 +170,31 @@ player() { # name
     echo "Player $name joined; act as them with SANDBOX_AS=$name"
 }
 
+https() {
+    require_up
+    [ -f "$dir/https" ] && die "the proxy is already up"
+    for port in $https_port $http_port; do
+        if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+            die "port $port is in use"
+        fi
+    done
+    mkdir -p "$dir/caddy"
+    "$container" run --rm -d --name "$proxy" --network host \
+        -e CAMPAIGN_HOST="localhost:$https_port" -e CADDY_HTTP_PORT="$http_port" -e CADDY_ADMIN=off \
+        -e CHARACTERS_UPSTREAM="127.0.0.1:$characters_port" -e COMBAT_UPSTREAM="127.0.0.1:$combat_port" \
+        -e AUTH_UPSTREAM="127.0.0.1:$auth_port" -e MONSTERS_UPSTREAM="127.0.0.1:$monsters_port" \
+        -v "$root/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$dir/caddy:/data" \
+        docker.io/library/caddy:2.10-alpine >/dev/null
+    for _ in $(seq 60); do
+        [ -f "$root_cert" ] && curl -fs --cacert "$root_cert" "https://localhost:$https_port/health" >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+    curl -fs --cacert "$root_cert" "https://localhost:$https_port/health" >/dev/null ||
+        die "the proxy doesn't answer ($container logs $proxy)"
+    touch "$dir/https"
+    echo "HTTPS proxy up at https://localhost:$https_port; use it with SANDBOX_HTTPS=1"
+}
+
 status() {
     if [ -f "$dir/ready" ]; then
         echo "up, in $dir"
@@ -170,6 +211,7 @@ down() {
     if [ -f "$dir/pids" ]; then
         while read -r pid; do kill "$pid" 2>/dev/null || true; done <"$dir/pids"
     fi
+    "$container" stop "$proxy" >/dev/null 2>&1 || true
     "$container" stop "$pg" >/dev/null 2>&1 || true
     rm -rf "$dir"
     echo "Sandbox down and deleted"
@@ -180,7 +222,8 @@ case "${1:-}" in
     run) shift; run "$@" ;;
     tmux) shift; session "$@" ;;
     player) shift; player "$@" ;;
+    https) https ;;
     status) status ;;
     down) down ;;
-    *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+    *) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

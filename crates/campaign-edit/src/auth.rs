@@ -36,7 +36,7 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
             Ok(())
         }
         AuthCommand::Forget { campaign } => forget(&identity, &campaign),
-        AuthCommand::Invite { dm, yes } => invite(&identity, dm, yes).await,
+        AuthCommand::Invite { dm, yes } => invite(&identity, auth_server, dm, yes).await,
         AuthCommand::Pair { code, name } => pair(&identity, auth_server, &code, &name).await,
         AuthCommand::Key => {
             println!("{}", identity.key()?.public());
@@ -113,18 +113,23 @@ fn forget(identity: &Identity, campaign: &str) -> Result<()> {
 }
 
 /// Shows a pairing code and waits for a device to join with it, asking
-/// before letting it in (unless `yes`).
-async fn invite(identity: &Identity, dm: bool, yes: bool) -> Result<()> {
+/// before letting it in (unless `yes`). The new device is told to pair
+/// through `auth_server` if given (such as the HTTPS proxy's address,
+/// when this device reaches the services directly), else the address this
+/// device uses.
+async fn invite(identity: &Identity, auth_server: &str, dm: bool, yes: bool) -> Result<()> {
     let (profile, _, host) = logged_in(identity).await?;
+    let address = if auth_server == crate::cli::AUTH_SERVER {
+        &profile.auth_server
+    } else {
+        auth_server
+    };
     let role = if dm { Role::Dm } else { Role::Player };
     let invitation = host.invite(role).await?;
     let code = &invitation.code;
     println!("Pairing code (works once, for 10 minutes):\n\n    {code}\n");
     println!("On the new device:");
-    println!(
-        "  campaign-edit auth pair {code} --name \"<device name>\" --auth-server {}\n",
-        profile.auth_server
-    );
+    println!("  campaign-edit auth pair {code} --name \"<device name>\" --auth-server {address}\n");
     println!("Waiting for it to join… (Ctrl-C to give up)");
     let role_name = role_name(role);
     let device = pairing::host(

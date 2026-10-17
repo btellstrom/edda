@@ -92,12 +92,18 @@ can't take 443; set `HTTPS_PORT`/`HTTP_PORT` to change that.
   run `update-ca-certificates`), or for campaign-edit alone set
   `SSL_CERT_FILE=root.crt`.
 
-Then point campaign-edit at it, one address for all four:
+Then point campaign-edit at it, one address for all four. A device logs
+in through the address it joined with, so players pair with it too: on
+the DM's device, `campaign-edit auth invite --auth-server
+https://dnd.example.com:8443` tells them so.
 
 ```sh
 export CAMPAIGN_SERVER=https://dnd.example.com:8443 CAMPAIGN_COMBAT_SERVER=https://dnd.example.com:8443 \
-       CAMPAIGN_AUTH_SERVER=https://dnd.example.com:8443 CAMPAIGN_MONSTER_SERVER=https://dnd.example.com:8443
+       CAMPAIGN_MONSTER_SERVER=https://dnd.example.com:8443
 ```
+
+`tools/sandbox.sh https` runs the same proxy in front of the sandbox, to
+try it: `SANDBOX_HTTPS=1` then sends everything through it.
 
 **Browsers.** The services answer web pages from other sites only if
 `CORS_ORIGINS` lists them (comma-separated origins such as
