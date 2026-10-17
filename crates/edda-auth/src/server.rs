@@ -20,10 +20,9 @@ use pasetors::{
 use crate::{AuthError, DeviceKey, PublicKey, protocol::Claims};
 
 /// Bound into every token's signature, so these tokens can't be confused
-/// with PASETO tokens minted by anything else using the same key. Under
-/// Edda's old name, as everything it signs (see the crate's docs).
-const IMPLICIT_ASSERTION: &[u8] = b"campaign-manager/v1/token";
-const CLAIMS_KEY: &str = "campaign-manager";
+/// with PASETO tokens minted by anything else using the same key.
+const IMPLICIT_ASSERTION: &[u8] = b"edda/v1/token";
+const CLAIMS_KEY: &str = "edda";
 
 /// Mints tokens. Only the auth service holds one.
 pub struct TokenSigner {

@@ -18,7 +18,7 @@ CARGO     ?= cargo
 PROFILES   = $(if $(HTTPS),--profile https)
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite adopt-volumes test check deny smoke clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite test check deny smoke clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -74,9 +74,6 @@ migrate-sqlite: ## once, after upgrading: bring characters and monsters over fro
 	$(COMPOSE) run --rm --no-deps monsters monster-service import-sqlite /data/monsters.db
 	@# The shared library is the old one now; the SRD again over it, by name.
 	$(COMPOSE) run --rm seed-monsters
-
-adopt-volumes: ## once, after the rename: copy the old campaign-manager stack's data to edda's
-	CONTAINER=$(CONTAINER) tools/adopt-volumes.sh
 
 test: ## run all tests, against a throwaway Postgres of their own
 	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked

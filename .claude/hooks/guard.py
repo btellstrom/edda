@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """A PreToolUse hook for Claude Code: blocks shell commands that could reach
-the real campaign-manager stack, its data, or this machine's campaign-edit
+the real stack (named edda, or campaign-manager before the rename), its
+data, or this machine's edda (campaign-edit before)
 config, so tests and experiments stay in tools/sandbox.sh, `make test` and
 `make smoke`. Exit code 2 blocks the command and tells Claude why.
 
 The command is read the way the shell reads it: split into words (quotes
 and escapes honoured) and into simple commands (at ; | && and so on).
-Rules about what a command does (runs campaign-edit, `make up`, compose)
+Rules about what a command does (runs edda, `make up`, compose)
 look at each command's program and arguments, past wrappers such as `env`,
 `sudo`, `timeout` or `xargs`, and also inside the text that gets run as a
 command in turn: $( ), backticks, <( ), `sh -c`, `eval`, and what tmux,
@@ -16,8 +17,8 @@ is just text. Rules about data (the real stack's containers, ports and
 config) apply anywhere in the command, quoted or not, except in
 here-document bodies.
 
-Variables are followed: `E=target/debug/campaign-edit; $E list` runs
-campaign-edit, and so does a shell function wrapping it (its body counts
+Variables are followed: `E=target/debug/edda; $E list` runs
+edda, and so does a shell function wrapping it (its body counts
 where it's defined). It guards against mistakes, not deliberate evasion:
 what a script file runs, a script piped into `sh`, a variable set
 elsewhere, or an alias get past it.
@@ -31,16 +32,16 @@ import re
 import shlex
 import sys
 
-CAMPAIGN_EDIT = (
-    "runs campaign-edit outside the sandbox (it would use this machine's "
+EDDA = (
+    "runs edda outside the sandbox (it would use this machine's "
     "config and the real servers); use `tools/sandbox.sh run|tmux`"
 )
 MAKE = (
     "a make target that builds, starts, stops or changes the real stack "
-    "(or installs over the user's campaign-edit)"
+    "(or installs over the user's edda)"
 )
 COMPOSE = "compose without an isolated project name acts on the real stack"
-IMAGE = "builds or changes the real stack's image (localhost/campaign-manager)"
+IMAGE = "builds or changes the real stack's image (localhost/edda)"
 PRUNE = "prunes containers, images or volumes, which may be the user's"
 DELETE = "deletes containers, images or volumes that may be the user's"
 SERVICE = (
@@ -51,19 +52,19 @@ SERVICE = (
 BACKUP = "backs up or restores the real stack's data (the smoke test checks the scripts)"
 SERVICES = {"auth-service", "character-service", "combat-service", "monster-service"}
 
-# Make targets that act on the real stack, or install over campaign-edit.
+# Make targets that act on the real stack, or install over edda.
 REAL_STACK_TARGETS = {
     "up", "down", "logs", "campaign", "delete-campaign", "server", "install", "backup", "restore",
     "migrate-sqlite",
 }
 # Compose projects of their own: the smoke test's and the sandbox's.
-ISOLATED_PROJECTS = ("campaign-manager-smoke", "campaign-manager-sandbox")
+ISOLATED_PROJECTS = ("edda-smoke", "edda-sandbox")
 
 # Rules about data: matched against the whole command (here-document bodies
 # left out), wherever it appears.
 DATA_RULES = [
     (
-        r"\bcampaign-manager-(?:postgres|auth|characters|combat|monsters|seed-monsters|register-combat)-\d",
+        r"\b(?:edda|campaign-manager)-(?:postgres|auth|characters|combat|monsters|seed-monsters|register-combat)-\d",
         "touches a container of the real stack",
     ),
     (
@@ -71,8 +72,8 @@ DATA_RULES = [
         "talks to the real stack's ports (5432, 3000-3003)",
     ),
     (
-        r"\.config/campaign-manager\b",
-        "reads or changes this machine's campaign-edit config",
+        r"\.config/(?:edda|campaign-manager)\b",
+        "reads or changes this machine's edda config",
     ),
 ]
 
@@ -498,7 +499,8 @@ def isolated_project(args):
 
 def real_image(arg):
     image = arg.split("=", 1)[1] if arg.startswith("-") and "=" in arg else arg
-    return image == "localhost/campaign-manager" or image.startswith("localhost/campaign-manager:")
+    return any(image == name or image.startswith(name + ":")
+               for name in ("localhost/edda", "localhost/campaign-manager"))
 
 
 def container_problem(args):
@@ -524,7 +526,7 @@ def container_problem(args):
     ):
         return PRUNE
     if sub in ("rm", "rmi") or (sub in ("volume", "image", "container") and action == "rm"):
-        if any(arg.startswith("campaign-manager_") for arg in rest):
+        if any(arg.startswith(("edda_", "campaign-manager_")) for arg in rest):
             return DELETE
     return None
 
@@ -545,8 +547,8 @@ def service_problem(name, args, variables):
 
 def command_problem(argv, variables):
     name, args = os.path.basename(argv[0]), argv[1:]
-    if name == "campaign-edit":
-        return CAMPAIGN_EDIT
+    if name in ("edda", "campaign-edit"):
+        return EDDA
     if name in SERVICES:
         return service_problem(name, args, variables)
     if name in ("backup.sh", "restore.sh"):
@@ -574,39 +576,39 @@ def problem(command):
 
 SELF_TEST = {
     # Blocked.
-    "campaign-edit list": True,
-    "~/.cargo/bin/campaign-edit scanlan show": True,
-    "target/debug/campaign-edit list": True,
-    '"campaign-edit" list': True,
-    "cd x && campaign-edit fight": True,
-    "FOO=1 campaign-edit list": True,
-    "env -u X campaign-edit list": True,
-    "env -S 'campaign-edit list'": True,
-    "sudo -u ben campaign-edit list": True,
-    "timeout 5 campaign-edit list": True,
-    "xargs -I{} campaign-edit {} show < names": True,
-    "if campaign-edit list; then echo ok; fi": True,
-    "{ campaign-edit list; }": True,
-    "(campaign-edit list)": True,
-    'echo "$(campaign-edit list)"': True,
-    "x=`campaign-edit list`": True,
-    "cat <(campaign-edit list)": True,
-    "bash -c 'cd x && campaign-edit list'": True,
-    'sh -lc "campaign-edit list"': True,
-    'eval "campaign-edit list"': True,
-    "tmux new-session -d -s f \"source env; campaign-edit fight --new Test\"": True,
-    "tmux new -d -s f campaign-edit fight": True,
-    'tmux send-keys -t f "campaign-edit fight" Enter': True,
-    "ssh host campaign-edit list": True,
-    "watch -n 1 campaign-edit list": True,
-    "find . -name '*.json' -exec campaign-edit import {} \\;": True,
-    "cat <<EOF\n$(campaign-edit list)\nEOF": True,
-    "E=target/debug/campaign-edit; $E list": True,
-    'B=target/debug; E=$B/campaign-edit; "$E" fight --new X': True,
-    'B=/x/campaign-edit\nce() { $B "$@"; }\nce list': True,
-    "export E=~/.cargo/bin/campaign-edit && ${E} list": True,
-    'E=target/debug/campaign-edit; tmux new -d -s f "$E fight"': True,
-    "podman exec campaign-manager-postgres-1 psql -U postgres": True,
+    "edda list": True,
+    "~/.cargo/bin/edda scanlan show": True,
+    "target/debug/edda list": True,
+    '"edda" list': True,
+    "cd x && edda fight": True,
+    "FOO=1 edda list": True,
+    "env -u X edda list": True,
+    "env -S 'edda list'": True,
+    "sudo -u ben edda list": True,
+    "timeout 5 edda list": True,
+    "xargs -I{} edda {} show < names": True,
+    "if edda list; then echo ok; fi": True,
+    "{ edda list; }": True,
+    "(edda list)": True,
+    'echo "$(edda list)"': True,
+    "x=`edda list`": True,
+    "cat <(edda list)": True,
+    "bash -c 'cd x && edda list'": True,
+    'sh -lc "edda list"': True,
+    'eval "edda list"': True,
+    "tmux new-session -d -s f \"source env; edda fight --new Test\"": True,
+    "tmux new -d -s f edda fight": True,
+    'tmux send-keys -t f "edda fight" Enter': True,
+    "ssh host edda list": True,
+    "watch -n 1 edda list": True,
+    "find . -name '*.json' -exec edda import {} \\;": True,
+    "cat <<EOF\n$(edda list)\nEOF": True,
+    "E=target/debug/edda; $E list": True,
+    'B=target/debug; E=$B/edda; "$E" fight --new X': True,
+    'B=/x/edda\nce() { $B "$@"; }\nce list': True,
+    "export E=~/.cargo/bin/edda && ${E} list": True,
+    'E=target/debug/edda; tmux new -d -s f "$E fight"': True,
+    "podman exec edda-postgres-1 psql -U postgres": True,
     "curl http://127.0.0.1:3002/health": True,
     'curl "http://localhost:3000/characters"': True,
     "psql postgres://postgres:postgres@localhost:5432/auth": True,
@@ -625,12 +627,20 @@ SELF_TEST = {
     "podman compose up -d": True,
     "podman compose logs seed-monsters": True,
     "docker-compose down": True,
-    "podman build -t localhost/campaign-manager .": True,
-    "podman tag abc localhost/campaign-manager:latest": True,
+    "podman build -t localhost/edda .": True,
+    "podman tag abc localhost/edda:latest": True,
     "podman system prune -f": True,
     "podman volume prune": True,
+    "podman volume rm edda_postgres-data": True,
+    "ls ~/.config/edda": True,
+    # The stack and client from before the rename.
+    "campaign-edit list": True,
+    "~/.cargo/bin/campaign-edit fight": True,
+    "podman exec campaign-manager-postgres-1 psql -U postgres": True,
+    "podman tag abc localhost/campaign-manager:latest": True,
     "podman volume rm campaign-manager_postgres-data": True,
     "ls ~/.config/campaign-manager": True,
+    "podman compose -p campaign-manager down": True,
     # Allowed.
     "tools/sandbox.sh run list": False,
     "DATABASE_URL=sqlite:///tmp/m.db target/debug/monster-service import x.json": False,
@@ -638,35 +648,36 @@ SELF_TEST = {
     "DATABASE_URL=sqlite:///tmp/c.db AUTH_SERVICE_URL=http://127.0.0.1:1 character-service": False,
     "target/debug/combat-service public-key": False,
     "target/debug/monster-service --help": False,
-    "E=target/debug/campaign-edit; ls -la $E && stat ${E}": False,
+    "E=target/debug/edda; ls -la $E && stat ${E}": False,
     "CMD=ls; $CMD target/debug": False,
     "tools/sandbox.sh tmux fight fight --new Test": False,
     "SANDBOX_AS=Laura tools/sandbox.sh run vex show": False,
-    "cargo build -p campaign-edit": False,
-    "cargo install --path crates/campaign-edit --root /tmp/x": False,
-    "cargo clippy --workspace -- -D warnings && cargo test -p campaign-edit": False,
-    "grep -rn foo crates/campaign-edit/src": False,
-    'grep -n "\\[Monsters\\](#monsters)\\|campaign-edit vex\\b" README.md': False,
-    "grep -rn 'campaign-edit list' docs | head": False,
-    "rg 'echo $(campaign-edit list)' README.md": False,
-    'echo "run campaign-edit list to see them"': False,
-    "printf '%s\\n' 'campaign-edit fight'": False,
-    'git commit -m "Teach campaign-edit to fight; make up and podman compose are untouched"': False,
+    "cargo build -p edda": False,
+    "cargo install --path crates/edda --root /tmp/x": False,
+    "cargo clippy --workspace -- -D warnings && cargo test -p edda": False,
+    "grep -rn foo crates/edda/src": False,
+    'grep -n "\\[Monsters\\](#monsters)\\|edda vex\\b" README.md': False,
+    "grep -rn 'edda list' docs | head": False,
+    "rg 'echo $(edda list)' README.md": False,
+    'echo "run edda list to see them"': False,
+    "printf '%s\\n' 'edda fight'": False,
+    'git commit -m "Teach edda to fight; make up and podman compose are untouched"': False,
     'git log --grep="podman compose up"': False,
-    "sed -n '/campaign-edit/p' README.md": False,
-    "ls target/debug/campaign-edit && echo campaign-edit | wc -c": False,
+    "sed -n '/edda/p' README.md": False,
+    "ls target/debug/edda && echo edda | wc -c": False,
     "make test": False,
     "make check": False,
     "make smoke": False,
     "make srd": False,
     "curl http://127.0.0.1:23002/health": False,
     "curl http://127.0.0.1:13000/health": False,
-    "podman compose -p campaign-manager-smoke down -v": False,
-    "podman compose --project-name=campaign-manager-sandbox ps": False,
-    "podman build --network host -t localhost/campaign-manager-smoke .": False,
+    "podman compose -p edda-smoke down -v": False,
+    "podman volume rm edda-smoke_postgres-data": False,
+    "podman compose --project-name=edda-sandbox ps": False,
+    "podman build --network host -t localhost/edda-smoke .": False,
     "podman run --rm -d --name test-pg -p 127.0.0.1:55434:5432 postgres": False,
-    "podman images 2>&1 | grep campaign-manager": False,
-    "git commit -F - <<'EOF'\nTeach campaign-edit to fight\n\ncampaign-edit fight --new X\nEOF": False,
+    "podman images 2>&1 | grep edda": False,
+    "git commit -F - <<'EOF'\nTeach edda to fight\n\nedda fight --new X\nEOF": False,
     "python3 - <<'EOF'\nprint('make up')\nprint('127.0.0.1:3002')\nEOF": False,
 }
 
@@ -693,7 +704,7 @@ def main():
         return 0
     print(
         f"Blocked by .claude/hooks/guard.py: this {reason}. Tests and experiments "
-        "must never reach the user's real campaign-manager stack or data: use "
+        "must never reach the user's real edda stack or data: use "
         "tools/sandbox.sh, `make test` or `make smoke`, or ask the user to run "
         "the command themselves.",
         file=sys.stderr,

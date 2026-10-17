@@ -1,7 +1,6 @@
 //! This device's identity: its key and the campaigns it belongs to, kept in
 //! the config directory (`$EDDA_CONFIG_DIR`, or `$XDG_CONFIG_HOME/edda`, or
-//! `~/.config/edda`; one from before the rename, `campaign-manager` next to
-//! it, is moved there):
+//! `~/.config/edda`):
 //!
 //! ```text
 //! device.key                  the key, the same in every campaign
@@ -22,19 +21,6 @@ use edda_auth::{
 use edda_client::auth::AuthClient;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-/// `edda` in the config directory `config`, moved there from where Edda
-/// kept it when it was called the campaign manager, so a device keeps its
-/// key and campaigns.
-fn default_dir(config: &Path) -> Result<PathBuf> {
-    let dir = config.join("edda");
-    let old = config.join("campaign-manager");
-    if !dir.exists() && old.is_dir() {
-        fs::rename(&old, &dir)
-            .with_context(|| format!("moving {} to {}", old.display(), dir.display()))?;
-    }
-    Ok(dir)
-}
 
 /// A campaign this device is in, and where to log in to it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -58,7 +44,7 @@ impl Identity {
                     .map(PathBuf::from)
                     .or_else(|| env::var_os("HOME").map(|home| Path::new(&home).join(".config")))
                     .ok_or_else(|| anyhow!("can't find a config directory; set EDDA_CONFIG_DIR"))?;
-                default_dir(&config)?
+                config.join("edda")
             }
         };
         Ok(Self::at(dir))
@@ -285,27 +271,6 @@ mod tests {
                 edition: Default::default(),
             },
         }
-    }
-
-    #[test]
-    fn the_config_from_before_the_rename_moves_to_edda() {
-        let config = env::temp_dir().join(format!("edda-test-{}", Uuid::new_v4()));
-        let old = Identity::at(config.join("campaign-manager"));
-        let vox = profile("Vox Machina");
-        old.save_profile(&vox).unwrap();
-        let key = old.key().unwrap().public();
-
-        let dir = default_dir(&config).unwrap();
-        assert_eq!(dir, config.join("edda"));
-        assert!(!config.join("campaign-manager").exists());
-        let moved = Identity::at(dir.clone());
-        assert_eq!(moved.key().unwrap().public(), key);
-        assert_eq!(moved.profile().unwrap(), Some(vox));
-
-        // Only once: a new one is left alone.
-        fs::create_dir(config.join("campaign-manager")).unwrap();
-        assert_eq!(default_dir(&config).unwrap(), dir);
-        assert!(config.join("campaign-manager").exists());
     }
 
     #[test]

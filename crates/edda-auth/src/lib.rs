@@ -8,11 +8,9 @@
 //! v4.public) that every service can check with the auth service's public
 //! key alone.
 //!
-//! Anything signed is signed as `"campaign-manager/v1/<purpose>\0"` followed
+//! Anything signed is signed as `"edda/v1/<purpose>\0"` followed
 //! by the value's canonical (postcard) encoding, so a signature made for one
-//! purpose can never be passed off as another. (`campaign-manager` was
-//! Edda's name before; it stays in what is signed, as changing it would
-//! invalidate every device's certificate.)
+//! purpose can never be passed off as another.
 
 mod bytes;
 mod cert;

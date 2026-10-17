@@ -146,9 +146,8 @@ impl Exchange {
     /// Starts the exchange; send the returned message to the other side.
     pub fn start(side: Side, code: &PairingCode) -> (Self, Vec<u8>) {
         // Binding the slot means a code's words are only good for its slot.
-        let host = Identity::new(format!("campaign-manager/v1/pair/host/{}", code.slot).as_bytes());
-        let joiner =
-            Identity::new(format!("campaign-manager/v1/pair/joiner/{}", code.slot).as_bytes());
+        let host = Identity::new(format!("edda/v1/pair/host/{}", code.slot).as_bytes());
+        let joiner = Identity::new(format!("edda/v1/pair/joiner/{}", code.slot).as_bytes());
         let (spake, message) = match side {
             Side::Host => Spake2::start_a(&code.password(), &host, &joiner),
             Side::Joiner => Spake2::start_b(&code.password(), &host, &joiner),
@@ -172,7 +171,7 @@ impl Exchange {
         let hkdf = Hkdf::<Sha256>::new(Some(&self.slot.to_be_bytes()), &shared);
         let key = |side: Side| {
             let mut key = [0u8; 32];
-            let info = format!("campaign-manager/v1/pair/{}-to-other", side.as_str());
+            let info = format!("edda/v1/pair/{}-to-other", side.as_str());
             hkdf.expand(info.as_bytes(), &mut key)
                 .expect("32 bytes is a valid length");
             ChaCha20Poly1305::new(&key.into())

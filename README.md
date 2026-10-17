@@ -154,24 +154,21 @@ restores it.
 
 #### Upgrading from campaign-manager
 
-Edda used to be called campaign-manager: its stack, image, volumes,
-client (`campaign-edit`) and settings (`CAMPAIGN_SERVER` and so on) had
-that name. To carry a stack of then over:
+Edda used to be called campaign-manager, and what devices sign changed
+with the name, so nothing from then carries over: the old certificates
+and tokens are no longer valid. Remove the old stack and its data, and
+start afresh:
 
 ```sh
-podman compose -p campaign-manager --profile https down   # stop the old stack
-make adopt-volumes    # copy its volumes to edda's (the old ones stay)
-make up
-make install          # edda; `cargo uninstall campaign-edit` removes the old one
+podman compose -p campaign-manager --profile https down -v
+podman rmi localhost/campaign-manager
+rm -r ~/.config/campaign-manager      # each device's old key and campaigns
+cargo uninstall campaign-edit         # the old client; make install puts edda there
 ```
 
-The first time `edda` runs, it moves `~/.config/campaign-manager` to
-`~/.config/edda`, so the device stays in its campaigns. Settings are
-`EDDA_SERVER`, `EDDA_AUTH_SERVER`, `EDDA_MONSTER_SERVER`,
+Settings are `EDDA_SERVER`, `EDDA_AUTH_SERVER`, `EDDA_MONSTER_SERVER`,
 `EDDA_COMBAT_SERVER`, `EDDA_CONFIG_DIR` and `EDDA_HOST` now, and tab
-completion is `source <(COMPLETE=bash edda)`. Once all is well,
-`podman volume rm` the `campaign-manager_*` volumes and `podman rmi
-localhost/campaign-manager`.
+completion is `source <(COMPLETE=bash edda)`.
 
 #### Upgrading from SQLite
 
@@ -891,11 +888,10 @@ auth service's public key alone, without calling it. Devices remember the
 auth service's key from the first time they use it and refuse to log in to
 any other.
 
-**Signatures** always cover `"campaign-manager/v1/<purpose>\0"` followed
+**Signatures** always cover `"edda/v1/<purpose>\0"` followed
 by the value's canonical binary (postcard) encoding, so a signature made
 for one purpose (say, logging in) can never pass as another (a
-certificate). (`campaign-manager` is Edda's former name, kept there so
-certificates made before the rename stay valid.)
+certificate).
 
 **Roles.** DM devices admit and revoke devices; the campaign always keeps at
 least one. Players use the services. Services (registered with `auth-service

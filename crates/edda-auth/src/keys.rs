@@ -23,8 +23,8 @@ pub enum Purpose {
 impl Purpose {
     fn label(self) -> &'static str {
         match self {
-            Purpose::DeviceCert => "campaign-manager/v1/device-cert",
-            Purpose::Login => "campaign-manager/v1/login",
+            Purpose::DeviceCert => "edda/v1/device-cert",
+            Purpose::Login => "edda/v1/login",
         }
     }
 }
