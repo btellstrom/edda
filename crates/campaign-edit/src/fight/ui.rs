@@ -19,7 +19,7 @@ use super::{
     log,
 };
 use crate::{
-    display::{self, Detail},
+    display::{self, Detail, Section},
     prompt::{self, Shown},
     styled::{Doc, dim, plain},
 };
@@ -498,7 +498,7 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect, combatant: &Combatant) {
     // When it doesn't all fit, show the part the line needs: spells for a
     // cast, a monster's actions for an attack.
     let section = app.parsed().section;
-    let automatic = crate::styled::scroll_to(&text.lines, section, height);
+    let automatic = crate::styled::scroll_to(&text.lines, section.map(Section::title), height);
     let scrolled = app
         .panel
         .place((combatant.id, section), automatic, text.lines.len(), height);

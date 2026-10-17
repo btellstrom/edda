@@ -24,6 +24,8 @@ use campaign_types::{
 use uuid::Uuid;
 
 use interpret::{interpret, section, topic, verb};
+
+use crate::display::Section;
 pub use suggest::suggest;
 
 /// What a line is interpreted against.
@@ -76,9 +78,9 @@ pub struct Parsed {
     pub sentence: String,
     /// Ready to run, or what's missing or wrong.
     pub plan: Result<Vec<Step>, String>,
-    /// The heading of the actor's sheet that the line needs, such as
-    /// "Spellcasting" for a cast.
-    pub section: Option<&'static str>,
+    /// The part of the actor's sheet that the line needs, such as
+    /// spellcasting for a cast.
+    pub section: Option<Section>,
     /// What the line is about, to describe.
     pub topic: Option<Topic>,
 }

@@ -11,21 +11,21 @@ use super::{
     Context, Step, Topic, VERBS, Verb,
     names::{longest_name, names, targets, verb_s},
 };
-use crate::session::monster_named;
+use crate::{display::Section, session::monster_named};
 
 /// The part of the actor's sheet that doing `verb` needs: a monster's
 /// actions for anything it does to others, a character's spells or
 /// features.
-pub(super) fn section(verb: Verb, actor: Option<&Combatant>) -> Option<&'static str> {
+pub(super) fn section(verb: Verb, actor: Option<&Combatant>) -> Option<Section> {
     let monster = actor.is_some_and(|a| a.monster_id.is_some());
     match verb {
         Verb::Damage | Verb::Heal | Verb::Temp | Verb::Cast | Verb::Effect | Verb::Use
             if monster =>
         {
-            Some("Actions")
+            Some(Section::Actions)
         }
-        Verb::Cast => Some("Spellcasting"),
-        Verb::Use => Some("Features"),
+        Verb::Cast => Some(Section::Spellcasting),
+        Verb::Use => Some(Section::Features),
         _ => None,
     }
 }

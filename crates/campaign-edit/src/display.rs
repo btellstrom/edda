@@ -66,6 +66,38 @@ fn score(score: u8, modifier: i8) -> Vec<Span<'static>> {
     ]
 }
 
+/// The headed parts of a character sheet or stat block, which the fight
+/// screen can scroll its panel to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Section {
+    Features,
+    Inventory,
+    Notes,
+    Spellcasting,
+    Traits,
+    Actions,
+    BonusActions,
+    Reactions,
+    LegendaryActions,
+}
+
+impl Section {
+    /// Its heading, as drawn.
+    pub fn title(self) -> &'static str {
+        match self {
+            Section::Features => "Features",
+            Section::Inventory => "Inventory",
+            Section::Notes => "Notes",
+            Section::Spellcasting => "Spellcasting",
+            Section::Traits => "Traits",
+            Section::Actions => "Actions",
+            Section::BonusActions => "Bonus actions",
+            Section::Reactions => "Reactions",
+            Section::LegendaryActions => "Legendary actions",
+        }
+    }
+}
+
 /// How much of a sheet to show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Detail {
@@ -219,7 +251,7 @@ fn sections(doc: &mut Doc, s: &CharacterSheet) {
     spellcasting(doc, s);
 
     if !s.resources.is_empty() {
-        doc.heading("Features");
+        doc.heading(Section::Features.title());
         let name_width = s
             .resources
             .iter()
@@ -236,7 +268,7 @@ fn sections(doc: &mut Doc, s: &CharacterSheet) {
     }
 
     if !s.inventory.is_empty() {
-        doc.heading("Inventory");
+        doc.heading(Section::Inventory.title());
         for item in &s.inventory {
             let mut entry = vec![plain(item.name.clone())];
             if item.quantity != 1 {
@@ -251,7 +283,7 @@ fn sections(doc: &mut Doc, s: &CharacterSheet) {
     }
 
     if !s.notes.is_empty() {
-        doc.heading("Notes");
+        doc.heading(Section::Notes.title());
         notes(doc, &s.notes);
     }
 }
@@ -309,7 +341,7 @@ fn spellcasting(doc: &mut Doc, s: &CharacterSheet) {
     {
         return;
     }
-    doc.heading("Spellcasting");
+    doc.heading(Section::Spellcasting.title());
 
     let mut rows: Vec<(String, Vec<Span<'static>>)> = Vec::new();
     for (class, ability) in casters {
@@ -588,17 +620,17 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
         plain("   "),
     ));
 
-    for (heading, features) in [
-        ("Traits", &m.traits),
-        ("Actions", &m.actions),
-        ("Bonus actions", &m.bonus_actions),
-        ("Reactions", &m.reactions),
-        ("Legendary actions", &m.legendary_actions),
+    for (section, features) in [
+        (Section::Traits, &m.traits),
+        (Section::Actions, &m.actions),
+        (Section::BonusActions, &m.bonus_actions),
+        (Section::Reactions, &m.reactions),
+        (Section::LegendaryActions, &m.legendary_actions),
     ] {
         if features.is_empty() {
             continue;
         }
-        doc.heading(heading);
+        doc.heading(section.title());
         for Feature { name, description } in features {
             let mut paragraphs = description.lines().filter(|l| !l.trim().is_empty());
             let first = paragraphs.next().unwrap_or_default();
@@ -612,7 +644,7 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
         }
     }
     if !m.notes.is_empty() {
-        doc.heading("Notes");
+        doc.heading(Section::Notes.title());
         notes(&mut doc, &m.notes);
     }
     doc.into_lines()
@@ -831,6 +863,32 @@ fn skill_name(skill: Skill) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_panel_finds_every_section_a_sheet_draws() {
+        let character: Character = serde_json::from_value(serde_json::json!({
+            "id": uuid::Uuid::nil(), "campaign": uuid::Uuid::nil(), "version": 1,
+            "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+            "name": "Pike", "notes": "Hates goblins",
+            "classes": [{ "name": "Cleric", "level": 3, "spellcasting_ability": "wisdom" }],
+            "spellcasting": { "spells": [{ "name": "Bless", "level": 1 }] },
+            "resources": [{ "name": "Channel Divinity", "max": 1, "recharge": "short_rest" }],
+            "inventory": [{ "name": "Mace" }]
+        }))
+        .expect("a valid character");
+        let lines = sheet(&character, 40, Detail::Full);
+        for section in [
+            Section::Features,
+            Section::Inventory,
+            Section::Notes,
+            Section::Spellcasting,
+        ] {
+            assert!(
+                crate::styled::scroll_to(&lines, Some(section.title()), 3) > 0,
+                "{section:?} isn't found"
+            );
+        }
+    }
 
     #[test]
     fn pools_render_as_pips() {

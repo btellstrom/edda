@@ -222,12 +222,12 @@ fn show_keeps_a_description_of_anything_named() {
 #[test]
 fn lines_point_at_the_part_of_the_sheet_they_need() {
     let w = world();
-    assert_eq!(w.parse("cast hunt").section, Some("Spellcasting"));
-    assert_eq!(w.parse("use fav").section, Some("Features"));
+    assert_eq!(w.parse("cast hunt").section, Some(Section::Spellcasting));
+    assert_eq!(w.parse("use fav").section, Some(Section::Features));
     assert_eq!(w.parse("damage 3 7").section, None, "nothing on the sheet");
     assert_eq!(
         w.parse("3 damage 1 5").section,
-        Some("Actions"),
+        Some(Section::Actions),
         "a monster's"
     );
     assert_eq!(w.parse("next").section, None);
