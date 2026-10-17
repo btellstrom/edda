@@ -6,7 +6,8 @@ use axum::{
     http::StatusCode,
     routing::{delete, get, post},
 };
-use campaign_auth::{
+use chrono::{Duration, Utc};
+use edda_auth::{
     PublicKey, Purpose, Role, SignedCert,
     protocol::{
         Campaign, Challenge, ChallengeRequest, Claims, Device, LoginProof, LoginRequest, ServerKey,
@@ -14,9 +15,8 @@ use campaign_auth::{
     },
     server::{Authenticated, TokenSigner},
 };
-use chrono::{Duration, Utc};
 
-use campaign_server::Limits;
+use edda_server::Limits;
 
 use crate::{error::ApiError, store::Store};
 

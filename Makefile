@@ -1,24 +1,24 @@
 # The servers are built into a container image (see Dockerfile) and run
-# with compose; the client, campaign-edit, is built natively.
+# with compose; the client, edda, is built natively.
 #
 #   make server client    build both
 #   make up               start the servers
-#   make up HTTPS=1 CAMPAIGN_HOST=dnd.example.com
+#   make up HTTPS=1 EDDA_HOST=dnd.example.com
 #                         ...behind HTTPS, for players' devices on the network
-#   make install          put campaign-edit on your PATH
+#   make install          put edda on your PATH
 #   make backup           back up the servers' data
 #
 # Docker instead of podman: make CONTAINER=docker ...
 
 CONTAINER ?= podman
 COMPOSE   ?= $(CONTAINER) compose
-IMAGE     ?= localhost/campaign-manager
+IMAGE     ?= localhost/edda
 CARGO     ?= cargo
 # HTTPS=1: the proxy too (compose's `https` profile).
 PROFILES   = $(if $(HTTPS),--profile https)
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite test check deny smoke clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite adopt-volumes test check deny smoke clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -28,17 +28,17 @@ all: server client ## build the server image and the client
 server: ## build the servers' container image
 	$(CONTAINER) build --network host -t $(IMAGE) .
 
-client: ## build campaign-edit natively (target/release/campaign-edit)
-	$(CARGO) build --release --locked -p campaign-edit
+client: ## build edda natively (target/release/edda)
+	$(CARGO) build --release --locked -p edda
 
-install: ## install campaign-edit into ~/.cargo/bin
-	$(CARGO) install --locked --path crates/campaign-edit
-	@echo 'Tab completion (bash): add  source <(COMPLETE=bash campaign-edit)  to ~/.bashrc'
+install: ## install edda into ~/.cargo/bin
+	$(CARGO) install --locked --path crates/edda
+	@echo 'Tab completion (bash): add  source <(COMPLETE=bash edda)  to ~/.bashrc'
 
 srd: ## download the SRD monsters, spells and conditions into data/ (loaded by make up)
 	tools/fetch-srd.sh
 
-up: server ## build and start the servers (HTTPS=1 CAMPAIGN_HOST=<name>: behind HTTPS too)
+up: server ## build and start the servers (HTTPS=1 EDDA_HOST=<name>: behind HTTPS too)
 	IMAGE=$(IMAGE) $(COMPOSE) $(PROFILES) up -d
 
 down: ## stop the servers (data stays in their volumes)
@@ -52,7 +52,7 @@ campaign: ## create a campaign: make campaign NAME="Vox Machina" EDITION=2024
 	$(COMPOSE) exec auth auth-service new-campaign "$(NAME)" --edition $(EDITION)
 
 delete-campaign: ## delete a campaign and everything in it: make delete-campaign ID=<campaign id>
-	@test -n "$(ID)" || { echo 'usage: make delete-campaign ID=<campaign id>  (campaign-edit auth status shows it)' >&2; exit 2; }
+	@test -n "$(ID)" || { echo 'usage: make delete-campaign ID=<campaign id>  (edda auth status shows it)' >&2; exit 2; }
 	@if [ -z "$(YES)" ]; then \
 		printf 'Delete campaign %s with all its characters, combats, plans, monsters and devices? This cannot be undone. [y/N] ' "$(ID)"; \
 		read answer; [ "$$answer" = y ] || [ "$$answer" = Y ] || { echo 'Not deleted.'; exit 1; }; \
@@ -75,6 +75,9 @@ migrate-sqlite: ## once, after upgrading: bring characters and monsters over fro
 	@# The shared library is the old one now; the SRD again over it, by name.
 	$(COMPOSE) run --rm seed-monsters
 
+adopt-volumes: ## once, after the rename: copy the old campaign-manager stack's data to edda's
+	CONTAINER=$(CONTAINER) tools/adopt-volumes.sh
+
 test: ## run all tests, against a throwaway Postgres of their own
 	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked
 
@@ -87,7 +90,7 @@ check: ## what CI checks: formatting, lints (warnings fail), the tests and the g
 deny: ## the dependencies' licences, advisories and sources (cargo install cargo-deny)
 	cargo deny check
 
-smoke: client ## end to end: the compose stack, seeded, driven by campaign-edit (needs make srd)
+smoke: client ## end to end: the compose stack, seeded, driven by edda (needs make srd)
 	CONTAINER=$(CONTAINER) tools/smoke-test.sh
 
 clean: ## remove build output and the server image

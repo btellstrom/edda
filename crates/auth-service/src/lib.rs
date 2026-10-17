@@ -1,5 +1,5 @@
 //! Auth service: campaigns, the devices admitted to them, and short-lived
-//! tokens for the other services. See `campaign-auth` for the cryptography.
+//! tokens for the other services. See `edda-auth` for the cryptography.
 //! Several instances can run against the same database.
 
 pub mod error;
@@ -10,8 +10,8 @@ pub mod store;
 use std::sync::Arc;
 
 use axum::{Extension, Router};
-use campaign_auth::server::{TokenSigner, TokenVerifier};
-use campaign_server::Limits;
+use edda_auth::server::{TokenSigner, TokenVerifier};
+use edda_server::Limits;
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 
@@ -19,7 +19,7 @@ pub use store::Store;
 
 /// Connects to the database, creating it if needed, and applies migrations.
 pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let pool = campaign_server::open_database(database_url).await?;
+    let pool = edda_server::open_database(database_url).await?;
     sqlx::migrate!().run(&pool).await?;
     Ok(pool)
 }

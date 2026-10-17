@@ -1,7 +1,7 @@
 # Monster data
 
 `make srd` (`tools/fetch-srd.sh`) puts the SRD monsters here, in
-campaign-manager's monster format (see the README's "Monsters" section);
+edda's monster format (see the README's "Monsters" section);
 compose's seed job loads every `*.json` here into the monster service's
 shared library. They aren't part of the repository (`.gitignore` keeps them
 out); your own monster files can go here too.

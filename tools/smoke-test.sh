@@ -2,26 +2,26 @@
 # End-to-end check of the real thing: builds the server image, starts the
 # whole compose stack as a separate project (its own image, volumes and
 # ports, so a running stack is left alone), seeds it, and drives
-# campaign-edit through setting up a campaign, importing characters and
+# edda through setting up a campaign, importing characters and
 # looking things up, directly and through the HTTPS proxy. Upgrades data
 # from SQLite the way an old stack would have it, backs it all up, loses a
 # character and restores it. Deletes all of it afterwards, pass or fail.
 #
 #   tools/smoke-test.sh            (CONTAINER=docker for Docker)
 #
-# Needs the SRD data (make srd) and a built campaign-edit
-# (CAMPAIGN_EDIT, default target/release/campaign-edit).
+# Needs the SRD data (make srd) and a built edda
+# (EDDA, default target/release/edda).
 set -eu
 
 here=$(cd "$(dirname "$0")/.." && pwd)
 cd "$here"
 CONTAINER=${CONTAINER:-podman}
-EDIT=${CAMPAIGN_EDIT:-"$here/target/release/campaign-edit"}
-export COMPOSE_PROJECT_NAME=campaign-manager-smoke
-export IMAGE=localhost/campaign-manager-smoke
+EDIT=${EDDA:-"$here/target/release/edda"}
+export COMPOSE_PROJECT_NAME=edda-smoke
+export IMAGE=localhost/edda-smoke
 export POSTGRES_PORT=15432 CHARACTERS_PORT=13000 COMBAT_PORT=13001 AUTH_PORT=13002 MONSTERS_PORT=13003
 # The HTTPS proxy too, with a certificate from its own authority.
-export COMPOSE_PROFILES=https CAMPAIGN_HOST=localhost HTTPS_PORT=18443 HTTP_PORT=18080
+export COMPOSE_PROFILES=https EDDA_HOST=localhost HTTPS_PORT=18443 HTTP_PORT=18080
 compose() { "$CONTAINER" compose "$@"; }
 
 work=$(mktemp -d)
@@ -40,11 +40,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export CAMPAIGN_CONFIG_DIR="$work/config"
-export CAMPAIGN_SERVER=http://127.0.0.1:$CHARACTERS_PORT
-export CAMPAIGN_COMBAT_SERVER=http://127.0.0.1:$COMBAT_PORT
-export CAMPAIGN_AUTH_SERVER=http://127.0.0.1:$AUTH_PORT
-export CAMPAIGN_MONSTER_SERVER=http://127.0.0.1:$MONSTERS_PORT
+export EDDA_CONFIG_DIR="$work/config"
+export EDDA_SERVER=http://127.0.0.1:$CHARACTERS_PORT
+export EDDA_COMBAT_SERVER=http://127.0.0.1:$COMBAT_PORT
+export EDDA_AUTH_SERVER=http://127.0.0.1:$AUTH_PORT
+export EDDA_MONSTER_SERVER=http://127.0.0.1:$MONSTERS_PORT
 
 step() { printf '\n== %s\n' "$*"; }
 expect() { # what output
@@ -148,8 +148,8 @@ done
 compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > "$work/root.crt"
 https="https://localhost:$HTTPS_PORT"
 through_proxy() {
-    SSL_CERT_FILE="$work/root.crt" CAMPAIGN_SERVER=$https CAMPAIGN_COMBAT_SERVER=$https \
-        CAMPAIGN_AUTH_SERVER=$https CAMPAIGN_MONSTER_SERVER=$https "$EDIT" "$@"
+    SSL_CERT_FILE="$work/root.crt" EDDA_SERVER=$https EDDA_COMBAT_SERVER=$https \
+        EDDA_AUTH_SERVER=$https EDDA_MONSTER_SERVER=$https "$EDIT" "$@"
 }
 tries=0
 until curl -fsS --cacert "$work/root.crt" "$https/health" >/dev/null 2>&1; do

@@ -1,11 +1,11 @@
 //! Persistence for monsters, in Postgres.
 
-use campaign_auth::protocol::Claims;
-use campaign_types::{
+use chrono::{DateTime, SubsecRound, Utc};
+use edda_auth::protocol::Claims;
+use edda_types::{
     Edition,
     monster::{Monster, MonsterSheet},
 };
-use chrono::{DateTime, SubsecRound, Utc};
 use sqlx::{PgExecutor, PgPool, types::Json};
 use uuid::Uuid;
 

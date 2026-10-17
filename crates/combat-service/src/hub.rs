@@ -20,9 +20,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use campaign_auth::protocol::{Claims, Principal};
-use campaign_server::Limits;
-use campaign_types::{
+use edda_auth::protocol::{Claims, Principal};
+use edda_server::Limits;
+use edda_types::{
     combat::{
         CombatCommand, CombatEvent, CombatSnapshot, CombatState, CommandEnvelope, Dice,
         LoggedEvent, SheetCost, add_monsters, decide, player_may, undo,

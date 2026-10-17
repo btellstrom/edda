@@ -2,7 +2,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use campaign_types::{monster::MonsterError, rules_text::RulesTextError};
+use edda_types::{monster::MonsterError, rules_text::RulesTextError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
@@ -36,6 +36,6 @@ impl IntoResponse for ApiError {
             ApiError::Invalid(_) | ApiError::InvalidText(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        campaign_server::error_response(status, &self)
+        edda_server::error_response(status, &self)
     }
 }

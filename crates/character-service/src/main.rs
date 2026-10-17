@@ -2,7 +2,7 @@ use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    campaign_server::init_logging("character_service");
+    edda_server::init_logging("character_service");
 
     let database_url = env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/characters".to_string());
@@ -41,12 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_string());
 
-    let verifier = campaign_auth::server::TokenVerifier::new(
-        campaign_server::auth_key(&campaign_server::auth_service_url()).await?,
+    let verifier = edda_auth::server::TokenVerifier::new(
+        edda_server::auth_key(&edda_server::auth_service_url()).await?,
     );
     let pool = character_service::connect(&database_url).await?;
 
-    let limits = campaign_server::Limits::from_env()?;
+    let limits = edda_server::Limits::from_env()?;
     let app = character_service::app(pool, verifier, limits.clone());
-    campaign_server::serve(app, &bind_addr, "character service", &limits).await
+    edda_server::serve(app, &bind_addr, "character service", &limits).await
 }

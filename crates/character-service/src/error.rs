@@ -3,7 +3,7 @@ use axum::{
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
-use campaign_types::{ActionError, Character, ValidationError};
+use edda_types::{ActionError, Character, ValidationError};
 use serde_json::json;
 
 use crate::routes::etag;
@@ -46,7 +46,7 @@ impl IntoResponse for ApiError {
             ApiError::Validation(_) | ApiError::Action(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        let message = campaign_server::error_message(status, &self);
+        let message = edda_server::error_message(status, &self);
         match self {
             ApiError::VersionMismatch(current) => (
                 status,

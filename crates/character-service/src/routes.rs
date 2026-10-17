@@ -5,8 +5,8 @@ use axum::{
     response::IntoResponse,
     routing::{get, post, put},
 };
-use campaign_auth::{PublicKey, server::Authenticated};
-use campaign_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
+use edda_auth::{PublicKey, server::Authenticated};
+use edda_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
 use uuid::Uuid;
 
 use crate::{AppState, error::ApiError};

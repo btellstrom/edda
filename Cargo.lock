@@ -131,9 +131,9 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "base64 0.23.1",
- "campaign-auth",
- "campaign-server",
- "campaign-types",
+ "edda-auth",
+ "edda-server",
+ "edda-types",
  "chrono",
  "clap",
  "rand 0.10.3",
@@ -320,12 +320,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
-name = "campaign-auth"
+name = "edda-auth"
 version = "0.1.0"
 dependencies = [
  "axum",
  "base64 0.23.1",
- "campaign-types",
+ "edda-types",
  "chacha20poly1305",
  "chrono",
  "ed25519-dalek",
@@ -342,14 +342,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "campaign-client"
+name = "edda-client"
 version = "0.1.0"
 dependencies = [
  "auth-service",
  "axum",
- "campaign-auth",
- "campaign-server",
- "campaign-types",
+ "edda-auth",
+ "edda-server",
+ "edda-types",
  "character-service",
  "chrono",
  "combat-service",
@@ -365,13 +365,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "campaign-edit"
+name = "edda"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "campaign-auth",
- "campaign-client",
- "campaign-types",
+ "edda-auth",
+ "edda-client",
+ "edda-types",
  "chrono",
  "clap",
  "clap_complete",
@@ -385,12 +385,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "campaign-server"
+name = "edda-server"
 version = "0.1.0"
 dependencies = [
  "axum",
- "campaign-auth",
- "campaign-client",
+ "edda-auth",
+ "edda-client",
  "serde_json",
  "sqlx",
  "tokio",
@@ -402,7 +402,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "campaign-types"
+name = "edda-types"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -474,9 +474,9 @@ name = "character-service"
 version = "0.1.0"
 dependencies = [
  "axum",
- "campaign-auth",
- "campaign-server",
- "campaign-types",
+ "edda-auth",
+ "edda-server",
+ "edda-types",
  "chrono",
  "http-body-util",
  "serde_json",
@@ -598,10 +598,10 @@ name = "combat-service"
 version = "0.1.0"
 dependencies = [
  "axum",
- "campaign-auth",
- "campaign-client",
- "campaign-server",
- "campaign-types",
+ "edda-auth",
+ "edda-client",
+ "edda-server",
+ "edda-types",
  "chrono",
  "futures-util",
  "rand 0.10.3",
@@ -2002,9 +2002,9 @@ name = "monster-service"
 version = "0.1.0"
 dependencies = [
  "axum",
- "campaign-auth",
- "campaign-server",
- "campaign-types",
+ "edda-auth",
+ "edda-server",
+ "edda-types",
  "chrono",
  "clap",
  "http-body-util",

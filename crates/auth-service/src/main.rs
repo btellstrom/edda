@@ -1,15 +1,15 @@
 use std::env;
 
-use campaign_auth::PublicKey;
-use campaign_types::Edition;
 use clap::{Parser, Subcommand};
+use edda_auth::PublicKey;
+use edda_types::Edition;
 use uuid::Uuid;
 
 /// How long a setup code stays usable.
 const SETUP_CODE_LIFETIME: chrono::Duration = chrono::Duration::hours(24);
 
 #[derive(Parser)]
-#[command(about = "Campaign manager auth service")]
+#[command(about = "Edda auth service")]
 struct Cli {
     #[arg(
         long,
@@ -48,7 +48,7 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    campaign_server::init_logging("auth_service");
+    edda_server::init_logging("auth_service");
     let cli = Cli::parse();
     let pool = auth_service::connect(&cli.database_url).await?;
     let store = auth_service::Store::new(pool.clone());
@@ -89,9 +89,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let limits = campaign_server::Limits::from_env()?;
+    let limits = edda_server::Limits::from_env()?;
     let app = auth_service::app(pool, limits.clone()).await?;
-    campaign_server::serve(app, bind, "auth service", &limits).await
+    edda_server::serve(app, bind, "auth service", &limits).await
 }
 
 async fn print_setup_code(
@@ -100,6 +100,6 @@ async fn print_setup_code(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let code = store.new_setup_code(campaign, SETUP_CODE_LIFETIME).await?;
     println!("DM setup code (valid for 24 hours, works once):\n\n    {code}\n");
-    println!("On the DM's device:  campaign-edit auth setup {code} --name \"<device name>\"");
+    println!("On the DM's device:  edda auth setup {code} --name \"<device name>\"");
     Ok(())
 }

@@ -2,8 +2,8 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use campaign_client::ClientError;
-use campaign_types::combat::CombatError;
+use edda_client::ClientError;
+use edda_types::combat::CombatError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
@@ -63,6 +63,6 @@ impl IntoResponse for ApiError {
             }
             ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        campaign_server::error_response(status, &self)
+        edda_server::error_response(status, &self)
     }
 }

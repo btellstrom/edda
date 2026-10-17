@@ -1,4 +1,4 @@
-//! Relaying pairing messages. See `campaign_auth::pairing` for the protocol.
+//! Relaying pairing messages. See `edda_auth::pairing` for the protocol.
 //!
 //! Messages are kept in Postgres and fetched by long polling, so the two
 //! sides may be talking to different instances. The relay enforces what it
@@ -15,14 +15,14 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{delete, post, put},
 };
-use campaign_auth::{
+use chrono::{DateTime, Utc};
+use edda_auth::{
     PublicKey,
     pairing::Side,
     protocol::{Claims, PairingMessage, PairingSlot},
     server::Authenticated,
 };
-use campaign_server::Limits;
-use chrono::{DateTime, Utc};
+use edda_server::Limits;
 
 use crate::{error::ApiError, routes::AppState};
 

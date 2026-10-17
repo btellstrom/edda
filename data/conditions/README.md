@@ -1,7 +1,7 @@
 # Condition data
 
 `make srd` (`tools/fetch-srd.sh`) puts the SRD's conditions here (Blinded,
-Prone and the rest, fifteen for each edition), in campaign-manager's
+Prone and the rest, fifteen for each edition), in edda's
 condition format (see the README's "Spells and conditions" section);
 compose's seed job loads every `*.json` here into the monster service's
 shared library. They aren't part of the repository (`.gitignore` keeps them

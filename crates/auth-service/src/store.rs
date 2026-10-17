@@ -1,12 +1,12 @@
 //! Persistence in Postgres.
 
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use campaign_auth::{
+use chrono::{DateTime, Duration, Utc};
+use edda_auth::{
     DeviceKey, Nonce, PublicKey, Role, SignedCert,
     protocol::{Campaign, Challenge, Device, Principal},
 };
-use campaign_types::Edition;
-use chrono::{DateTime, Duration, Utc};
+use edda_types::Edition;
 use sha2::{Digest, Sha256};
 use sqlx::{PgExecutor, PgPool, types::Json};
 use uuid::Uuid;
@@ -82,12 +82,9 @@ impl Store {
                 .fetch_optional(&self.pool)
                 .await?;
         let (name, edition) = row.ok_or(ApiError::NotFound)?;
-        let edition: Edition =
-            edition
-                .parse()
-                .map_err(|e: campaign_types::edition::UnknownEdition| {
-                    ApiError::Internal(e.to_string())
-                })?;
+        let edition: Edition = edition
+            .parse()
+            .map_err(|e: edda_types::edition::UnknownEdition| ApiError::Internal(e.to_string()))?;
         Ok(Campaign { id, name, edition })
     }
 

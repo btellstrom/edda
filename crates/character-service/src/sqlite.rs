@@ -3,8 +3,8 @@
 
 use std::{collections::HashSet, error::Error, path::Path};
 
-use campaign_types::Character;
 use chrono::{DateTime, Utc};
+use edda_types::Character;
 use sqlx::{
     PgPool, SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},

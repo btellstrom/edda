@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert 5e-database's SRD monsters, spells or conditions into campaign-manager's formats.
+"""Convert 5e-database's SRD monsters, spells or conditions into edda's formats.
 
 The input is a 5e-SRD-Monsters.json (or -Spells, -Conditions) from
 https://github.com/5e-bits/5e-database (src/2014/en for SRD 5.1, src/2024/en

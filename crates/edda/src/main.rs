@@ -1,0 +1,327 @@
+mod auth;
+mod cli;
+mod complete;
+mod display;
+mod edit;
+mod editor;
+mod fight;
+mod identity;
+mod monsters;
+mod parse;
+mod plan;
+mod prompt;
+mod rules;
+mod session;
+mod styled;
+
+use std::process::ExitCode;
+
+use anyhow::{Context, Result, bail};
+use clap::{CommandFactory, FromArgMatches, Parser, ValueEnum};
+use edda_client::Client;
+use edda_types::{
+    Character, CharacterAction, CharacterSheet,
+    rules_text::{ConditionText, SpellText},
+};
+use uuid::Uuid;
+
+use cli::{CharacterArgs, CharacterCommand, Cli, PactCommand, SlotsCommand, TopCommand};
+
+fn main() -> ExitCode {
+    complete::answer_if_asked();
+    let cli = Cli::parse();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to start async runtime");
+    match runtime.block_on(run(cli)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("error: {e:#}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run(cli: Cli) -> Result<()> {
+    if let TopCommand::Auth(command) = cli.command {
+        return auth::run(command, &cli.auth_server).await;
+    }
+    if let TopCommand::Fight(args) = cli.command {
+        return fight::run(args, &cli.server, &cli.monster_server).await;
+    }
+    if let TopCommand::Plan(args) = cli.command {
+        let chosen = plan::run(
+            args.plan.as_deref(),
+            &cli.server,
+            &args.combat_server,
+            &cli.monster_server,
+        )
+        .await?;
+        let Some(encounter) = chosen else {
+            return Ok(());
+        };
+        let args = cli::FightArgs {
+            combat: None,
+            new: None,
+            plan: Some(encounter.to_string()),
+            combat_server: args.combat_server,
+        };
+        return fight::run(args, &cli.server, &cli.monster_server).await;
+    }
+    if let TopCommand::Monster(command) = cli.command {
+        let (_, session) = identity::Identity::locate()?.login().await?;
+        let client = edda_client::monsters::MonsterClient::new(&cli.monster_server)
+            .with_token(&session.token);
+        return monsters::run(&client, command).await;
+    }
+    if let TopCommand::Spell(_) | TopCommand::Condition(_) = cli.command {
+        let (_, session) = identity::Identity::locate()?.login().await?;
+        let client = edda_client::monsters::MonsterClient::new(&cli.monster_server)
+            .with_token(&session.token);
+        return match cli.command {
+            TopCommand::Spell(command) => rules::run::<SpellText>(&client, command.into()).await,
+            TopCommand::Condition(command) => {
+                rules::run::<ConditionText>(&client, command.into()).await
+            }
+            _ => unreachable!("matched above"),
+        };
+    }
+    let (_, session) = identity::Identity::locate()?.login().await?;
+    let client = Client::new(&cli.server).with_token(&session.token);
+    match cli.command {
+        TopCommand::Auth(_)
+        | TopCommand::Fight(_)
+        | TopCommand::Plan(_)
+        | TopCommand::Monster(_)
+        | TopCommand::Spell(_)
+        | TopCommand::Condition(_) => {
+            unreachable!("handled above")
+        }
+        TopCommand::List => println!("{}", display::list(&client.list().await?)),
+        TopCommand::New(args) => {
+            let sheet = CharacterSheet {
+                name: args.name,
+                race: args.race.unwrap_or_default(),
+                player_name: args.player,
+                background: args.background.unwrap_or_default(),
+                ..Default::default()
+            };
+            let created = client.create(&sheet).await?;
+            println!(
+                "Created {} ({})",
+                created.sheet.name,
+                parse::short_id(created.id)
+            );
+        }
+        TopCommand::Import { files } => import(&client, &files).await?,
+        TopCommand::Character(args) => character(&client, args).await?,
+    }
+    Ok(())
+}
+
+/// Creates the characters in `files`, skipping names already taken.
+async fn import(client: &Client, files: &[std::path::PathBuf]) -> Result<()> {
+    let mut taken: Vec<String> = client
+        .list()
+        .await?
+        .into_iter()
+        .map(|c| c.name.to_lowercase())
+        .collect();
+    for file in files {
+        let text =
+            std::fs::read_to_string(file).with_context(|| format!("reading {}", file.display()))?;
+        let sheets =
+            editor::parse_sheets(&text).with_context(|| format!("in {}", file.display()))?;
+        for sheet in sheets {
+            if taken.contains(&sheet.name.to_lowercase()) {
+                println!(
+                    "Skipped {}: there's already a character by that name",
+                    sheet.name
+                );
+                continue;
+            }
+            let created = client.create(&sheet).await?;
+            taken.push(created.sheet.name.to_lowercase());
+            println!(
+                "Created {} ({})",
+                created.sheet.name,
+                parse::short_id(created.id)
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn character(client: &Client, args: Vec<String>) -> Result<()> {
+    let (query, rest) = args
+        .split_first()
+        .expect("clap always passes the subcommand name");
+
+    // Parse before touching the network so `help` and usage errors are instant.
+    let mut command = CharacterArgs::command().bin_name(format!("edda {query}"));
+    let args = command
+        .try_get_matches_from_mut(rest)
+        .and_then(|matches| CharacterArgs::from_arg_matches(&matches));
+    let args = match args {
+        Ok(args) => args,
+        // A word that's neither a command nor a character (say, a command
+        // this version doesn't have) would otherwise be reported as a
+        // character with a bad subcommand: say what's really wrong.
+        Err(e) if e.use_stderr() => {
+            if let Ok(characters) = client.list().await {
+                parse::resolve_character(query, &characters)?;
+            }
+            e.exit()
+        }
+        Err(e) => e.exit(),
+    };
+
+    let id = parse::resolve_character(query, &client.list().await?)?;
+    let command = args
+        .command
+        .unwrap_or(CharacterCommand::Show { json: false });
+
+    use CharacterCommand as C;
+    match command {
+        C::Show { json } => {
+            let character = client.get(id).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&character)?);
+            } else {
+                styled::print(&display::sheet(
+                    &character,
+                    styled::print_width(),
+                    display::Detail::Full,
+                ));
+            }
+        }
+        C::Get { field } => println!("{}", edit::get_field(&client.get(id).await?.sheet, field)),
+        C::Set { field, value } => {
+            let saved = modify(client, id, |s| edit::set_field(s, field, &value)).await?;
+            let name = field.to_possible_value().expect("no skipped fields");
+            let shown = edit::get_field(&saved.sheet, field);
+            println!("{}: {} = {shown}", saved.sheet.name, name.get_name());
+        }
+        C::Edit => match editor::edit(client, client.get(id).await?).await? {
+            Some(saved) => println!("Saved {} (v{})", saved.sheet.name, saved.version),
+            None => println!("No changes."),
+        },
+        C::Delete { yes } => {
+            let name = client.get(id).await?.sheet.name;
+            if !yes && !editor::confirm(&format!("Delete {name}? This cannot be undone."))? {
+                bail!("not deleted (pass --yes to skip the prompt)");
+            }
+            client.delete(id).await?;
+            println!("Deleted {name}");
+        }
+
+        C::Owners { change } => auth::owners(client, id, change).await?,
+
+        C::Class(c) => {
+            // The classes decide the spell slots; show what they come to.
+            let saved = modify(client, id, |s| edit::class(s, &c)).await?;
+            updated(&saved);
+            if display::slots_line(&saved.sheet).is_some() {
+                print_slots(&saved);
+            }
+        }
+        C::Skill(c) => updated(&modify(client, id, |s| edit::skills(s, &c)).await?),
+        C::Save(c) => updated(&modify(client, id, |s| edit::saves(s, &c)).await?),
+        C::Item(c) => updated(&modify(client, id, |s| edit::item(s, &c)).await?),
+        C::Spell(c) => updated(&modify(client, id, |s| edit::spell(s, &c)).await?),
+        C::Resource(c) => updated(&modify(client, id, |s| edit::resource(s, &c)).await?),
+
+        C::Slots(SlotsCommand::Use { level }) => {
+            print_slots(&act(client, id, CharacterAction::ExpendSpellSlot { level }).await?)
+        }
+        C::Slots(SlotsCommand::Regain { level }) => {
+            print_slots(&act(client, id, CharacterAction::RestoreSpellSlot { level }).await?)
+        }
+        C::Pact(PactCommand::Use) => {
+            print_slots(&act(client, id, CharacterAction::ExpendPactSlot).await?)
+        }
+        C::Pact(PactCommand::Regain) => {
+            print_slots(&act(client, id, CharacterAction::RestorePactSlot).await?)
+        }
+        C::Cast {
+            spell,
+            at,
+            pact,
+            ritual,
+        } => {
+            let action = CharacterAction::CastSpell {
+                spell: spell.clone(),
+                at_level: at,
+                pact,
+                ritual,
+            };
+            let saved = act(client, id, action).await?;
+            let found = saved.sheet.spellcasting.find_spell(&spell);
+            let name = found.map_or(spell.as_str(), |s| s.name.as_str());
+            if ritual || found.is_some_and(|s| s.level == 0) {
+                println!("Cast {name} (no slot used)");
+            } else {
+                println!("Cast {name}");
+                print_slots(&saved);
+            }
+        }
+        C::Use { resource, amount } => {
+            let action = CharacterAction::UseResource {
+                name: resource.clone(),
+                amount,
+            };
+            print_resource(&act(client, id, action).await?, &resource);
+        }
+        C::Regain { resource, amount } => {
+            let action = CharacterAction::RestoreResource {
+                name: resource.clone(),
+                amount,
+            };
+            print_resource(&act(client, id, action).await?, &resource);
+        }
+        C::Rest { kind } => {
+            let saved = act(client, id, CharacterAction::Rest { kind: kind.into() }).await?;
+            let label = format!("{kind:?}").to_lowercase();
+            println!("{} takes a {label} rest.\n", saved.sheet.name);
+            println!("{}", display::status(&saved.sheet));
+        }
+    }
+    Ok(())
+}
+
+/// Structural edit via fetch → change → PUT with If-Match, re-applying the
+/// change automatically if someone else saved in the meantime.
+async fn modify(
+    client: &Client,
+    id: Uuid,
+    change: impl FnMut(&mut CharacterSheet) -> Result<()>,
+) -> Result<Character> {
+    client.modify(id, change).await
+}
+
+async fn act(client: &Client, id: Uuid, action: CharacterAction) -> Result<Character> {
+    Ok(client.act(id, &action).await?)
+}
+
+fn updated(saved: &Character) {
+    println!("Updated {} (v{})", saved.sheet.name, saved.version);
+}
+
+fn print_resource(saved: &Character, name: &str) {
+    let sheet = &saved.sheet;
+    if let Some(r) = sheet
+        .resources
+        .iter()
+        .find(|r| r.name.eq_ignore_ascii_case(name))
+    {
+        println!("{}  {}", r.name, display::pool(r.uses));
+    }
+}
+
+fn print_slots(saved: &Character) {
+    match display::slots_line(&saved.sheet) {
+        Some(slots) => println!("Slots  {slots}"),
+        None => println!("{} has no spell slots", saved.sheet.name),
+    }
+}

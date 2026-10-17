@@ -8,9 +8,9 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use campaign_auth::{protocol::Claims, server::Authenticated};
-use campaign_types::encounter::{Encounter, EncounterPlan};
 use chrono::{DateTime, Utc};
+use edda_auth::{protocol::Claims, server::Authenticated};
+use edda_types::encounter::{Encounter, EncounterPlan};
 use sqlx::{PgPool, types::Json as Jsonb};
 use uuid::Uuid;
 

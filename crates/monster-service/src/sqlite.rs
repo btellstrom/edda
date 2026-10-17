@@ -4,8 +4,8 @@
 
 use std::{error::Error, path::Path};
 
-use campaign_types::monster::{Monster, MonsterSheet};
 use chrono::{DateTime, Utc};
+use edda_types::monster::{Monster, MonsterSheet};
 use sqlx::{
     PgPool, SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},

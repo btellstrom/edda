@@ -5,18 +5,18 @@ use axum::{
     body::Body,
     http::{HeaderMap, Method, Request, StatusCode, header},
 };
-use campaign_server::Limits;
+use edda_server::Limits;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-use campaign_auth::{
+use chrono::Utc;
+use edda_auth::{
     DeviceKey, PublicKey,
     protocol::{Claims, Principal},
     server::{TokenSigner, TokenVerifier},
 };
-use campaign_types::Edition;
-use chrono::Utc;
+use edda_types::Edition;
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -97,11 +97,9 @@ async fn test_app_with(limits: Limits) -> App {
 
 /// A database of the test's own, on the test Postgres.
 async fn database() -> sqlx::PgPool {
-    character_service::connect(
-        &campaign_server::testing::fresh_database_url("characters_test").await,
-    )
-    .await
-    .unwrap()
+    character_service::connect(&edda_server::testing::fresh_database_url("characters_test").await)
+        .await
+        .unwrap()
 }
 
 async fn send(app: &App, method: Method, uri: &str, body: Option<Value>) -> (StatusCode, Value) {

@@ -6,10 +6,10 @@ license.workspace = true
 
 [dependencies]
 axum = { version = "0.8.9", features = ["ws"] }
-campaign-auth = { version = "0.1.0", path = "../campaign-auth", features = ["server"] }
-campaign-client = { version = "0.1.0", path = "../campaign-client", default-features = false }
-campaign-server = { version = "0.1.0", path = "../campaign-server" }
-campaign-types = { version = "0.1.0", path = "../campaign-types" }
+edda-auth = { version = "0.1.0", path = "../edda-auth", features = ["server"] }
+edda-client = { version = "0.1.0", path = "../edda-client", default-features = false }
+edda-server = { version = "0.1.0", path = "../edda-server" }
+edda-types = { version = "0.1.0", path = "../edda-types" }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
 futures-util = { version = "0.3.34", default-features = false }
 rand = "0.10.3"

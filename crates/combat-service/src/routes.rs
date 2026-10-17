@@ -10,11 +10,11 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use campaign_auth::{
+use edda_auth::{
     protocol::{Claims, Principal},
     server::Authenticated,
 };
-use campaign_types::combat::{
+use edda_types::combat::{
     ClientMessage, CombatSnapshot, CombatState, CombatStatus, CombatSummary, CommandEnvelope,
     Concealer, LoggedEvent, ServerMessage,
 };
@@ -115,7 +115,7 @@ async fn snapshot(
 }
 
 /// Whether the device sees monsters only as the players do (see
-/// [`campaign_types::combat::view`]).
+/// [`edda_types::combat::view`]).
 fn behind_the_screen(claims: &Claims) -> bool {
     claims.role == Principal::Player
 }

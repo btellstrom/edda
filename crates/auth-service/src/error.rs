@@ -2,7 +2,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use campaign_auth::AuthError;
+use edda_auth::AuthError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
@@ -46,6 +46,6 @@ impl IntoResponse for ApiError {
             ApiError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        campaign_server::error_response(status, &self)
+        edda_server::error_response(status, &self)
     }
 }

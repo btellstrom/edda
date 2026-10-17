@@ -3,18 +3,18 @@
 # Postgres container, the four services built from this checkout, a
 # campaign with a DM device, and the example characters and SRD data, all
 # on ports of its own and kept in target/sandbox. Nothing in it can reach a
-# real stack, its databases or this machine's campaign-edit config.
+# real stack, its databases or this machine's edda config.
 #
 #   tools/sandbox.sh up                 start it (2024 rules; SANDBOX_EDITION=2014)
-#   tools/sandbox.sh run <args>         campaign-edit <args> in it
-#   tools/sandbox.sh tmux <name> <args> campaign-edit <args> in a detached tmux
+#   tools/sandbox.sh run <args>         edda <args> in it
+#   tools/sandbox.sh tmux <name> <args> edda <args> in a detached tmux
 #                                       session <name>, for the full screens
 #   tools/sandbox.sh player <name>      a player's device, joined to the campaign
 #   tools/sandbox.sh https              the HTTPS proxy (proxy/Caddyfile) in front
 #   tools/sandbox.sh status             what's running
 #   tools/sandbox.sh down               stop it and delete everything in it
 #
-# `run` and `tmux` always use this checkout's target/debug/campaign-edit,
+# `run` and `tmux` always use this checkout's target/debug/edda,
 # with the sandbox's config and servers, and refuse to run without a
 # sandbox up. The services keep no limits (SANDBOX_LIMITS=on for them).
 # They're the DM's device, or with SANDBOX_AS=<name> a player's,
@@ -26,8 +26,8 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 dir="$root/target/sandbox"
 bin="$root/target/debug"
 container=${CONTAINER:-podman}
-pg=campaign-manager-sandbox-pg
-proxy=campaign-manager-sandbox-proxy
+pg=edda-sandbox-pg
+proxy=edda-sandbox-proxy
 pg_port=25432
 characters_port=23000 combat_port=23001 auth_port=23002 monsters_port=23003
 https_port=28443 http_port=28080
@@ -44,29 +44,29 @@ config() {
     fi
 }
 
-# Where campaign-edit finds the servers, into `settings`: directly, or
+# Where edda finds the servers, into `settings`: directly, or
 # (SANDBOX_HTTPS=1) all through the proxy, trusting its authority and
 # nothing else.
 servers() {
     if [ -n "${SANDBOX_HTTPS:-}" ]; then
         [ -f "$dir/https" ] || die "no proxy; start it with: tools/sandbox.sh https"
         local https="https://localhost:$https_port"
-        settings=("SSL_CERT_FILE=$root_cert" "CAMPAIGN_SERVER=$https" "CAMPAIGN_COMBAT_SERVER=$https"
-            "CAMPAIGN_AUTH_SERVER=$https" "CAMPAIGN_MONSTER_SERVER=$https")
+        settings=("SSL_CERT_FILE=$root_cert" "EDDA_SERVER=$https" "EDDA_COMBAT_SERVER=$https"
+            "EDDA_AUTH_SERVER=$https" "EDDA_MONSTER_SERVER=$https")
     else
-        settings=("CAMPAIGN_SERVER=http://127.0.0.1:$characters_port"
-            "CAMPAIGN_COMBAT_SERVER=http://127.0.0.1:$combat_port"
-            "CAMPAIGN_AUTH_SERVER=http://127.0.0.1:$auth_port"
-            "CAMPAIGN_MONSTER_SERVER=http://127.0.0.1:$monsters_port")
+        settings=("EDDA_SERVER=http://127.0.0.1:$characters_port"
+            "EDDA_COMBAT_SERVER=http://127.0.0.1:$combat_port"
+            "EDDA_AUTH_SERVER=http://127.0.0.1:$auth_port"
+            "EDDA_MONSTER_SERVER=http://127.0.0.1:$monsters_port")
     fi
 }
 root_cert="$dir/caddy/caddy/pki/authorities/local/root.crt"
 
-# campaign-edit, in the sandbox and nowhere else.
+# edda, in the sandbox and nowhere else.
 edit_env() {
     local settings
     servers
-    env CAMPAIGN_CONFIG_DIR="$(config)" "${settings[@]}" "$@"
+    env EDDA_CONFIG_DIR="$(config)" "${settings[@]}" "$@"
 }
 
 require_up() {
@@ -131,10 +131,10 @@ up() {
     local code
     code=$(DATABASE_URL="$pg_url/auth" "$bin/auth-service" new-campaign Sandbox \
         --edition "${SANDBOX_EDITION:-2024}" | sed -n 's/^    \(.*\)$/\1/p')
-    edit_env "$bin/campaign-edit" auth setup "$code" --name "Sandbox DM" >/dev/null
+    edit_env "$bin/edda" auth setup "$code" --name "Sandbox DM" >/dev/null
     local characters=("$root"/data/characters/*.json)
     if [ -e "${characters[0]}" ]; then
-        edit_env "$bin/campaign-edit" import "${characters[@]}" >/dev/null
+        edit_env "$bin/edda" import "${characters[@]}" >/dev/null
     fi
     touch "$dir/ready"
     echo "Sandbox up: campaign Sandbox (${SANDBOX_EDITION:-2024} rules), logs in $dir"
@@ -142,18 +142,18 @@ up() {
 
 run() {
     require_up
-    edit_env "$bin/campaign-edit" "$@"
+    edit_env "$bin/edda" "$@"
 }
 
-session() { # name, then campaign-edit's arguments
+session() { # name, then edda's arguments
     require_up
-    [ $# -ge 1 ] || die "usage: tools/sandbox.sh tmux <name> [campaign-edit arguments]"
+    [ $# -ge 1 ] || die "usage: tools/sandbox.sh tmux <name> [edda arguments]"
     local name=$1
     shift
     local command settings
     servers
-    command=$(printf '%q ' env CAMPAIGN_CONFIG_DIR="$(config)" "${settings[@]}" \
-        "$bin/campaign-edit" "$@")
+    command=$(printf '%q ' env EDDA_CONFIG_DIR="$(config)" "${settings[@]}" \
+        "$bin/edda" "$@")
     tmux new-session -d -s "$name" -x "${COLUMNS:-110}" -y "${LINES:-46}" "$command; sleep 3600"
     echo "$name" >>"$dir/sessions"
 }
@@ -165,10 +165,10 @@ player() { # name
     [ -e "$dir/players/$name" ] && die "there's already a player $name"
     mkdir -p "$dir/players/$name"
     local key campaign
-    key=$(SANDBOX_AS=$name edit_env "$bin/campaign-edit" auth key 2>/dev/null)
-    campaign=$(edit_env "$bin/campaign-edit" auth status | sed -n 's/^Campaign .*(\(.*\))$/\1/p')
-    edit_env "$bin/campaign-edit" auth approve "$key" --name "$name" >/dev/null
-    SANDBOX_AS=$name edit_env "$bin/campaign-edit" auth join "$campaign" >/dev/null
+    key=$(SANDBOX_AS=$name edit_env "$bin/edda" auth key 2>/dev/null)
+    campaign=$(edit_env "$bin/edda" auth status | sed -n 's/^Campaign .*(\(.*\))$/\1/p')
+    edit_env "$bin/edda" auth approve "$key" --name "$name" >/dev/null
+    SANDBOX_AS=$name edit_env "$bin/edda" auth join "$campaign" >/dev/null
     echo "Player $name joined; act as them with SANDBOX_AS=$name"
 }
 
@@ -182,7 +182,7 @@ https() {
     done
     mkdir -p "$dir/caddy"
     "$container" run --rm -d --name "$proxy" --network host \
-        -e CAMPAIGN_HOST="localhost:$https_port" -e CADDY_HTTP_PORT="$http_port" -e CADDY_ADMIN=off \
+        -e EDDA_HOST="localhost:$https_port" -e CADDY_HTTP_PORT="$http_port" -e CADDY_ADMIN=off \
         -e CHARACTERS_UPSTREAM="127.0.0.1:$characters_port" -e COMBAT_UPSTREAM="127.0.0.1:$combat_port" \
         -e AUTH_UPSTREAM="127.0.0.1:$auth_port" -e MONSTERS_UPSTREAM="127.0.0.1:$monsters_port" \
         -v "$root/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$dir/caddy:/data" \

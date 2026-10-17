@@ -1,5 +1,5 @@
 # A tag like v0.2.0 publishes the server image to the GitHub container
-# registry and attaches campaign-edit for Linux, macOS and Windows to a
+# registry and attaches edda for Linux, macOS and Windows to a
 # GitHub release.
 name: Release
 
@@ -40,25 +40,25 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   client:
-    name: campaign-edit (${{ matrix.target }})
+    name: edda (${{ matrix.target }})
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, file: campaign-edit }
-          - { os: macos-latest, target: aarch64-apple-darwin, file: campaign-edit }
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, file: campaign-edit.exe }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, file: edda }
+          - { os: macos-latest, target: aarch64-apple-darwin, file: edda }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, file: edda.exe }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - run: rustup target add ${{ matrix.target }}
-      - run: cargo build --release --locked -p campaign-edit --target ${{ matrix.target }}
+      - run: cargo build --release --locked -p edda --target ${{ matrix.target }}
       - name: Package
         shell: bash
         run: |
-          name=campaign-edit-${{ github.ref_name }}-${{ matrix.target }}
+          name=edda-${{ github.ref_name }}-${{ matrix.target }}
           mkdir "$name"
           cp target/${{ matrix.target }}/release/${{ matrix.file }} LICENSE-MIT LICENSE-APACHE "$name/"
           tar czf "$name.tar.gz" "$name"
       - uses: softprops/action-gh-release@v2
         with:
-          files: campaign-edit-*.tar.gz
+          files: edda-*.tar.gz

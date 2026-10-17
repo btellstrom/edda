@@ -1,16 +1,16 @@
 use std::{env, path::PathBuf};
 
-use campaign_types::{
+use clap::{Parser, Subcommand, ValueEnum};
+use edda_types::{
     monster::MonsterSheet,
     rules_text::{ConditionText, RulesText, SpellText},
 };
-use clap::{Parser, Subcommand, ValueEnum};
 use monster_service::MonsterStore;
 use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 #[derive(Parser)]
-#[command(about = "Campaign manager monster service")]
+#[command(about = "Edda monster service")]
 struct Cli {
     #[arg(
         long,
@@ -58,7 +58,7 @@ enum Kind {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    campaign_server::init_logging("monster_service");
+    edda_server::init_logging("monster_service");
     let cli = Cli::parse();
     let pool = monster_service::connect(&cli.database_url).await?;
 
@@ -145,12 +145,12 @@ async fn import_texts<T: RulesText>(
 }
 
 async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let verifier = campaign_auth::server::TokenVerifier::new(
-        campaign_server::auth_key(&campaign_server::auth_service_url()).await?,
+    let verifier = edda_auth::server::TokenVerifier::new(
+        edda_server::auth_key(&edda_server::auth_service_url()).await?,
     );
-    let limits = campaign_server::Limits::from_env()?;
+    let limits = edda_server::Limits::from_env()?;
     let app = monster_service::app(pool, verifier, limits.clone());
-    campaign_server::serve(app, bind, "monster service", &limits).await
+    edda_server::serve(app, bind, "monster service", &limits).await
 }
 
 #[cfg(test)]

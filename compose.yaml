@@ -1,6 +1,11 @@
+# The stack is named edda whatever the directory is called, so its volumes
+# are edda_postgres-data and so on; COMPOSE_PROJECT_NAME (or -p) picks
+# another, as the smoke test does.
+name: edda
+
 # The servers: `podman compose up -d --build` (or `docker compose`).
 # Postgres alone, e.g. for the tests: `podman compose up -d postgres`.
-# The clients (campaign-edit) run natively.
+# The clients (edda) run natively.
 #
 # Published on localhost only; change the host side of `ports` (or set the
 # *_PORT variables) to move them. To let players' devices in, put HTTPS in
@@ -19,7 +24,7 @@ x-app: &app
     # with systemd-resolved's local stub).
     network: host
   # The Makefile's IMAGE; the smoke test builds one of its own.
-  image: ${IMAGE:-localhost/campaign-manager}
+  image: ${IMAGE:-localhost/edda}
   restart: unless-stopped
 
 services:
@@ -166,14 +171,14 @@ services:
         condition: service_started
 
   # HTTPS in front of everything, on one address (proxy/Caddyfile), for
-  # players' devices on the network: `make up HTTPS=1 CAMPAIGN_HOST=...`.
+  # players' devices on the network: `make up HTTPS=1 EDDA_HOST=...`.
   # Unprivileged ports by default (rootless Podman can't bind 443); point
   # your router's 443 at HTTPS_PORT for a real domain.
   proxy:
     image: docker.io/library/caddy:2.10-alpine
     profiles: ["https"]
     environment:
-      CAMPAIGN_HOST: ${CAMPAIGN_HOST:-localhost}
+      EDDA_HOST: ${EDDA_HOST:-localhost}
     ports:
       - "${HTTPS_PORT:-8443}:443"
       - "${HTTP_PORT:-8080}:80"

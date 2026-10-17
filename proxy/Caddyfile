@@ -1,4 +1,4 @@
-# HTTPS in front of the four services, on one address: CAMPAIGN_HOST. A
+# HTTPS in front of the four services, on one address: EDDA_HOST. A
 # real domain gets a certificate from Let's Encrypt by itself; localhost or
 # an IP address gets one from Caddy's own authority, whose root each
 # client must trust once (see the README). Live fights' WebSockets pass
@@ -12,7 +12,7 @@
 	http_port {$CADDY_HTTP_PORT:80}
 }
 
-{$CAMPAIGN_HOST} {
+{$EDDA_HOST} {
 	@characters path /characters /characters/*
 	@combat path /combats /combats/* /encounters /encounters/*
 	@monsters path /monsters /monsters/* /spells /spells/* /conditions /conditions/*

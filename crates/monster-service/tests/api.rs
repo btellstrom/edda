@@ -5,18 +5,18 @@ use axum::{
     body::Body,
     http::{Method, Request, StatusCode, header},
 };
-use campaign_auth::{
+use chrono::Utc;
+use edda_auth::{
     DeviceKey,
     protocol::{Claims, Principal},
     server::{TokenSigner, TokenVerifier},
 };
-use campaign_server::Limits;
-use campaign_types::{
+use edda_server::Limits;
+use edda_types::{
     Edition,
     monster::MonsterSheet,
     rules_text::{ConditionText, SpellText},
 };
-use chrono::Utc;
 use http_body_util::BodyExt;
 use monster_service::MonsterStore;
 use serde_json::{Value, json};
@@ -43,7 +43,7 @@ impl App {
 
     async fn with_limits(limits: Limits) -> App {
         // A database of its own: the shared library is everyone's.
-        let url = campaign_server::testing::fresh_database_url("monsters_test").await;
+        let url = edda_server::testing::fresh_database_url("monsters_test").await;
         let pool = monster_service::connect(&url).await.unwrap();
         let signer = TokenSigner::new(&DeviceKey::generate());
         App {

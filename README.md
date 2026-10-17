@@ -1,4 +1,4 @@
-# Campaign Manager
+# Edda
 
 A collection of small Rust services for running a D&D campaign, with state held
 server-side and any number of frontends talking to it over HTTP/JSON.
@@ -7,25 +7,25 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 
 | Crate | Purpose |
 | --- | --- |
-| `crates/campaign-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
-| `crates/campaign-auth` | Device keys, signed device certificates and tokens. Shared by the services and clients. |
-| `crates/campaign-server` | What every service shares: logging, opening its database, the auth service's key, serving (with the CORS setting and the limits) and error responses. |
+| `crates/edda-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
+| `crates/edda-auth` | Device keys, signed device certificates and tokens. Shared by the services and clients. |
+| `crates/edda-server` | What every service shares: logging, opening its database, the auth service's key, serving (with the CORS setting and the limits) and error responses. |
 | `crates/auth-service` | Campaigns, the devices admitted to them, and login (axum + Postgres). |
 | `crates/character-service` | Character sheet CRUD API (axum + Postgres). |
 | `crates/combat-service` | Live, event-sourced combat encounters (axum + Postgres + WebSocket). Runs as any number of instances. |
 | `crates/monster-service` | Monster stat blocks and the text of spells and conditions: a shared library (the SRD) and each campaign's own (axum + Postgres). |
-| `crates/campaign-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
-| `crates/campaign-edit` | Git-style command-line frontend for editing character sheets. |
+| `crates/edda-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
+| `crates/edda` | Git-style command-line frontend for editing character sheets. |
 
 ## Running
 
-The servers run as containers; `campaign-edit` (the command line and the
+The servers run as containers; `edda` (the command line and the
 fight screen) is a native program.
 
 ```sh
 make server       # the servers' container image, from the Dockerfile
-make client       # campaign-edit, natively: target/release/campaign-edit
-make install      # campaign-edit into ~/.cargo/bin
+make client       # edda, natively: target/release/edda
+make install      # edda into ~/.cargo/bin
 make srd          # download the SRD monsters, spells and conditions into data/ (optional)
 make up           # build and start the servers; make down stops them
 make campaign NAME="Vox Machina" EDITION=2024   # the DM's setup code
@@ -51,7 +51,7 @@ podman compose down              # stop; data stays in volumes (down -v deletes 
 ```
 
 Deleting a campaign removes it from every service: its devices (which
-can no longer log in), characters, combats, planned encounters and its own monsters. `campaign-edit auth
+can no longer log in), characters, combats, planned encounters and its own monsters. `edda auth
 status` shows its id. Without make, run `delete-campaign <ID>` with each
 of `auth-service`, `character-service` and `combat-service`; each deletes
 its own part and can be re-run safely.
@@ -75,8 +75,8 @@ opening the services themselves: the `https` profile adds a proxy
 WebSockets included, on one address.
 
 ```sh
-make up HTTPS=1 CAMPAIGN_HOST=dnd.example.com    # a domain pointing at this machine
-make up HTTPS=1 CAMPAIGN_HOST=192.168.1.20       # or its address on your network
+make up HTTPS=1 EDDA_HOST=dnd.example.com    # a domain pointing at this machine
+make up HTTPS=1 EDDA_HOST=192.168.1.20       # or its address on your network
 ```
 
 It listens on 8443 (and 8080, which redirects), since rootless Podman
@@ -89,17 +89,17 @@ can't take 443; set `HTTPS_PORT`/`HTTP_PORT` to change that.
   `podman compose cp proxy:/data/caddy/pki/authorities/local/root.crt .`
   and add it to the system's certificates (Arch: `trust anchor root.crt`;
   Debian: copy it to `/usr/local/share/ca-certificates/` as a `.crt` and
-  run `update-ca-certificates`), or for campaign-edit alone set
+  run `update-ca-certificates`), or for edda alone set
   `SSL_CERT_FILE=root.crt`.
 
-Then point campaign-edit at it, one address for all four. A device logs
+Then point edda at it, one address for all four. A device logs
 in through the address it joined with, so players pair with it too: on
-the DM's device, `campaign-edit auth invite --auth-server
+the DM's device, `edda auth invite --auth-server
 https://dnd.example.com:8443` tells them so.
 
 ```sh
-export CAMPAIGN_SERVER=https://dnd.example.com:8443 CAMPAIGN_COMBAT_SERVER=https://dnd.example.com:8443 \
-       CAMPAIGN_MONSTER_SERVER=https://dnd.example.com:8443
+export EDDA_SERVER=https://dnd.example.com:8443 EDDA_COMBAT_SERVER=https://dnd.example.com:8443 \
+       EDDA_MONSTER_SERVER=https://dnd.example.com:8443
 ```
 
 `tools/sandbox.sh https` runs the same proxy in front of the sandbox, to
@@ -108,7 +108,7 @@ try it: `SANDBOX_HTTPS=1` then sends everything through it.
 **Browsers.** The services answer web pages from other sites only if
 `CORS_ORIGINS` lists them (comma-separated origins such as
 `https://dnd.example.com`, or `*` while developing). Unset, none may:
-campaign-edit doesn't need it, and neither does a page served through the
+edda doesn't need it, and neither does a page served through the
 proxy.
 
 #### Limits
@@ -151,6 +151,27 @@ service's key. Restoring stops the four services, puts it all back and
 starts them again. Copy `backups/` somewhere else: a backup on the same
 disk is lost with it. The smoke test backs up, loses a character and
 restores it.
+
+#### Upgrading from campaign-manager
+
+Edda used to be called campaign-manager: its stack, image, volumes,
+client (`campaign-edit`) and settings (`CAMPAIGN_SERVER` and so on) had
+that name. To carry a stack of then over:
+
+```sh
+podman compose -p campaign-manager --profile https down   # stop the old stack
+make adopt-volumes    # copy its volumes to edda's (the old ones stay)
+make up
+make install          # edda; `cargo uninstall campaign-edit` removes the old one
+```
+
+The first time `edda` runs, it moves `~/.config/campaign-manager` to
+`~/.config/edda`, so the device stays in its campaigns. Settings are
+`EDDA_SERVER`, `EDDA_AUTH_SERVER`, `EDDA_MONSTER_SERVER`,
+`EDDA_COMBAT_SERVER`, `EDDA_CONFIG_DIR` and `EDDA_HOST` now, and tab
+completion is `source <(COMPLETE=bash edda)`. Once all is well,
+`podman volume rm` the `campaign-manager_*` volumes and `podman rmi
+localhost/campaign-manager`.
 
 #### Upgrading from SQLite
 
@@ -218,19 +239,19 @@ whichever they like.
 ## Command-line editor
 
 ```sh
-cargo install --path crates/campaign-edit   # or: cargo run -p campaign-edit -- <args>
-export CAMPAIGN_SERVER=http://127.0.0.1:3000  # the default; or pass --server
+cargo install --path crates/edda   # or: cargo run -p edda -- <args>
+export EDDA_SERVER=http://127.0.0.1:3000  # the default; or pass --server
 ```
 
-Tab completion asks campaign-edit itself, so besides commands and options
+Tab completion asks edda itself, so besides commands and options
 it completes the campaign's characters (and their commands), monsters,
 combats, this device's campaigns and file names. Add one line to your
 shell's startup file:
 
 ```sh
-echo 'source <(COMPLETE=bash campaign-edit)' >> ~/.bashrc     # bash
-echo 'source <(COMPLETE=zsh campaign-edit)' >> ~/.zshrc       # zsh
-echo 'COMPLETE=fish campaign-edit | source' > ~/.config/fish/completions/campaign-edit.fish
+echo 'source <(COMPLETE=bash edda)' >> ~/.bashrc     # bash
+echo 'source <(COMPLETE=zsh edda)' >> ~/.zshrc       # zsh
+echo 'COMPLETE=fish edda | source' > ~/.config/fish/completions/edda.fish
 ```
 
 Names come from the servers as you press Tab (giving up after 1.5 s, when
@@ -240,11 +261,11 @@ only commands and options complete); names with spaces come escaped
 Each device first joins a campaign (see [Authentication](#authentication)):
 
 ```sh
-campaign-edit auth setup <CODE> --name "DM laptop"   # the DM, with the setup code
-campaign-edit auth invite                            # the DM: shows e.g. 7-tavern-dragon
-campaign-edit auth pair 7-tavern-dragon --name "Vex's laptop"   # the new device
-campaign-edit auth devices                           # who's in, certificates checked
-campaign-edit auth revoke "Vex's laptop"             # the DM locks a device out
+edda auth setup <CODE> --name "DM laptop"   # the DM, with the setup code
+edda auth invite                            # the DM: shows e.g. 7-tavern-dragon
+edda auth pair 7-tavern-dragon --name "Vex's laptop"   # the new device
+edda auth devices                           # who's in, certificates checked
+edda auth revoke "Vex's laptop"             # the DM locks a device out
 ```
 
 Without both devices at hand, there's a manual way: the player sends the
@@ -255,38 +276,38 @@ A device can be in several campaigns, one in use at a time. Setting up or
 joining another adds it and switches to it:
 
 ```sh
-campaign-edit auth campaigns          # the campaigns this device is in; * is the one in use
-campaign-edit auth use oneshot        # switch, by name (a unique prefix will do) or ID prefix
-campaign-edit auth forget oneshot     # drop it from this device (it stays registered there)
+edda auth campaigns          # the campaigns this device is in; * is the one in use
+edda auth use oneshot        # switch, by name (a unique prefix will do) or ID prefix
+edda auth forget oneshot     # drop it from this device (it stays registered there)
 ```
 
 Everything else (characters, `fight`) works on the campaign in use. A
 fight screen stays with the campaign it was opened in. The profiles live in
-`~/.config/campaign-manager/campaigns/`, next to the device key, which is
+`~/.config/edda/campaigns/`, next to the device key, which is
 the same in every campaign.
 
 Top-level commands manage the roster; anything else is a character (name,
 unique name prefix, or ID prefix) followed by a command:
 
 ```sh
-campaign-edit list
-campaign-edit new Grog --race Goliath --player Travis
-campaign-edit import data/characters/*.json   # from JSON files: one sheet or a list each
+edda list
+edda new Grog --race Goliath --player Travis
+edda import data/characters/*.json   # from JSON files: one sheet or a list each
 
-campaign-edit grog                       # show the sheet
-campaign-edit grog set max-hp 50
-campaign-edit grog set hp -7             # +N heals, -N damages
-campaign-edit grog class add Barbarian 3 --subclass "Path of the Berserker"
-campaign-edit grog skill add athletics intimidation
-campaign-edit grog resource add Rage 3 --recharge long
-campaign-edit grog item add Javelin -n 4
-campaign-edit grog edit                  # whole sheet as JSON in $EDITOR
+edda grog                       # show the sheet
+edda grog set max-hp 50
+edda grog set hp -7             # +N heals, -N damages
+edda grog class add Barbarian 3 --subclass "Path of the Berserker"
+edda grog skill add athletics intimidation
+edda grog resource add Rage 3 --recharge long
+edda grog item add Javelin -n 4
+edda grog edit                  # whole sheet as JSON in $EDITOR
 
-campaign-edit keyleth class add Druid 5 --casting wis   # gives her a 5th-level caster's slots
-campaign-edit keyleth spell add Moonbeam --level 2 --concentration
-campaign-edit keyleth cast moonbeam --at 3
-campaign-edit grog use rage
-campaign-edit grog rest short
+edda keyleth class add Druid 5 --casting wis   # gives her a 5th-level caster's slots
+edda keyleth spell add Moonbeam --level 2 --concentration
+edda keyleth cast moonbeam --at 3
+edda grog use rage
+edda grog rest short
 ```
 
 `import` takes the same JSON as `edit` (and `<CHARACTER> show --json`
@@ -295,7 +316,7 @@ campaign); unknown fields are refused, and names already taken are
 skipped. `data/characters/` is ignored by git, so it's a place to keep
 your own.
 
-`campaign-edit <CHARACTER> help` lists every command. Edits retry
+`edda <CHARACTER> help` lists every command. Edits retry
 automatically if someone else saved the character in the meantime, so they
 merge rather than overwrite; `edit` reports the conflict instead, since a
 whole edited document can't be re-applied safely.
@@ -303,12 +324,12 @@ whole edited document can't be re-applied safely.
 ### Fight screen
 
 ```sh
-campaign-edit fight --new "Goblin ambush"   # start a combat
-campaign-edit fight --plan "goblin ambush"  # start one from a plan, monsters and all
-campaign-edit fight                         # the latest one still running
-campaign-edit fight goblin                  # one by name or ID prefix
-export CAMPAIGN_COMBAT_SERVER=http://127.0.0.1:3001   # the default
-export CAMPAIGN_MONSTER_SERVER=http://127.0.0.1:3003  # the default
+edda fight --new "Goblin ambush"   # start a combat
+edda fight --plan "goblin ambush"  # start one from a plan, monsters and all
+edda fight                         # the latest one still running
+edda fight goblin                  # one by name or ID prefix
+export EDDA_COMBAT_SERVER=http://127.0.0.1:3001   # the default
+export EDDA_MONSTER_SERVER=http://127.0.0.1:3003  # the default
 ```
 
 A full-screen view of a combat: the initiative order (with HP, AC and the
@@ -379,8 +400,8 @@ do and sends it once it has reconnected.
 ### Planning encounters
 
 ```sh
-campaign-edit plan                     # the plan changed last
-campaign-edit plan "Goblin ambush"     # that one, or a new one by that name
+edda plan                     # the plan changed last
+edda plan "Goblin ambush"     # that one, or a new one by that name
 ```
 
 A screen for putting fights together ahead of time. It shows the open
@@ -429,12 +450,12 @@ whatever is in `data/monsters/` into the shared library on every start
 (`monster-service import` does it by hand), so `make srd` then `make up`.
 
 ```sh
-campaign-edit monster list goblin           # name, CR, type, AC, HP, where from
-campaign-edit monster show "goblin boss"    # the stat block
-campaign-edit monster export troll > cave-troll.json   # a starting point
-campaign-edit monster add cave-troll.json   # the campaign's own: one stat block, or a list
-campaign-edit monster edit troll            # in $EDITOR; a shared one is saved as the campaign's copy
-campaign-edit monster delete "cave troll"   # the campaign's own only
+edda monster list goblin           # name, CR, type, AC, HP, where from
+edda monster show "goblin boss"    # the stat block
+edda monster export troll > cave-troll.json   # a starting point
+edda monster add cave-troll.json   # the campaign's own: one stat block, or a list
+edda monster edit troll            # in $EDITOR; a shared one is saved as the campaign's copy
+edda monster delete "cave troll"   # the campaign's own only
 monster-service import my-monsters.json [--campaign <ID>]   # admin: shared library, or a campaign
 ```
 
@@ -490,13 +511,13 @@ outside the SRD can be added as the campaign's own; until then the fight
 screen shows what a character's sheet says about one (its notes).
 
 ```sh
-campaign-edit spell list fire               # name, level and school, C for concentration, source
-campaign-edit spell show fireball           # the description
-campaign-edit spell export bless > my-spell.json   # a starting point
-campaign-edit spell add my-spell.json       # the campaign's own: one, or a list
-campaign-edit spell delete "my spell"       # the campaign's own only
-campaign-edit condition list                # the same for conditions
-campaign-edit condition show grappled
+edda spell list fire               # name, level and school, C for concentration, source
+edda spell show fireball           # the description
+edda spell export bless > my-spell.json   # a starting point
+edda spell add my-spell.json       # the campaign's own: one, or a list
+edda spell delete "my spell"       # the campaign's own only
+edda condition list                # the same for conditions
+edda condition show grappled
 monster-service import --kind spells my-spells.json [--campaign <ID>]   # admin
 ```
 
@@ -622,36 +643,36 @@ everything except `manual` features, plus all spell slots and current HP.
 make test     # every test, against a throwaway Postgres of their own
 make check    # formatting, lints (warnings fail), the tests and the guard hook: what CI runs
 make deny     # dependencies: licences, security advisories, yanked crates (cargo install cargo-deny)
-make smoke    # end to end: the compose stack, seeded, driven by campaign-edit (needs make srd)
-cargo test -p campaign-types -- --ignored   # the SRD data from make srd loads and is valid
+make smoke    # end to end: the compose stack, seeded, driven by edda (needs make srd)
+cargo test -p edda-types -- --ignored   # the SRD data from make srd loads and is valid
 
 tools/sandbox.sh up                    # a whole stack of your own to try things in
-tools/sandbox.sh run list              # campaign-edit, in it
+tools/sandbox.sh run list              # edda, in it
 tools/sandbox.sh tmux fight fight --new Test   # a full screen, in a detached tmux session
 tools/sandbox.sh down                  # stop it and delete everything in it
 ```
 
 **Nothing touches a real stack.** Tests, experiments and checks never
 reach the stack `make up` runs, its databases, or this machine's
-`campaign-edit` config:
+`edda` config:
 
 - *Tests.* The services' tests need Postgres, and only ever a throwaway
   one: `make test` (`tools/with-test-postgres.sh`) starts one on a port of
   its own and deletes it afterwards. There's no default: `cargo test`
   without `TEST_POSTGRES_URL` stops, and a server holding any of a real
-  stack's databases is refused (`campaign_server::testing`).
+  stack's databases is refused (`edda_server::testing`).
 - *Trying things.* `tools/sandbox.sh` runs a complete stack (its own
   Postgres container, ports 23000–23003 and 25432, data in
   `target/sandbox`) with a campaign, the example characters and the SRD,
-  and always runs this checkout's `campaign-edit` with the sandbox's config
+  and always runs this checkout's `edda` with the sandbox's config
   and servers.
 - *The smoke test* runs the stack as its own compose project: its own
   image, volumes and ports (13000–13003 and 15432), all deleted afterwards.
 - *Claude Code.* `.claude/settings.json` installs a hook,
   `.claude/hooks/guard.py`, that blocks shell commands which would reach
-  the real stack: `campaign-edit` outside the sandbox, its containers and
+  the real stack: `edda` outside the sandbox, its containers and
   ports, compose without an isolated project, `make up`/`down`/`install`,
-  and the like. It reads a command as the shell does, so `campaign-edit`
+  and the like. It reads a command as the shell does, so `edda`
   in a grep pattern or a commit message is just text, while one run
   through `bash -c`, `$( )`, tmux, ssh or a variable still counts. `make
   check` and CI run its self-test.
@@ -667,7 +688,7 @@ the SRD ones included, with a coverage report; cargo-deny and cargo-machete
 (unused dependencies); and the smoke test. Dependabot opens weekly pull
 requests for newer crates, base images and actions. A `v*` tag runs
 `release.yml`: the server image goes to the GitHub container registry, and
-`campaign-edit` for Linux, macOS and Windows to a GitHub release. Protect
+`edda` for Linux, macOS and Windows to a GitHub release. Protect
 `master` so pull requests need CI to pass.
 
 ## Combat service
@@ -677,7 +698,7 @@ damage to the goblin"); the server *decides* what *events* (facts: "goblin
 took 7, now at 0 HP") they produce, appends them to a permanent log, and
 broadcasts them to every connected client. A combat's state is never stored
 directly; it's the result of replaying its log. The decide/apply rules live
-in `campaign-types::combat`, so clients run exactly the same code.
+in `edda-types::combat`, so clients run exactly the same code.
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
@@ -757,7 +778,7 @@ undone. HP write-back follows undos like any other change. Undoing a cast
 ends the effect it put into play and gives its slot back on the sheet, and
 undoing a feature's use gives the use back.
 
-**Optimistic UIs.** `campaign_client::combat::Replica` keeps the confirmed
+**Optimistic UIs.** `edda_client::combat::Replica` keeps the confirmed
 state plus the client's in-flight commands and shows their predicted result
 immediately, replaying them on top of whatever the server confirms first and
 dropping them if rejected. New combatants and effects carry client-generated
@@ -824,15 +845,15 @@ error says which. With `MONSTER_SERVICE_URL` empty, both are refused.
 ## Authentication
 
 Every device (the DM's laptop, a player's phone) has its own Ed25519 key,
-generated on the device and never sent anywhere: `campaign-edit` keeps it in
-`~/.config/campaign-manager/device.key` (or `$CAMPAIGN_CONFIG_DIR`).
+generated on the device and never sent anywhere: `edda` keeps it in
+`~/.config/edda/device.key` (or `$EDDA_CONFIG_DIR`).
 Nobody has passwords.
 
 **Certificates.** A device belongs to a campaign when a DM device of that
 campaign has signed a certificate for it: *this key, this campaign, this
 role, this name, signed by that DM key*. The auth service only accepts a
 certificate signed by the DM device presenting it, and keeps it on record;
-`campaign-edit auth devices` checks every certificate itself. A campaign's
+`edda auth devices` checks every certificate itself. A campaign's
 first DM device is set up with a one-time code printed by `auth-service
 new-campaign`, and signs its own certificate. If every DM device is lost,
 the server's admin can print a new code with `auth-service setup-code
@@ -873,7 +894,8 @@ any other.
 **Signatures** always cover `"campaign-manager/v1/<purpose>\0"` followed
 by the value's canonical binary (postcard) encoding, so a signature made
 for one purpose (say, logging in) can never pass as another (a
-certificate).
+certificate). (`campaign-manager` is Edda's former name, kept there so
+certificates made before the rename stay valid.)
 
 **Roles.** DM devices admit and revoke devices; the campaign always keeps at
 least one. Players use the services. Services (registered with `auth-service
@@ -887,7 +909,7 @@ else, the DM or that character's player enters on their own screen. So:
 
 - **Characters.** A character belongs to the devices that play it: a
   player's device plays what it creates, and the DM chooses who plays the
-  rest (`campaign-edit <CHARACTER> owners add <DEVICE>`, with the device's
+  rest (`edda <CHARACTER> owners add <DEVICE>`, with the device's
   name or key prefix from `auth devices`; a player's phone and laptop can
   both play one). A player's device changes only the characters it plays;
   a DM's changes any. Every device sees every character.
@@ -947,7 +969,7 @@ conditions.
 
 ### Third-party material
 
-- `crates/campaign-auth/src/eff_short_wordlist_1.txt` is the EFF's short
+- `crates/edda-auth/src/eff_short_wordlist_1.txt` is the EFF's short
   wordlist 1 (https://www.eff.org/dice), licensed under CC BY 3.0 US
   (attribution in the file; "yo-yo" is written "yoyo").
 - The SRD monsters, spells and conditions are not included; see

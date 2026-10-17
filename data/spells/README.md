@@ -1,7 +1,7 @@
 # Spell data
 
 `make srd` (`tools/fetch-srd.sh`) puts the SRD spells here, in
-campaign-manager's spell format (see the README's "Spells and conditions"
+edda's spell format (see the README's "Spells and conditions"
 section); compose's seed job loads every `*.json` here into the monster
 service's shared library. They aren't part of the repository (`.gitignore`
 keeps them out); your own spell files can go here too.

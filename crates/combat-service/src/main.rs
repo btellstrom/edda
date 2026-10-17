@@ -1,13 +1,13 @@
 use std::{env, path::Path, sync::Arc};
 
-use campaign_auth::{DeviceKey, server::TokenVerifier};
 use combat_service::services::ServicesConfig;
+use edda_auth::{DeviceKey, server::TokenVerifier};
 
 const DEFAULT_KEY_FILE: &str = "combat-service.key";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    campaign_server::init_logging("combat_service");
+    edda_server::init_logging("combat_service");
 
     // `combat-service public-key` prints this service's key, creating it if
     // needed, so it can be registered: auth-service add-service combat-service <KEY>
@@ -34,8 +34,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3001".to_string());
-    let auth_service = campaign_server::auth_service_url();
-    let auth_key = campaign_server::auth_key(&auth_service).await?;
+    let auth_service = edda_server::auth_service_url();
+    let auth_key = edda_server::auth_key(&auth_service).await?;
 
     // Set CHARACTER_SERVICE_URL to an empty string to leave character sheets
     // alone (no HP written back, no slots or feature uses spent), and
@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let config = combat_service::Config {
         services,
-        limits: campaign_server::Limits::from_env()?,
+        limits: edda_server::Limits::from_env()?,
     };
     tracing::info!(?config, "combat service configured");
 
@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let limits = config.limits.clone();
     let app = combat_service::app(pool, TokenVerifier::new(auth_key), config).await?;
-    campaign_server::serve(app, &bind_addr, "combat service", &limits).await
+    edda_server::serve(app, &bind_addr, "combat service", &limits).await
 }
 
 /// This service's own key, for reaching the other services. Created on

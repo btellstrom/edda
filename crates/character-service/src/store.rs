@@ -1,6 +1,6 @@
-use campaign_auth::protocol::{Claims, Principal};
-use campaign_types::{Character, CharacterAction, CharacterSheet, Edition};
 use chrono::{DateTime, SubsecRound, Utc};
+use edda_auth::protocol::{Claims, Principal};
+use edda_types::{Character, CharacterAction, CharacterSheet, Edition};
 use sqlx::{PgPool, types::Json};
 use uuid::Uuid;
 

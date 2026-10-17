@@ -19,8 +19,8 @@ use std::{
     time::Duration,
 };
 
-use campaign_client::{Client, ClientError};
-use campaign_types::{
+use edda_client::{Client, ClientError};
+use edda_types::{
     HitPoints,
     combat::{CombatEvent, CombatState, LoggedEvent, SheetCost},
 };
@@ -291,8 +291,8 @@ fn undone_costs(log: &[LoggedEvent], after: u64) -> Vec<(Uuid, SheetCost, Uuid)>
 
 #[cfg(test)]
 mod tests {
-    use campaign_types::combat::{CombatEvent, Combatant};
     use chrono::Utc;
+    use edda_types::combat::{CombatEvent, Combatant};
 
     use super::*;
 

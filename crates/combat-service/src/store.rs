@@ -3,8 +3,8 @@
 
 use std::collections::HashSet;
 
-use campaign_types::combat::{CombatEvent, CombatState, CombatStatus, CombatSummary, LoggedEvent};
 use chrono::{DateTime, SubsecRound, Utc};
+use edda_types::combat::{CombatEvent, CombatState, CombatStatus, CombatSummary, LoggedEvent};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgExecutor, PgPool, Postgres, Transaction, types::Json};
 use uuid::Uuid;

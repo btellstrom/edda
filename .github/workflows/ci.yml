@@ -97,7 +97,7 @@ jobs:
       - run: rustup show active-toolchain
       - uses: Swatinem/rust-cache@v2
       - uses: ./.github/actions/srd
-      - run: cargo build --release --locked -p campaign-edit
+      - run: cargo build --release --locked -p edda
       - run: tools/smoke-test.sh
         env:
           CONTAINER: docker

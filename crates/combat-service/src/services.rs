@@ -6,10 +6,10 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use campaign_auth::{DeviceKey, PublicKey, protocol::Session};
-use campaign_client::{ClientError, auth::AuthClient, monsters::MonsterClient};
-use campaign_types::monster::Monster;
 use chrono::Utc;
+use edda_auth::{DeviceKey, PublicKey, protocol::Session};
+use edda_client::{ClientError, auth::AuthClient, monsters::MonsterClient};
+use edda_types::monster::Monster;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 

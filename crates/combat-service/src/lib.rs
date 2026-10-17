@@ -13,8 +13,8 @@ pub mod sync;
 use std::sync::Arc;
 
 use axum::{Extension, Router};
-use campaign_auth::server::TokenVerifier;
-use campaign_server::Limits;
+use edda_auth::server::TokenVerifier;
+use edda_server::Limits;
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 
@@ -29,7 +29,7 @@ pub struct Config {
 
 /// Connects to the database, creating it if needed, and applies migrations.
 pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let pool = campaign_server::open_database(database_url).await?;
+    let pool = edda_server::open_database(database_url).await?;
     migrate(&pool).await?;
     Ok(pool)
 }

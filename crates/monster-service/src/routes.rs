@@ -7,9 +7,9 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use campaign_auth::{protocol::Claims, server::Authenticated};
-use campaign_server::Limits;
-use campaign_types::{
+use edda_auth::{protocol::Claims, server::Authenticated};
+use edda_server::Limits;
+use edda_types::{
     monster::{Monster, MonsterSheet, MonsterSummary},
     rules_text::{ConditionText, Entry, RulesText, SpellText},
 };

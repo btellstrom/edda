@@ -7,7 +7,7 @@
 /data/monsters/*.json
 /data/spells/*.json
 /data/conditions/*.json
-# Your own characters to `campaign-edit import`.
+# Your own characters to `edda import`.
 /data/characters/
 __pycache__/
 /backups

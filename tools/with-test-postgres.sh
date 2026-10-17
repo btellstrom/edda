@@ -12,7 +12,7 @@ if [ -n "${TEST_POSTGRES_URL:-}" ]; then
     exec "$@"
 fi
 CONTAINER=${CONTAINER:-podman}
-name=campaign-manager-test-pg-$$
+name=edda-test-pg-$$
 port=${TEST_POSTGRES_PORT:-55432}
 # The tests run in parallel, each with services of its own and their
 # connection pools: more than Postgres's default 100 connections.

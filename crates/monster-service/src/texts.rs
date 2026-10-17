@@ -1,8 +1,8 @@
 //! Persistence for rules text (spells and conditions), alongside the
 //! monsters and shared and scoped the same way.
 
-use campaign_types::rules_text::{Entry, RulesText};
 use chrono::{DateTime, Utc};
+use edda_types::rules_text::{Entry, RulesText};
 use sqlx::{PgExecutor, types::Json};
 use uuid::Uuid;
 
