@@ -376,6 +376,9 @@ fn combatants<'c>(
 }
 
 fn status(c: &Combatant) -> String {
+    if c.concealed {
+        return c.vitality().to_string();
+    }
     let hp = c.hit_points;
     let temp = if hp.temporary > 0 {
         format!(" +{}", hp.temporary)

@@ -1,7 +1,7 @@
 //! Drawing the fight screen.
 
 use campaign_types::{
-    combat::{CombatCommand, CombatState, CombatStatus, Combatant, Effect},
+    combat::{CombatCommand, CombatState, CombatStatus, Combatant, Effect, Vitality},
     rules_text,
 };
 use ratatui::{
@@ -204,6 +204,16 @@ fn time_left(effect: &Effect, state: &CombatState) -> String {
 }
 
 fn hp(c: &Combatant) -> Span<'static> {
+    if c.concealed {
+        // Behind the DM's screen: only how hurt it looks.
+        let vitality = c.vitality();
+        let text = format!("{vitality:<7}");
+        return match vitality {
+            Vitality::Down => Span::raw(text).red(),
+            Vitality::Bloodied => Span::raw(text).yellow(),
+            Vitality::Hurt | Vitality::Unhurt => Span::raw(text).green(),
+        };
+    }
     let hp = c.hit_points;
     let temp = if hp.temporary > 0 {
         format!(" +{}", hp.temporary)
@@ -421,6 +431,15 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect, combatant: &Combatant) {
     let sheet = combatant.character_id.and_then(|id| app.sheets.get(&id));
     let monster = combatant.monster_id.and_then(|id| app.monsters.get(&id));
     let text = match (sheet, monster) {
+        // A player's device: the numbers are behind the DM's screen, and
+        // its stat block with them.
+        _ if combatant.concealed => Text::from(vec![
+            Line::from(combatant.name.clone()).bold(),
+            Line::raw(""),
+            Line::raw(format!("Looks {}", combatant.vitality())),
+            Line::raw(""),
+            Line::from("The rest is behind the DM's screen.").dark_gray(),
+        ]),
         (None, Some(monster)) => {
             // Its own hit points first; the stat block's are what it
             // started from.

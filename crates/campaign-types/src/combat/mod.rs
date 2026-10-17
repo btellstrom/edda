@@ -13,6 +13,7 @@ mod permission;
 mod protocol;
 mod rules;
 pub mod undo;
+pub mod view;
 
 pub use cost::SheetCost;
 pub use monsters::{add_monsters, monster_names};
@@ -21,6 +22,7 @@ pub use protocol::{
     ClientMessage, CombatSnapshot, CombatSummary, CommandEnvelope, LoggedEvent, ServerMessage,
 };
 pub use rules::{CombatCommand, CombatError, Dice, NewEffect, NoDice, decide};
+pub use view::{Concealer, Vitality};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -74,9 +76,14 @@ pub struct Combatant {
     /// Initiative total. `None` until rolled or set.
     #[serde(default)]
     pub initiative: Option<i16>,
+    /// While [`Self::concealed`], only how hurt it looks: see [`Vitality`].
     pub hit_points: HitPoints,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub armor_class: Option<u8>,
+    /// Its hit points and armor class are behind the DM's screen: a
+    /// player's device sees monsters like this (see [`view`]).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub concealed: bool,
 }
 
 impl Combatant {
@@ -94,6 +101,7 @@ impl Combatant {
                 temporary: 0,
             },
             armor_class: None,
+            concealed: false,
         }
     }
 
@@ -110,6 +118,7 @@ impl Combatant {
             initiative: None,
             hit_points: sheet.hit_points,
             armor_class: Some(sheet.armor_class),
+            concealed: false,
         }
     }
 
@@ -130,11 +139,21 @@ impl Combatant {
                 temporary: 0,
             },
             armor_class: Some(sheet.armor_class),
+            concealed: false,
         }
     }
 
     pub fn is_down(&self) -> bool {
         self.hit_points.current == 0
+    }
+
+    /// How hurt it looks, concealed or not.
+    pub fn vitality(&self) -> Vitality {
+        if self.concealed {
+            Vitality::from_concealed(self.hit_points)
+        } else {
+            Vitality::of(self.hit_points)
+        }
     }
 }
 

@@ -10,10 +10,13 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use campaign_auth::{protocol::Claims, server::Authenticated};
+use campaign_auth::{
+    protocol::{Claims, Principal},
+    server::Authenticated,
+};
 use campaign_types::combat::{
-    ClientMessage, CombatSnapshot, CombatStatus, CombatSummary, CommandEnvelope, LoggedEvent,
-    ServerMessage,
+    ClientMessage, CombatSnapshot, CombatState, CombatStatus, CombatSummary, CommandEnvelope,
+    Concealer, LoggedEvent, ServerMessage,
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -104,7 +107,27 @@ async fn snapshot(
     Path(id): Path<Uuid>,
 ) -> Result<Json<CombatSnapshot>, ApiError> {
     let combat = hub.combat_in(id, claims.campaign).await?;
-    Ok(Json(combat.snapshot(hub.store()).await?))
+    let mut snapshot = combat.snapshot(hub.store()).await?;
+    if behind_the_screen(&claims) {
+        snapshot.state = Concealer::new(&snapshot.state).state(&snapshot.state);
+    }
+    Ok(Json(snapshot))
+}
+
+/// Whether the device sees monsters only as the players do (see
+/// [`campaign_types::combat::view`]).
+fn behind_the_screen(claims: &Claims) -> bool {
+    claims.role == Principal::Player
+}
+
+/// `events`, which follow the combat as it stands in `state`, as the device
+/// sees them.
+fn seen(claims: &Claims, state: &CombatState, events: Vec<LoggedEvent>) -> Vec<LoggedEvent> {
+    if !behind_the_screen(claims) {
+        return events;
+    }
+    let mut concealer = Concealer::new(state);
+    events.iter().map(|e| concealer.event(e)).collect()
 }
 
 #[derive(Deserialize)]
@@ -121,8 +144,15 @@ async fn log(
     Query(query): Query<LogQuery>,
 ) -> Result<Json<Vec<LoggedEvent>>, ApiError> {
     hub.combat_in(id, claims.campaign).await?;
-    let events = hub.store().events(id, query.after).await?;
-    Ok(Json(events.ok_or(ApiError::NotFound)?))
+    if !behind_the_screen(&claims) {
+        let events = hub.store().events(id, query.after).await?;
+        return Ok(Json(events.ok_or(ApiError::NotFound)?));
+    }
+    // Concealing needs to know everyone from the start.
+    let log = hub.store().events(id, 0).await?.ok_or(ApiError::NotFound)?;
+    let mut seen = seen(&claims, &CombatState::default(), log);
+    seen.retain(|e| e.seq > query.after);
+    Ok(Json(seen))
 }
 
 /// Runs a command and returns the events it produced. Resending a command
@@ -133,13 +163,15 @@ async fn command(
     Path(id): Path<Uuid>,
     Json(envelope): Json<CommandEnvelope>,
 ) -> Result<Json<Vec<LoggedEvent>>, ApiError> {
-    hub.combat_in(id, claims.campaign).await?;
+    let combat = hub.combat_in(id, claims.campaign).await?;
     let envelope = attributed(envelope, &claims);
     let command_id = envelope.command_id;
-    match hub.execute(id, envelope, &claims).await? {
-        Outcome::Applied(events) => Ok(Json(events)),
-        Outcome::AlreadyApplied => Ok(Json(hub.store().events_for_command(id, command_id).await?)),
-    }
+    let events = match hub.execute(id, envelope, &claims).await? {
+        Outcome::Applied(events) => events,
+        Outcome::AlreadyApplied => hub.store().events_for_command(id, command_id).await?,
+    };
+    let state = combat.snapshot(hub.store()).await?.state;
+    Ok(Json(seen(&claims, &state, events)))
 }
 
 async fn websocket(
@@ -173,7 +205,9 @@ async fn session(
     let Ok((snapshot, mut events)) = combat.subscribe(hub.store()).await else {
         return;
     };
-    if send(&mut sink, &ServerMessage::Snapshot(snapshot))
+    // A player's device sees monsters as the players do.
+    let mut view = View::new(&claims);
+    if send(&mut sink, &ServerMessage::Snapshot(view.snapshot(snapshot)))
         .await
         .is_err()
     {
@@ -182,13 +216,13 @@ async fn session(
     loop {
         let reply = tokio::select! {
             event = events.recv() => match event {
-                Ok(event) => ServerMessage::Event(event),
+                Ok(event) => ServerMessage::Event(view.event(&event)),
                 // Too far behind to catch up event by event: start over
                 // from a fresh snapshot.
                 Err(RecvError::Lagged(_)) => match combat.subscribe(hub.store()).await {
                     Ok((snapshot, receiver)) => {
                         events = receiver;
-                        ServerMessage::Snapshot(snapshot)
+                        ServerMessage::Snapshot(view.snapshot(snapshot))
                     }
                     Err(_) => break,
                 },
@@ -205,6 +239,39 @@ async fn session(
         };
         if send(&mut sink, &reply).await.is_err() {
             break;
+        }
+    }
+}
+
+/// What one connected device sees: everything, or for a player's device
+/// monsters concealed.
+struct View {
+    concealer: Option<Concealer>,
+    player: bool,
+}
+
+impl View {
+    fn new(claims: &Claims) -> Self {
+        Self {
+            concealer: None,
+            player: behind_the_screen(claims),
+        }
+    }
+
+    /// Starts over from `snapshot`.
+    fn snapshot(&mut self, mut snapshot: CombatSnapshot) -> CombatSnapshot {
+        if self.player {
+            let concealer = Concealer::new(&snapshot.state);
+            snapshot.state = concealer.state(&snapshot.state);
+            self.concealer = Some(concealer);
+        }
+        snapshot
+    }
+
+    fn event(&mut self, event: &LoggedEvent) -> LoggedEvent {
+        match &mut self.concealer {
+            Some(concealer) => concealer.event(event),
+            None => event.clone(),
         }
     }
 }

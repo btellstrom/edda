@@ -1,40 +1,65 @@
 //! The combat log in words.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use campaign_types::combat::{CombatEvent, EffectEndReason, LoggedEvent, SpellSlot};
+use campaign_types::{
+    HitPoints,
+    combat::{CombatEvent, EffectEndReason, LoggedEvent, SpellSlot, Vitality},
+};
 use uuid::Uuid;
 
-/// Names of every combatant and effect that appears in `log`.
-pub fn names(log: &[LoggedEvent]) -> HashMap<Uuid, String> {
-    let mut names = HashMap::new();
-    for event in log {
-        learn(&mut names, &event.event);
-    }
-    names
+/// Every combatant and effect that has appeared in the log, by id, so
+/// events can name them even after they're gone: what they're called, and
+/// which combatants' hit points are behind the DM's screen.
+#[derive(Default)]
+pub struct Names {
+    names: HashMap<Uuid, String>,
+    concealed: HashSet<Uuid>,
 }
 
-/// Remembers the names an event introduces, so later events can use them
-/// even after the combatant or effect is gone.
-pub fn learn(names: &mut HashMap<Uuid, String>, event: &CombatEvent) {
-    match event {
-        CombatEvent::CombatantAdded { combatant }
-        | CombatEvent::CombatantRestored { combatant } => {
-            names.insert(combatant.id, combatant.name.clone());
+impl Names {
+    pub fn of(log: &[LoggedEvent]) -> Self {
+        let mut names = Self::default();
+        for event in log {
+            names.learn(&event.event);
         }
-        CombatEvent::EffectAdded { effect } | CombatEvent::EffectRestored { effect } => {
-            names.insert(effect.id, effect.name.clone());
+        names
+    }
+
+    /// Remembers who an event introduces.
+    pub fn learn(&mut self, event: &CombatEvent) {
+        match event {
+            CombatEvent::CombatantAdded { combatant }
+            | CombatEvent::CombatantRestored { combatant } => {
+                self.names.insert(combatant.id, combatant.name.clone());
+                if combatant.concealed {
+                    self.concealed.insert(combatant.id);
+                }
+            }
+            CombatEvent::EffectAdded { effect } | CombatEvent::EffectRestored { effect } => {
+                self.names.insert(effect.id, effect.name.clone());
+            }
+            _ => {}
         }
-        _ => {}
+    }
+
+    fn name(&self, id: &Uuid) -> &str {
+        self.names.get(id).map_or("someone", String::as_str)
+    }
+
+    /// `id`'s hit points as this device may see them: "12/18", or how hurt
+    /// they look.
+    fn hit_points(&self, id: &Uuid, hp: HitPoints) -> String {
+        if self.concealed.contains(id) {
+            Vitality::from_concealed(hp).to_string()
+        } else {
+            format!("{}/{}", hp.current, hp.max)
+        }
     }
 }
 
 /// `event` in words; an undo names what it took back, found in `log`.
-pub fn describe_in(
-    event: &CombatEvent,
-    log: &[LoggedEvent],
-    names: &HashMap<Uuid, String>,
-) -> String {
+pub fn describe_in(event: &CombatEvent, log: &[LoggedEvent], names: &Names) -> String {
     if let CombatEvent::Undone { command } = event
         && let Some(first) = log.iter().find(|e| e.command_id == Some(*command))
     {
@@ -43,11 +68,14 @@ pub fn describe_in(
     describe(event, names)
 }
 
-pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
-    let name = |id: &Uuid| names.get(id).map_or("someone", String::as_str);
+pub fn describe(event: &CombatEvent, names: &Names) -> String {
+    let name = |id: &Uuid| names.name(id);
     let list = |ids: &[Uuid]| ids.iter().map(name).collect::<Vec<_>>().join(", ");
     match event {
         CombatEvent::Created { name, .. } => format!("{name} is set up"),
+        CombatEvent::CombatantAdded { combatant } if combatant.concealed => {
+            format!("{} joins", combatant.name)
+        }
         CombatEvent::CombatantAdded { combatant } => format!(
             "{} joins ({}/{} HP)",
             combatant.name, combatant.hit_points.current, combatant.hit_points.max
@@ -73,12 +101,14 @@ pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
             amount,
             hit_points: hp,
         } => {
-            let down = if hp.current == 0 { ", down" } else { "" };
+            let down = match hp.current {
+                0 if !names.concealed.contains(combatant) => ", down",
+                _ => "",
+            };
             format!(
-                "{} takes {amount} damage ({}/{}{down})",
+                "{} takes {amount} damage ({}{down})",
                 name(combatant),
-                hp.current,
-                hp.max
+                names.hit_points(combatant, *hp)
             )
         }
         CombatEvent::Healed {
@@ -86,11 +116,15 @@ pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
             amount,
             hit_points: hp,
         } => format!(
-            "{} regains {amount} HP ({}/{})",
+            "{} regains {amount} HP ({})",
             name(combatant),
-            hp.current,
-            hp.max
+            names.hit_points(combatant, *hp)
         ),
+        CombatEvent::TemporaryHitPointsSet { combatant, .. }
+            if names.concealed.contains(combatant) =>
+        {
+            format!("{} gains temporary HP", name(combatant))
+        }
         CombatEvent::TemporaryHitPointsSet {
             combatant,
             hit_points,
@@ -165,6 +199,11 @@ pub fn describe(event: &CombatEvent, names: &HashMap<Uuid, String>) -> String {
         CombatEvent::Resumed => "The combat resumes".into(),
         CombatEvent::Ended => "The combat ends".into(),
         CombatEvent::Undone { .. } => "Undo:".into(),
+        CombatEvent::CombatantRestored { combatant } if combatant.concealed => format!(
+            "  {} back, looking {}",
+            combatant.name,
+            combatant.vitality()
+        ),
         CombatEvent::CombatantRestored { combatant } => format!(
             "  {} back to {}/{} HP",
             combatant.name, combatant.hit_points.current, combatant.hit_points.max

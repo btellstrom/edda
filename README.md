@@ -799,6 +799,12 @@ else, the DM or that character's player enters on their own screen. So:
   it, initiative, pausing and ending) is the DM's. The combat service
   checks this, asking the character service whose characters are whose,
   and the fight screen says so before sending.
+- **What players see of a fight.** The party knows each other's hit
+  points, but monsters' (and anyone else the DM adds) are behind the DM's
+  screen: a player's device sees only how hurt one looks (unhurt, hurt,
+  bloodied at half or less, down), not its numbers, armor class or stat
+  block. The combat service conceals them in everything it sends a
+  player's device: snapshots, the log and live events.
 - **Monsters, spells, conditions and plans** are the DM's to change; plans
   are hidden from players altogether.
 

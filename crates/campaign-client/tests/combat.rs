@@ -775,6 +775,68 @@ async fn players_change_only_their_own_combatants_and_end_only_their_own_turn() 
 }
 
 #[tokio::test]
+async fn players_see_only_how_hurt_monsters_look() {
+    let (auth, party, server) = setup().await;
+    let dm = server.client(&party.dm);
+    let player = server.client(&party.player(&auth, "Laura's phone").await);
+    let combat = dm.create("Behind the screen").await.unwrap().id;
+    let mut goblin = Combatant::new("Goblin", 20);
+    goblin.armor_class = Some(15);
+    let goblin_id = goblin.id;
+    run(
+        &dm,
+        combat,
+        CombatCommand::AddCombatant { combatant: goblin },
+    )
+    .await;
+    let mut feed = player.connect(combat).await.unwrap();
+    let ServerMessage::Snapshot(first) = next(&mut feed).await else {
+        panic!("first message must be a snapshot");
+    };
+    let mut replica = Replica::new(first);
+    run(
+        &dm,
+        combat,
+        CombatCommand::Damage {
+            combatant: goblin_id,
+            amount: 12,
+        },
+    )
+    .await;
+
+    // Live: the player's replica follows it, in steps.
+    let message = next(&mut feed).await;
+    assert_eq!(replica.receive(message), Received::Updated);
+    let seen = replica.state().combatant(goblin_id).unwrap().clone();
+    assert!(seen.concealed && seen.armor_class.is_none());
+    assert_eq!(seen.vitality(), campaign_types::combat::Vitality::Bloodied);
+    assert_eq!(seen.hit_points.max, 3, "never the real numbers");
+
+    // Asked for: the snapshot and the log, as from the start.
+    let snapshot = player.snapshot(combat).await.unwrap().state;
+    assert_eq!(snapshot.combatant(goblin_id).unwrap(), &seen);
+    let damaged = |log: &[campaign_types::combat::LoggedEvent]| {
+        log.iter()
+            .find_map(|e| match e.event {
+                CombatEvent::Damaged { hit_points, .. } => Some(hit_points),
+                _ => None,
+            })
+            .unwrap()
+    };
+    assert_eq!(damaged(&player.log(combat, 0).await.unwrap()).max, 3);
+    assert_eq!(damaged(&player.log(combat, 2).await.unwrap()).max, 3);
+
+    // The DM sees everything.
+    let real = dm.snapshot(combat).await.unwrap().state;
+    let goblin = real.combatant(goblin_id).unwrap();
+    assert_eq!(
+        (goblin.hit_points.current, goblin.armor_class),
+        (8, Some(15))
+    );
+    assert_eq!(damaged(&dm.log(combat, 0).await.unwrap()).current, 8);
+}
+
+#[tokio::test]
 async fn monsters_are_added_numbered_and_rolled_by_the_server() {
     let (auth, party, without) = setup().await;
     let (monsters, goblin) = goblins(&auth, &party).await;

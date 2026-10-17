@@ -49,7 +49,7 @@ pub struct App {
     replica: Replica,
     log: Vec<LoggedEvent>,
     /// Names of every combatant and effect ever in the combat, for the log.
-    names: HashMap<Uuid, String>,
+    names: log::Names,
     sheets: HashMap<Uuid, Character>,
     roster: Vec<CharacterSummary>,
     /// The monsters that can be added.
@@ -118,7 +118,7 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
         login,
         combat,
         replica: Replica::new(snapshot),
-        names: log::names(&log),
+        names: log::Names::of(&log),
         log,
         sheets: HashMap::new(),
         roster,
@@ -425,7 +425,7 @@ impl App {
         if self.log.last().is_some_and(|last| last.seq >= event.seq) {
             return;
         }
-        log::learn(&mut self.names, &event.event);
+        self.names.learn(&event.event);
         self.log.push(event.clone());
         for character in self.sheets_changed_by(&event.event) {
             self.fetch_or_say(character).await;
@@ -513,7 +513,7 @@ impl App {
         let after = self.log.last().map_or(0, |e| e.seq);
         let missed = self.login.combats().await?.log(self.combat, after).await?;
         for event in &missed {
-            log::learn(&mut self.names, &event.event);
+            self.names.learn(&event.event);
         }
         self.log.extend(missed);
         self.replica.receive(ServerMessage::Snapshot(snapshot));
