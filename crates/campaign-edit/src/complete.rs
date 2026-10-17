@@ -13,7 +13,10 @@
 use std::{ffi::OsStr, future::Future, sync::OnceLock, time::Duration};
 
 use campaign_client::{Client, combat::CombatClient, monsters::MonsterClient};
-use campaign_types::combat::CombatStatus;
+use campaign_types::{
+    combat::CombatStatus,
+    rules_text::{ConditionText, SpellText},
+};
 use clap::{Command, CommandFactory};
 use clap_complete::{
     CompleteEnv,
@@ -79,6 +82,36 @@ pub fn monsters(current: &OsStr) -> Vec<CompletionCandidate> {
     });
     matching(current, monsters.into_iter().flatten(), |m| {
         (m.name.clone(), format!("CR {} {}", m.challenge, m.kind))
+    })
+}
+
+/// Spells, for `spell`.
+pub fn spells(current: &OsStr) -> Vec<CompletionCandidate> {
+    let spells = from_servers(|token| async move {
+        let client = MonsterClient::new(server("CAMPAIGN_MONSTER_SERVER", cli::MONSTER_SERVER));
+        client
+            .with_token(&token)
+            .texts::<SpellText>(None)
+            .await
+            .ok()
+    });
+    matching(current, spells.into_iter().flatten(), |s| {
+        (s.text.name.clone(), crate::display::spell_kind(&s.text))
+    })
+}
+
+/// Conditions, for `condition`.
+pub fn conditions(current: &OsStr) -> Vec<CompletionCandidate> {
+    let conditions = from_servers(|token| async move {
+        let client = MonsterClient::new(server("CAMPAIGN_MONSTER_SERVER", cli::MONSTER_SERVER));
+        client
+            .with_token(&token)
+            .texts::<ConditionText>(None)
+            .await
+            .ok()
+    });
+    matching(current, conditions.into_iter().flatten(), |c| {
+        (c.text.name.clone(), c.text.source.clone())
     })
 }
 

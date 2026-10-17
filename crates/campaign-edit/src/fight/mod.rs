@@ -24,6 +24,7 @@ use campaign_types::{
     },
     encounter::EncounterPlan,
     monster::{Monster, MonsterSummary},
+    rules_text::{ConditionEntry, ConditionText, SpellEntry, SpellText},
 };
 use chrono::Utc;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -35,7 +36,7 @@ use crate::{
     cli::FightArgs,
     identity::{Identity, Profile},
 };
-use command::{Context, Parsed, Step, Suggestion};
+use command::{Context, Parsed, Step, Suggestion, Topic};
 
 /// Logged in, with the token renewed shortly before it expires (tokens last
 /// a quarter of an hour; a fight lasts longer). The planner uses it too.
@@ -115,6 +116,11 @@ pub struct App {
     bestiary: Vec<MonsterSummary>,
     /// Stat blocks of the monsters in the fight, by monster id.
     monsters: HashMap<Uuid, Monster>,
+    /// The spells' and conditions' descriptions.
+    spells: Vec<SpellEntry>,
+    conditions: Vec<ConditionEntry>,
+    /// What `show` keeps in the side panel, until Esc or another line.
+    pinned: Option<Topic>,
     sender: Option<CommandSender>,
     incoming: mpsc::UnboundedSender<Incoming>,
     input: String,
@@ -152,10 +158,20 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
     let roster = login.characters().await?.list().await?;
     // The fight works without monsters, so their service being away
     // isn't fatal.
-    let (bestiary, monster_problem) = match login.monsters().await?.list(None).await {
+    let monster_client = login.monsters().await?;
+    let (bestiary, monster_problem) = match monster_client.list(None).await {
         Ok(bestiary) => (bestiary, None),
         Err(e) => (Vec::new(), Some(format!("no monsters to add: {e}"))),
     };
+    // Nor are the descriptions.
+    let spells = monster_client
+        .texts::<SpellText>(None)
+        .await
+        .unwrap_or_default();
+    let conditions = monster_client
+        .texts::<ConditionText>(None)
+        .await
+        .unwrap_or_default();
 
     let (incoming, mut received) = mpsc::unbounded_channel();
     let (sender, snapshot) = connect(&mut login, combat, &incoming).await?;
@@ -169,6 +185,9 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
         roster,
         bestiary,
         monsters: HashMap::new(),
+        spells,
+        conditions,
+        pinned: None,
         sender: Some(sender),
         incoming,
         input: String::new(),
@@ -282,7 +301,32 @@ impl App {
             sheets: &self.sheets,
             roster: &self.roster,
             bestiary: &self.bestiary,
+            spells: &self.spells,
+            conditions: &self.conditions,
         }
+    }
+
+    /// What the side panel describes instead of the acting combatant's
+    /// sheet: what the line is about (the suggestion picked, while its name
+    /// is being typed: "cast heal" is about Healing Word, not Heal), else
+    /// what `show` keeps there.
+    pub fn topic(&self) -> Option<Topic> {
+        let ctx = self.context();
+        if let Some(typed) = self.parsed().topic {
+            let picked = self
+                .suggestions()
+                .into_iter()
+                .nth(self.selected)
+                .map(|s| match &typed {
+                    Topic::Spell(_) => Topic::Spell(s.label),
+                    Topic::Effect(_) => Topic::Effect(s.label),
+                    _ => Topic::Named(s.label),
+                });
+            if let Some(topic) = picked.into_iter().chain([typed]).find(|t| ctx.describes(t)) {
+                return Some(topic);
+            }
+        }
+        self.pinned.clone().filter(|t| ctx.describes(t))
     }
 
     pub fn parsed(&self) -> Parsed {
@@ -323,6 +367,8 @@ impl App {
             KeyCode::Backspace => {
                 self.input.pop();
             }
+            // A second Esc, on an empty line, lets go of what `show` kept.
+            KeyCode::Esc if self.input.is_empty() => self.pinned = None,
             KeyCode::Esc => self.input.clear(),
             KeyCode::Tab => {
                 if let Some(s) = self.suggestions().get(self.selected) {
@@ -356,9 +402,15 @@ impl App {
         self.input.clear();
         self.selected = 0;
         self.scroll = 0;
+        // Running another line lets go of what `show` kept.
+        self.pinned = None;
         for step in steps {
             let outcome = match step {
                 Step::Quit => return false,
+                Step::Show(topic) => {
+                    self.pinned = Some(topic);
+                    Ok(())
+                }
                 Step::Combat(command) => self.send(command).await,
                 Step::Join(id) => match self.fetch(id).await {
                     Ok(character) => {

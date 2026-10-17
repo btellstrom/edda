@@ -1,6 +1,10 @@
-//! Client for the monster service.
+//! Client for the monster service: monsters, and the full text of spells
+//! and conditions.
 
-use campaign_types::monster::{Monster, MonsterSheet, MonsterSummary};
+use campaign_types::{
+    monster::{Monster, MonsterSheet, MonsterSummary},
+    rules_text::{Entry, RulesText},
+};
 use uuid::Uuid;
 
 use crate::{ClientError, check, http_client, send};
@@ -54,6 +58,53 @@ impl MonsterClient {
     pub async fn delete(&self, id: Uuid) -> Result<(), ClientError> {
         let response = self.http.delete(self.monster_url(id)).send().await?;
         check(response).await.map(drop)
+    }
+
+    /// The shared spells (`T` = [`campaign_types::rules_text::SpellText`])
+    /// or conditions of the campaign's edition and its own, whole, by name;
+    /// only those whose name contains `search`, if given.
+    pub async fn texts<T: RulesText>(
+        &self,
+        search: Option<&str>,
+    ) -> Result<Vec<Entry<T>>, ClientError> {
+        let mut request = self.http.get(self.url(&format!("/{}", T::KIND)));
+        if let Some(search) = search {
+            request = request.query(&[("search", search)]);
+        }
+        send(request).await
+    }
+
+    pub async fn text<T: RulesText>(&self, id: Uuid) -> Result<Entry<T>, ClientError> {
+        send(self.http.get(self.text_url::<T>(id))).await
+    }
+
+    /// Adds one to the campaign's own.
+    pub async fn create_text<T: RulesText>(&self, text: &T) -> Result<Entry<T>, ClientError> {
+        send(
+            self.http
+                .post(self.url(&format!("/{}", T::KIND)))
+                .json(text),
+        )
+        .await
+    }
+
+    /// Replaces one of the campaign's own ([`ClientError::Forbidden`] for a
+    /// shared one).
+    pub async fn replace_text<T: RulesText>(
+        &self,
+        id: Uuid,
+        text: &T,
+    ) -> Result<Entry<T>, ClientError> {
+        send(self.http.put(self.text_url::<T>(id)).json(text)).await
+    }
+
+    pub async fn delete_text<T: RulesText>(&self, id: Uuid) -> Result<(), ClientError> {
+        let response = self.http.delete(self.text_url::<T>(id)).send().await?;
+        check(response).await.map(drop)
+    }
+
+    fn text_url<T: RulesText>(&self, id: Uuid) -> String {
+        self.url(&format!("/{}/{id}", T::KIND))
     }
 
     fn url(&self, path: &str) -> String {

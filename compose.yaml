@@ -74,8 +74,9 @@ services:
     depends_on:
       - auth
 
-  # Runs on every start: loads the monsters in data/monsters/ (the SRD,
-  # from `make srd`) into the shared library, updating any already there.
+  # Runs on every start: loads the monsters, spells and conditions in
+  # data/monsters/, data/spells/ and data/conditions/ (the SRD, from
+  # `make srd`) into the shared library, updating any already there.
   seed-monsters:
     <<: *app
     restart: "no"
@@ -83,17 +84,22 @@ services:
       - sh
       - -c
       - |
-        set -- /srd/*.json
-        if [ -e "$$1" ]; then
-          monster-service import "$$@"
-        else
-          echo "No monsters in data/monsters/; run make srd to get the SRD's."
-        fi
+        set -e
+        for kind in monsters spells conditions; do
+          set -- /srd/$$kind/*.json
+          if [ -e "$$1" ]; then
+            monster-service import --kind $$kind "$$@"
+          else
+            echo "No $$kind in data/$$kind/; run make srd to get the SRD's."
+          fi
+        done
     environment:
       DATABASE_URL: sqlite:///data/monsters.db
     volumes:
       - monsters-data:/data
-      - ./data/monsters:/srd:ro
+      - ./data/monsters:/srd/monsters:ro
+      - ./data/spells:/srd/spells:ro
+      - ./data/conditions:/srd/conditions:ro
 
   monsters:
     <<: *app

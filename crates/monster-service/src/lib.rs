@@ -1,11 +1,13 @@
-//! Monster service: stat blocks in a shared library (the SRD, imported by
-//! an admin) plus each campaign's own. Every request needs a token from the
-//! auth service; a campaign sees the shared monsters of its edition and its
-//! own, and can change only its own.
+//! Monster service: stat blocks, and the full text of spells and
+//! conditions, in a shared library (the SRD, imported by an admin) plus
+//! each campaign's own. Every request needs a token from the auth service;
+//! a campaign sees the shared ones of its edition and its own, and can
+//! change only its own.
 
 pub mod error;
 pub mod routes;
 pub mod store;
+pub mod texts;
 
 use std::{str::FromStr, sync::Arc};
 

@@ -30,8 +30,8 @@ install: ## install campaign-edit into ~/.cargo/bin
 	$(CARGO) install --locked --path crates/campaign-edit
 	@echo 'Tab completion (bash): add  source <(COMPLETE=bash campaign-edit)  to ~/.bashrc'
 
-srd: ## download the SRD monsters into data/monsters (loaded by make up)
-	tools/fetch-srd-monsters.sh
+srd: ## download the SRD monsters, spells and conditions into data/ (loaded by make up)
+	tools/fetch-srd.sh
 
 up: server ## build and start the servers
 	$(COMPOSE) up -d

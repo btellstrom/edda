@@ -10,6 +10,7 @@ pub mod edition;
 pub mod encounter;
 pub mod monster;
 pub mod resources;
+pub mod rules_text;
 mod slots;
 pub mod spellcasting;
 

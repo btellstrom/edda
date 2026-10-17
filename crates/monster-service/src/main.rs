@@ -1,8 +1,12 @@
 use std::{env, path::PathBuf};
 
-use campaign_types::monster::MonsterSheet;
-use clap::{Parser, Subcommand};
+use campaign_types::{
+    monster::MonsterSheet,
+    rules_text::{ConditionText, RulesText, SpellText},
+};
+use clap::{Parser, Subcommand, ValueEnum};
 use monster_service::MonsterStore;
+use serde::de::DeserializeOwned;
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
@@ -22,18 +26,28 @@ enum Command {
         #[arg(long, env = "BIND_ADDR", default_value = "127.0.0.1:3003")]
         bind: String,
     },
-    /// Load stat blocks from JSON files (each a list of them, or just one)
-    /// into the shared library, or with --campaign into a campaign's own.
-    /// Ones already there (same name, source and edition) are updated.
+    /// Load stat blocks (or with --kind, spells or conditions) from JSON
+    /// files, each a list of them or just one, into the shared library, or
+    /// with --campaign into a campaign's own. Ones already there (same
+    /// name, source and edition) are updated.
     Import {
         #[arg(required = true)]
         files: Vec<PathBuf>,
         #[arg(long)]
         campaign: Option<Uuid>,
+        #[arg(long, value_enum, default_value_t = Kind::Monsters)]
+        kind: Kind,
     },
     /// Delete a campaign's own monsters (`make delete-campaign` deletes
     /// the rest of the campaign too).
     DeleteCampaign { campaign: Uuid },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum Kind {
+    Monsters,
+    Spells,
+    Conditions,
 }
 
 #[tokio::main]
@@ -57,16 +71,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
         }
         Some(Command::Serve { bind }) => serve(pool, &bind).await,
-        Some(Command::Import { files, campaign }) => {
+        Some(Command::Import {
+            files,
+            campaign,
+            kind,
+        }) => {
             let store = MonsterStore::new(pool);
             for file in files {
                 let text = std::fs::read_to_string(&file)
                     .map_err(|e| format!("reading {}: {e}", file.display()))?;
-                let sheets = parse(&text).map_err(|e| format!("{}: {e}", file.display()))?;
-                let imported = store
-                    .import(campaign, &sheets)
-                    .await
-                    .map_err(|e| format!("{}: {e}", file.display()))?;
+                let imported = match kind {
+                    Kind::Monsters => {
+                        let sheets = parse::<MonsterSheet>(&text)
+                            .map_err(|e| format!("{}: {e}", file.display()))?;
+                        store.import(campaign, &sheets).await
+                    }
+                    Kind::Spells => import_texts::<SpellText>(&store, campaign, &text)
+                        .await
+                        .map_err(|e| format!("{}: {e}", file.display()))?,
+                    Kind::Conditions => import_texts::<ConditionText>(&store, campaign, &text)
+                        .await
+                        .map_err(|e| format!("{}: {e}", file.display()))?,
+                }
+                .map_err(|e| format!("{}: {e}", file.display()))?;
                 let into = campaign.map_or("the shared library".to_string(), |c| {
                     format!("campaign {c}")
                 });
@@ -87,12 +114,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-/// A list of stat blocks, or a single one.
-fn parse(text: &str) -> Result<Vec<MonsterSheet>, serde_json::Error> {
-    match serde_json::from_str::<Vec<MonsterSheet>>(text) {
-        Ok(sheets) => Ok(sheets),
-        Err(_) => serde_json::from_str::<MonsterSheet>(text).map(|s| vec![s]),
+/// A list of them, or a single one.
+fn parse<T: DeserializeOwned>(text: &str) -> Result<Vec<T>, serde_json::Error> {
+    match serde_json::from_str::<Vec<T>>(text) {
+        Ok(all) => Ok(all),
+        Err(_) => serde_json::from_str::<T>(text).map(|one| vec![one]),
     }
+}
+
+async fn import_texts<T: RulesText>(
+    store: &MonsterStore,
+    campaign: Option<Uuid>,
+    text: &str,
+) -> Result<
+    Result<monster_service::store::Imported, monster_service::error::ApiError>,
+    serde_json::Error,
+> {
+    let texts = parse::<T>(text)?;
+    Ok(store.import_texts(campaign, &texts).await)
 }
 
 async fn serve(pool: sqlx::SqlitePool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {

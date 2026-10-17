@@ -8,7 +8,11 @@ use campaign_auth::{
     protocol::{Claims, Principal},
     server::{TokenSigner, TokenVerifier},
 };
-use campaign_types::{Edition, monster::MonsterSheet};
+use campaign_types::{
+    Edition,
+    monster::MonsterSheet,
+    rules_text::{ConditionText, SpellText},
+};
 use chrono::Utc;
 use http_body_util::BodyExt;
 use monster_service::MonsterStore;
@@ -264,4 +268,104 @@ async fn importing_again_updates_and_campaigns_can_be_deleted() {
         ["Troll", "Troll Limb"],
         "the shared library stays"
     );
+}
+
+fn spell(name: &str, level: u8, edition: Option<Edition>) -> SpellText {
+    SpellText {
+        name: name.into(),
+        level,
+        description: format!("What {name} does."),
+        source: "SRD".into(),
+        edition,
+        ..Default::default()
+    }
+}
+
+#[tokio::test]
+async fn spells_and_conditions_are_kept_like_monsters() {
+    let app = App::new().await;
+    let shared = [
+        spell("Bless", 1, Some(Edition::Rules2014)),
+        spell("Bless", 1, Some(Edition::Rules2024)),
+        spell("Fireball", 3, None),
+    ];
+    let imported = app.store.import_texts(None, &shared).await.unwrap();
+    assert_eq!(imported.added, 3);
+    let prone = ConditionText {
+        name: "Prone".into(),
+        description: "- Crawl.".into(),
+        source: "SRD".into(),
+        edition: None,
+    };
+    app.store.import_texts(None, &[prone]).await.unwrap();
+
+    let campaign = Uuid::new_v4();
+    let ours = app.campaign(campaign, Edition::Rules2024);
+    let (status, spells) = ours.send(Method::GET, "/spells", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let editions: Vec<_> = spells
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| (s["name"].as_str().unwrap(), s["edition"].clone()))
+        .collect();
+    assert_eq!(
+        editions,
+        [("Bless", json!("2024")), ("Fireball", Value::Null)],
+        "the campaign's edition, whole entries"
+    );
+    assert_eq!(spells[1]["description"], "What Fireball does.");
+    let (_, conditions) = ours.send(Method::GET, "/conditions?search=pro", None).await;
+    assert_eq!(conditions[0]["name"], "Prone");
+
+    // Homebrew: added, changed and deleted by the campaign; the shared
+    // library can't be changed.
+    let (status, zap) = ours
+        .send(
+            Method::POST,
+            "/spells",
+            Some(json!({"name": "Zap", "level": 1})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let zap_id = zap["id"].as_str().unwrap();
+    let (status, changed) = ours
+        .send(
+            Method::PUT,
+            &format!("/spells/{zap_id}"),
+            Some(json!({"name": "Zap", "level": 2})),
+        )
+        .await;
+    assert_eq!(
+        (status, changed["level"].clone()),
+        (StatusCode::OK, json!(2))
+    );
+    let (status, _) = ours
+        .send(
+            Method::POST,
+            "/spells",
+            Some(json!({"name": "Too much", "level": 10})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let shared_id = spells[1]["id"].as_str().unwrap();
+    let (status, _) = ours
+        .send(Method::DELETE, &format!("/spells/{shared_id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let others = app.campaign(Uuid::new_v4(), Edition::Rules2024);
+    let (status, _) = others
+        .send(Method::GET, &format!("/spells/{zap_id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "another campaign's");
+    let (status, _) = ours
+        .send(Method::GET, &format!("/conditions/{zap_id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "a spell isn't a condition");
+
+    app.store.delete_campaign(campaign).await.unwrap();
+    let (status, _) = ours
+        .send(Method::GET, &format!("/spells/{zap_id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "deleted with the campaign");
 }

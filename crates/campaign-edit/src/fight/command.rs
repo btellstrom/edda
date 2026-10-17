@@ -15,6 +15,7 @@ use campaign_types::{
         CombatCommand, CombatError, CombatState, Combatant, NewEffect, NoDice, SpellSlot, decide,
     },
     monster::MonsterSummary,
+    rules_text::{self, ConditionEntry, SpellEntry},
 };
 use uuid::Uuid;
 
@@ -27,6 +28,22 @@ pub struct Context<'a> {
     pub roster: &'a [CharacterSummary],
     /// The monsters that can be added.
     pub bestiary: &'a [MonsterSummary],
+    /// The spells' and conditions' descriptions.
+    pub spells: &'a [SpellEntry],
+    pub conditions: &'a [ConditionEntry],
+}
+
+/// What a line is about, whose description the side panel can show.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Topic {
+    /// A spell, by name (perhaps only partly typed).
+    Spell(String),
+    /// An effect in play or a condition, by name (perhaps partly typed).
+    Effect(String),
+    /// Anything with a description: an effect in play, a spell or a
+    /// condition, by name.
+    Named(String),
+    Combatant(Uuid),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +62,8 @@ pub enum Step {
         count: u16,
         roll: bool,
     },
+    /// Keep a description in the side panel.
+    Show(Topic),
     Quit,
 }
 
@@ -59,6 +78,8 @@ pub struct Parsed {
     /// The heading of the actor's sheet that the line needs, such as
     /// "Spellcasting" for a cast.
     pub section: Option<&'static str>,
+    /// What the line is about, to describe.
+    pub topic: Option<Topic>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,6 +98,7 @@ enum Verb {
     Cast,
     Effect,
     Drop,
+    Show,
     Use,
     Init,
     Remove,
@@ -117,6 +139,12 @@ const VERBS: &[(Verb, &str, &str, &str)] = &[
         "put an effect on",
     ),
     (Verb::Drop, "drop", "<effect>", "end an effect"),
+    (
+        Verb::Show,
+        "show",
+        "<spell | effect | condition | who>",
+        "describe it in the side panel",
+    ),
     (
         Verb::Use,
         "use",
@@ -186,6 +214,7 @@ pub fn parse(line: &str, ctx: &Context) -> Parsed {
         sentence: String::new(),
         plan: Err("type an action; Tab completes".into()),
         section: None,
+        topic: None,
     };
     let (who, rest) = match words.split_first() {
         None => return parsed,
@@ -214,6 +243,7 @@ pub fn parse(line: &str, ctx: &Context) -> Parsed {
         return parsed;
     };
     parsed.section = section(verb, actor);
+    parsed.topic = topic(verb, actor, args, ctx);
     let (sentence, plan) = interpret(verb, actor, args, ctx);
     parsed.sentence = sentence;
     parsed.plan = plan.and_then(|steps| check(steps, ctx));
@@ -234,6 +264,87 @@ fn section(verb: Verb, actor: Option<&Combatant>) -> Option<&'static str> {
         Verb::Cast => Some("Spellcasting"),
         Verb::Use => Some("Features"),
         _ => None,
+    }
+}
+
+/// What a line with `verb` is about: the spell cast, the effect put down
+/// or ended, or what's looked at.
+fn topic(verb: Verb, actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Option<Topic> {
+    if args.is_empty() {
+        return None;
+    }
+    // Names run up to the first number (a target), or `for` or `at`.
+    let end = args
+        .iter()
+        .position(|w| {
+            w.parse::<usize>().is_ok() || ["for", "at"].contains(&w.to_lowercase().as_str())
+        })
+        .unwrap_or(args.len());
+    let name = args[..end].join(" ");
+    match verb {
+        Verb::Cast => {
+            let known = actor.and_then(|a| ctx.sheet(a)).and_then(|sheet| {
+                longest_name(
+                    args,
+                    sheet.spellcasting.spells.iter().map(|s| s.name.as_str()),
+                )
+            });
+            Some(Topic::Spell(known.map_or(name, |(n, _)| n.to_string())))
+        }
+        Verb::Effect if !name.is_empty() => Some(Topic::Effect(name)),
+        Verb::Drop => Some(Topic::Effect(args.join(" "))),
+        Verb::Show => match args {
+            [n] if n.parse::<usize>().is_ok() => n
+                .parse()
+                .ok()
+                .and_then(|n| ctx.numbered(n))
+                .map(|c| Topic::Combatant(c.id)),
+            _ => Some(Topic::Named(args.join(" "))),
+        },
+        _ => None,
+    }
+}
+
+impl Context<'_> {
+    /// Whether there's a description of what `topic` names, exactly.
+    pub fn describes(&self, topic: &Topic) -> bool {
+        let spell = |name: &str| rules_text::named(self.spells, name).is_some();
+        let condition = |name: &str| rules_text::named(self.conditions, name).is_some();
+        let effect = |name: &str| {
+            self.state
+                .effects
+                .iter()
+                .any(|e| e.name.eq_ignore_ascii_case(name.trim()))
+        };
+        match topic {
+            Topic::Spell(name) => spell(name) || self.known_spell(name).is_some(),
+            Topic::Effect(name) => effect(name) || spell(name) || condition(name),
+            Topic::Named(name) => {
+                effect(name)
+                    || spell(name)
+                    || condition(name)
+                    || self.named_combatant(name).is_some()
+            }
+            Topic::Combatant(id) => self.by_id(*id).is_some(),
+        }
+    }
+
+    /// A spell called `name` on any fighting character's sheet.
+    pub fn known_spell(&self, name: &str) -> Option<&Spell> {
+        self.state
+            .combatants
+            .iter()
+            .filter_map(|c| self.sheet(c))
+            .find_map(|sheet| sheet.spellcasting.find_spell(name.trim()))
+            .filter(|s| s.name.eq_ignore_ascii_case(name.trim()))
+    }
+
+    /// The combatant called `name`, in any case.
+    pub fn named_combatant(&self, name: &str) -> Option<&Combatant> {
+        self.state
+            .combatants
+            .iter()
+            .find(|c| c.name.eq_ignore_ascii_case(name.trim()))
     }
 }
 
@@ -265,6 +376,7 @@ fn interpret(verb: Verb, actor: Option<&Combatant>, args: &[&str], ctx: &Context
         Verb::Damage | Verb::Heal | Verb::Temp => amount_verb(verb, actor, args, ctx),
         Verb::Cast => cast(actor, args, ctx),
         Verb::Effect => effect(actor, args, ctx),
+        Verb::Show => show(args, ctx),
         Verb::Drop => {
             let name = args.join(" ");
             let found = ctx
@@ -441,6 +553,42 @@ fn amount_verb(verb: Verb, actor: Option<&Combatant>, args: &[&str], ctx: &Conte
         })
         .collect();
     (sentence, Ok(steps))
+}
+
+fn show(args: &[&str], ctx: &Context) -> Interpreted {
+    let typed = args.join(" ");
+    if typed.is_empty() {
+        return (
+            "Show …".into(),
+            Err("at what? a spell, effect, condition or combatant; Tab lists them".into()),
+        );
+    }
+    let topic = match args {
+        [n] if n.parse::<usize>().is_ok() => match n.parse().ok().and_then(|n| ctx.numbered(n)) {
+            Some(c) => Topic::Combatant(c.id),
+            None => {
+                return (
+                    format!("Show {typed}"),
+                    Err(format!("there's no number {n}")),
+                );
+            }
+        },
+        _ => Topic::Named(typed.clone()),
+    };
+    let shown = match &topic {
+        Topic::Combatant(id) => ctx.by_id(*id).map_or(typed.clone(), |c| c.name.clone()),
+        _ => typed.clone(),
+    };
+    if ctx.describes(&topic) {
+        (format!("Show {shown}"), Ok(vec![Step::Show(topic)]))
+    } else {
+        (
+            format!("Show {shown}"),
+            Err(format!(
+                "nothing called \"{typed}\" is described; Tab lists what is"
+            )),
+        )
+    }
 }
 
 fn cast(actor: Option<&Combatant>, args: &[&str], ctx: &Context) -> Interpreted {
@@ -1027,6 +1175,16 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
                     .collect(),
             )
         }
+        Verb::Show if args.iter().any(|w| w.parse::<usize>().is_ok()) => Vec::new(),
+        Verb::Show => {
+            let mut out = if args.is_empty() {
+                target_suggestions()
+            } else {
+                Vec::new()
+            };
+            out.extend(named(show_names(ctx)));
+            out
+        }
         Verb::Drop => named(
             ctx.state
                 .effects
@@ -1087,6 +1245,35 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
         }
         _ => Vec::new(),
     }
+}
+
+/// Everything `show` can describe: the effects in play, the conditions and
+/// the spells (the campaign's, and any on a fighter's sheet).
+fn show_names(ctx: &Context) -> Vec<(String, String)> {
+    let mut names: Vec<(String, String)> = Vec::new();
+    let mut add = |name: &str, detail: String| {
+        if !names.iter().any(|(n, _)| n.eq_ignore_ascii_case(name)) {
+            names.push((name.to_string(), detail));
+        }
+    };
+    for effect in &ctx.state.effects {
+        add(&effect.name, "in play".into());
+    }
+    for condition in ctx.conditions {
+        add(&condition.text.name, "condition".into());
+    }
+    for name in CONDITIONS {
+        add(name, "condition".into());
+    }
+    for spell in ctx.spells {
+        add(&spell.text.name, crate::display::spell_kind(&spell.text));
+    }
+    for sheet in ctx.state.combatants.iter().filter_map(|c| ctx.sheet(c)) {
+        for spell in &sheet.spellcasting.spells {
+            add(&spell.name, "spell".into());
+        }
+    }
+    names
 }
 
 /// The conditions, then the effects in play (in case one goes on someone
@@ -1198,6 +1385,19 @@ mod tests {
         sheets: HashMap<Uuid, Character>,
         roster: Vec<CharacterSummary>,
         bestiary: Vec<MonsterSummary>,
+        spells: Vec<SpellEntry>,
+        conditions: Vec<ConditionEntry>,
+    }
+
+    fn entry<T: rules_text::RulesText>(text: T) -> rules_text::Entry<T> {
+        rules_text::Entry {
+            id: Uuid::new_v4(),
+            campaign: None,
+            text,
+            version: 1,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
     }
 
     fn monster(name: &str, max_hit_points: u16, shared: bool) -> MonsterSummary {
@@ -1290,6 +1490,15 @@ mod tests {
                 monster("Goblin", 12, true),
                 monster("Goblin Boss", 30, true),
             ],
+            spells: vec![entry(rules_text::SpellText {
+                name: "Hunter's Mark".into(),
+                level: 1,
+                ..Default::default()
+            })],
+            conditions: vec![entry(rules_text::ConditionText {
+                name: "Prone".into(),
+                ..Default::default()
+            })],
         }
     }
 
@@ -1300,6 +1509,8 @@ mod tests {
                 sheets: &self.sheets,
                 roster: &self.roster,
                 bestiary: &self.bestiary,
+                spells: &self.spells,
+                conditions: &self.conditions,
             }
         }
 
@@ -1317,6 +1528,64 @@ mod tests {
                 .map(|s| s.line)
                 .collect()
         }
+    }
+
+    #[test]
+    fn lines_say_what_they_are_about() {
+        let w = world();
+        let topic = |line: &str| w.parse(line).topic;
+        assert_eq!(
+            topic("cast hunter's mark 3"),
+            Some(Topic::Spell("Hunter's Mark".into()))
+        );
+        assert_eq!(
+            topic("cast hun"),
+            Some(Topic::Spell("hun".into())),
+            "still typing"
+        );
+        assert_eq!(topic("cast"), None);
+        assert_eq!(
+            topic("effect prone 3 for 2"),
+            Some(Topic::Effect("prone".into()))
+        );
+        assert_eq!(topic("show 2"), Some(Topic::Combatant(w.id(2))));
+        assert_eq!(topic("damage 3 5"), None);
+        let ctx = w.ctx();
+        assert!(ctx.describes(&Topic::Spell("hunter's mark".into())));
+        assert!(
+            ctx.describes(&Topic::Spell("Cure Wounds".into())),
+            "on Vex's sheet"
+        );
+        assert!(!ctx.describes(&Topic::Spell("hun".into())));
+        assert!(ctx.describes(&Topic::Effect("Prone".into())));
+    }
+
+    #[test]
+    fn show_keeps_a_description_of_anything_named() {
+        let w = world();
+        assert_eq!(
+            w.parse("show prone").plan,
+            Ok(vec![Step::Show(Topic::Named("prone".into()))])
+        );
+        assert_eq!(
+            w.parse("show 3").plan,
+            Ok(vec![Step::Show(Topic::Combatant(w.id(3)))])
+        );
+        assert_eq!(
+            w.parse("show grog").plan,
+            Ok(vec![Step::Show(Topic::Named("grog".into()))]),
+            "a combatant by name"
+        );
+        assert!(w.parse("show nothing").plan.is_err());
+        assert!(w.parse("show 9").plan.is_err());
+        let offered = w.lines("show hu");
+        assert!(
+            offered.contains(&"show Hunter's Mark ".to_string()),
+            "{offered:?}"
+        );
+        let offered = w.lines("show ");
+        assert!(offered.contains(&"show 1 ".to_string()), "combatants too");
+        assert!(offered.contains(&"show Prone ".to_string()));
     }
 
     #[test]

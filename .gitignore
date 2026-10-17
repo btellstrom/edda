@@ -3,7 +3,9 @@
 *.db-shm
 *.db-wal
 *.key
-# Downloaded by tools/fetch-srd-monsters.sh (`make srd`); not redistributed here.
+# Downloaded by tools/fetch-srd.sh (`make srd`); not redistributed here.
 /data/monsters/*.json
+/data/spells/*.json
+/data/conditions/*.json
 # Your own characters to `campaign-edit import`.
 /data/characters/

@@ -91,6 +91,14 @@ pub enum TopCommand {
     /// its own.
     #[command(subcommand)]
     Monster(MonsterCommand),
+    /// The spells' full descriptions: the shared library (the SRD) and the
+    /// campaign's own.
+    #[command(subcommand)]
+    Spell(SpellTextCommand),
+    /// The conditions' full descriptions (Prone and the rest), and any
+    /// other named effects the campaign describes.
+    #[command(subcommand)]
+    Condition(ConditionCommand),
     /// Run a combat on a full-screen view: initiative order, the acting
     /// character's sheet, the log, and a command line with completion.
     Fight(FightArgs),
@@ -100,6 +108,97 @@ pub enum TopCommand {
     /// A character name or ID, followed by a character command.
     #[command(external_subcommand)]
     Character(Vec<String>),
+}
+
+/// What `spell` and `condition` do, either way.
+#[derive(Debug)]
+pub enum TextCommand {
+    List(Option<String>),
+    Show(String),
+    Add(std::path::PathBuf),
+    Export(String),
+    Delete { name: String, yes: bool },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SpellTextCommand {
+    /// List them, optionally only those whose name contains SEARCH.
+    #[command(visible_alias = "ls")]
+    List { search: Option<String> },
+    /// Show a spell's description, by name (a unique prefix will do).
+    Show {
+        #[arg(add = ArgValueCompleter::new(complete::spells))]
+        spell: String,
+    },
+    /// Add the campaign's own from a JSON file: one spell or a list.
+    /// `export` gives a starting point.
+    Add { file: std::path::PathBuf },
+    /// Print a spell as JSON, e.g. to base a new one on.
+    Export {
+        #[arg(add = ArgValueCompleter::new(complete::spells))]
+        spell: String,
+    },
+    /// Delete one of the campaign's own.
+    Delete {
+        #[arg(add = ArgValueCompleter::new(complete::spells))]
+        spell: String,
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ConditionCommand {
+    /// List them, optionally only those whose name contains SEARCH.
+    #[command(visible_alias = "ls")]
+    List { search: Option<String> },
+    /// Show a condition's description, by name (a unique prefix will do).
+    Show {
+        #[arg(add = ArgValueCompleter::new(complete::conditions))]
+        condition: String,
+    },
+    /// Add the campaign's own from a JSON file: one or a list, each a
+    /// `name` and a `description`.
+    Add { file: std::path::PathBuf },
+    /// Print a condition as JSON, e.g. to base a new one on.
+    Export {
+        #[arg(add = ArgValueCompleter::new(complete::conditions))]
+        condition: String,
+    },
+    /// Delete one of the campaign's own.
+    Delete {
+        #[arg(add = ArgValueCompleter::new(complete::conditions))]
+        condition: String,
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+impl From<SpellTextCommand> for TextCommand {
+    fn from(command: SpellTextCommand) -> Self {
+        match command {
+            SpellTextCommand::List { search } => Self::List(search),
+            SpellTextCommand::Show { spell } => Self::Show(spell),
+            SpellTextCommand::Add { file } => Self::Add(file),
+            SpellTextCommand::Export { spell } => Self::Export(spell),
+            SpellTextCommand::Delete { spell, yes } => Self::Delete { name: spell, yes },
+        }
+    }
+}
+
+impl From<ConditionCommand> for TextCommand {
+    fn from(command: ConditionCommand) -> Self {
+        match command {
+            ConditionCommand::List { search } => Self::List(search),
+            ConditionCommand::Show { condition } => Self::Show(condition),
+            ConditionCommand::Add { file } => Self::Add(file),
+            ConditionCommand::Export { condition } => Self::Export(condition),
+            ConditionCommand::Delete { condition, yes } => Self::Delete {
+                name: condition,
+                yes,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]

@@ -5,8 +5,9 @@ use std::fmt::Write;
 use ratatui::text::{Line, Span};
 
 use campaign_types::{
-    Ability, Character, CharacterSheet, CharacterSummary, Pool, Recharge, Skill,
+    Ability, Character, CharacterSheet, CharacterSummary, Edition, Pool, Recharge, Skill,
     monster::{Feature, MonsterSheet, MonsterSummary},
+    rules_text::{ConditionText, Entry, RulesText, SpellText},
 };
 
 use crate::{
@@ -615,6 +616,192 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
         notes(&mut doc, &m.notes);
     }
     doc.into_lines()
+}
+
+/// A spell as the books lay it out, `width` columns wide.
+pub fn spell(s: &SpellText, width: usize, detail: Detail) -> Vec<Line<'static>> {
+    let mut doc = Doc::new(width);
+    if detail == Detail::Full {
+        doc.line(vec![strong(s.name.clone())]);
+    }
+    doc.line(vec![
+        plain(spell_kind(s)),
+        dim(format!("  ·  {}", s.source)),
+    ]);
+    doc.blank();
+    let mut duration = s.duration.clone();
+    if s.concentration && !duration.to_lowercase().contains("concentration") {
+        duration = format!("Concentration, {}", lowercase_first(&duration));
+    }
+    let mut components = s.components.clone();
+    if !s.material.is_empty() {
+        components += &format!(" ({})", s.material);
+    }
+    let rows = [
+        ("Casting time", s.casting_time.clone()),
+        ("Range", s.range.clone()),
+        ("Components", components),
+        ("Duration", duration),
+        ("Classes", s.classes.join(", ")),
+    ];
+    for (label, value) in rows.into_iter().filter(|(_, v)| !v.is_empty()) {
+        doc.row(0, label, 12, vec![plain(value)]);
+    }
+    if !s.description.is_empty() {
+        doc.blank();
+        rich(&mut doc, &s.description, false);
+    }
+    if !s.higher_levels.is_empty() {
+        doc.heading(if s.level == 0 {
+            "Cantrip upgrade"
+        } else {
+            "At higher levels"
+        });
+        rich(&mut doc, &s.higher_levels, true);
+    }
+    doc.into_lines()
+}
+
+/// "Level 3 Evocation", or the 2014 books' "3rd-level evocation", with
+/// "(ritual)" if it is one.
+pub fn spell_kind(s: &SpellText) -> String {
+    let school = if s.school.is_empty() {
+        "spell".to_string()
+    } else {
+        s.school.clone()
+    };
+    let mut kind = match (s.level, s.edition) {
+        (0, _) => format!("{school} cantrip"),
+        (level, Some(Edition::Rules2014)) => {
+            format!("{}-level {}", ordinal(level), school.to_lowercase())
+        }
+        (level, _) => format!("Level {level} {school}"),
+    };
+    if s.ritual {
+        kind += " (ritual)";
+    }
+    kind
+}
+
+fn lowercase_first(text: &str) -> String {
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) => first.to_lowercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+/// A condition's description, `width` columns wide.
+pub fn condition(c: &ConditionText, width: usize, detail: Detail) -> Vec<Line<'static>> {
+    let mut doc = Doc::new(width);
+    if detail == Detail::Full {
+        doc.line(vec![strong(c.name.clone())]);
+        doc.line(vec![dim(c.source.clone())]);
+        doc.blank();
+    }
+    rich(&mut doc, &c.description, false);
+    if detail == Detail::Panel {
+        doc.blank();
+        doc.line(vec![dim(c.source.clone())]);
+    }
+    doc.into_lines()
+}
+
+/// Rules text: paragraphs one per line, `- ` starting a list item and
+/// `**…**` bold. A blank line between paragraphs, none between items;
+/// `indented` for text inside a section.
+fn rich(doc: &mut Doc, text: &str, indented: bool) {
+    let mut previous_item = None;
+    for line in text.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        let item = line.strip_prefix("- ").or_else(|| line.strip_prefix("* "));
+        if previous_item.is_some() && !(previous_item == Some(true) && item.is_some()) {
+            doc.blank();
+        }
+        previous_item = Some(item.is_some());
+        match item {
+            Some(item) => doc.bullet(bold_runs(item)),
+            None if indented => doc.paragraph(bold_runs(line)),
+            None => doc.prose(bold_runs(line)),
+        }
+    }
+}
+
+/// `**Bold.** plain` as spans, with dice kept on one line.
+fn bold_runs(text: &str) -> Vec<Span<'static>> {
+    dice_together(text)
+        .split("**")
+        .enumerate()
+        .filter(|(_, run)| !run.is_empty())
+        .map(|(i, run)| {
+            if i % 2 == 1 {
+                strong(run.to_string())
+            } else {
+                plain(run.to_string())
+            }
+        })
+        .collect()
+}
+
+/// Spells as a table: name, level and school, C for concentration, source.
+pub fn spell_list(spells: &[Entry<SpellText>]) -> String {
+    if spells.is_empty() {
+        return "No spells.".into();
+    }
+    let width = spells
+        .iter()
+        .map(|s| chars(&s.text.name))
+        .max()
+        .unwrap_or(0);
+    let kind_width = spells
+        .iter()
+        .map(|s| chars(&spell_kind(&s.text)))
+        .max()
+        .unwrap_or(0);
+    let mut out = String::new();
+    for entry in spells {
+        let s = &entry.text;
+        let concentration = if s.concentration { "C" } else { " " };
+        let whose = if entry.campaign.is_some() {
+            "  (campaign)"
+        } else {
+            ""
+        };
+        let _ = writeln!(
+            out,
+            "{:<width$}  {:<kind_width$}  {concentration}  {}{whose}",
+            s.name,
+            spell_kind(s),
+            s.source
+        );
+    }
+    out.trim_end().to_string()
+}
+
+/// Rules texts other than spells: name and source.
+pub fn text_list<T: RulesText>(entries: &[Entry<T>]) -> String {
+    if entries.is_empty() {
+        return format!("No {}.", T::KIND);
+    }
+    let width = entries
+        .iter()
+        .map(|e| chars(e.text.name()))
+        .max()
+        .unwrap_or(0);
+    let mut out = String::new();
+    for entry in entries {
+        let whose = if entry.campaign.is_some() {
+            "  (campaign)"
+        } else {
+            ""
+        };
+        let _ = writeln!(
+            out,
+            "{:<width$}  {}{whose}",
+            entry.text.name(),
+            entry.text.source()
+        );
+    }
+    out.trim_end().to_string()
 }
 
 fn abbreviation(a: Ability) -> &'static str {

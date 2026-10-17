@@ -61,6 +61,10 @@ impl MonsterStore {
         Self { pool }
     }
 
+    pub(crate) fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+
     /// The shared monsters suiting the campaign's edition and the
     /// campaign's own, by name.
     pub async fn list(&self, scope: Scope) -> Result<Vec<Monster>, ApiError> {
@@ -169,12 +173,19 @@ impl MonsterStore {
         Ok(imported)
     }
 
-    /// Deletes a campaign's own monsters; returns how many there were.
+    /// Deletes a campaign's own monsters, spells and conditions; returns
+    /// how many monsters there were.
     pub async fn delete_campaign(&self, campaign: Uuid) -> Result<u64, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("DELETE FROM rules_text WHERE campaign = ?")
+            .bind(campaign.to_string())
+            .execute(&mut *tx)
+            .await?;
         let result = sqlx::query("DELETE FROM monsters WHERE campaign = ?")
             .bind(campaign.to_string())
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
+        tx.commit().await?;
         Ok(result.rows_affected())
     }
 }

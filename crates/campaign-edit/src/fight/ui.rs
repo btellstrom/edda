@@ -1,6 +1,9 @@
 //! Drawing the fight screen.
 
-use campaign_types::combat::{CombatCommand, CombatState, CombatStatus, Combatant, Effect};
+use campaign_types::{
+    combat::{CombatCommand, CombatState, CombatStatus, Combatant, Effect},
+    rules_text,
+};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -12,8 +15,12 @@ use uuid::Uuid;
 
 use super::{
     App,
-    command::{self, Step},
+    command::{self, Step, Topic},
     log,
+};
+use crate::{
+    display::{self, Detail},
+    styled::{Doc, dim, plain},
 };
 
 /// Suggestion rows below the command line: every action (what an empty
@@ -50,7 +57,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     draw_header(frame, app, header);
     draw_order(frame, app, order);
-    draw_sheet(frame, app, sheet);
+    draw_panel(frame, app, sheet);
     draw_log(frame, app, history);
     draw_command(frame, app, command, usize::from(suggestion_rows));
 }
@@ -212,16 +219,201 @@ fn hp(c: &Combatant) -> Span<'static> {
     }
 }
 
-fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
-    let Some(combatant) = app.shown() else {
-        frame.render_widget(
-            Paragraph::new("Nobody's turn yet.")
-                .dark_gray()
-                .block(Block::bordered().title(" Sheet ")),
-            area,
-        );
-        return;
+/// The side panel: a description of what the line is about (or what
+/// `show` keeps there), else the acting combatant's sheet.
+fn draw_panel(frame: &mut Frame, app: &App, area: Rect) {
+    let state = app.replica.state();
+    let topic = app.topic().map(|topic| match topic {
+        // A name that's only a combatant's is their sheet.
+        Topic::Named(name)
+            if !describes_text(app, &name) && app.context().named_combatant(&name).is_some() =>
+        {
+            Topic::Combatant(app.context().named_combatant(&name).unwrap().id)
+        }
+        other => other,
+    });
+    match topic {
+        Some(Topic::Combatant(id)) => {
+            if let Some(combatant) = state.combatant(id) {
+                draw_sheet(frame, app, area, combatant);
+            }
+        }
+        Some(topic) => draw_description(frame, app, area, &topic),
+        None => match app.shown() {
+            Some(combatant) => draw_sheet(frame, app, area, combatant),
+            None => frame.render_widget(
+                Paragraph::new("Nobody's turn yet.")
+                    .dark_gray()
+                    .block(Block::bordered().title(" Sheet ")),
+                area,
+            ),
+        },
+    }
+}
+
+/// Whether `name` is an effect in play, a spell or a condition.
+fn describes_text(app: &App, name: &str) -> bool {
+    let ctx = app.context();
+    ctx.describes(&Topic::Effect(name.to_string()))
+        || ctx.describes(&Topic::Spell(name.to_string()))
+}
+
+/// A spell's, effect's or condition's description, with how an effect in
+/// play stands and, while casting, the caster's slots.
+fn draw_description(frame: &mut Frame, app: &App, area: Rect, topic: &Topic) {
+    let inner = usize::from(area.width.saturating_sub(2));
+    let height = usize::from(area.height.saturating_sub(2));
+    let state = app.replica.state();
+    let name = match topic {
+        Topic::Spell(name) | Topic::Effect(name) | Topic::Named(name) => name.trim(),
+        Topic::Combatant(_) => return,
     };
+    let effect = match topic {
+        Topic::Spell(_) => None,
+        _ => state
+            .effects
+            .iter()
+            .find(|e| e.name.eq_ignore_ascii_case(name)),
+    };
+    let mut doc = Doc::new(inner);
+    if let Some(effect) = effect {
+        effect_rows(&mut doc, effect, state);
+        doc.blank();
+    }
+    if let Topic::Spell(_) = topic {
+        // What there is to cast it with.
+        let slots = app
+            .shown()
+            .and_then(|c| c.character_id)
+            .and_then(|id| app.sheets.get(&id))
+            .and_then(|c| display::slots_line(&c.sheet));
+        if let Some(slots) = slots {
+            doc.row(0, "Slots", 5, vec![plain(slots)]);
+            doc.blank();
+        }
+    }
+    let mut lines = doc.into_lines();
+    if !lines.is_empty() {
+        lines.push(Line::default());
+    }
+    let spell = rules_text::named(&app.spells, name);
+    let condition = match topic {
+        Topic::Spell(_) => None,
+        _ => rules_text::named(&app.conditions, name),
+    };
+    let (title, text) = if let Some(spell) = spell {
+        (
+            spell.text.name.clone(),
+            display::spell(&spell.text, inner, Detail::Panel),
+        )
+    } else if let Some(condition) = condition {
+        (
+            condition.text.name.clone(),
+            display::condition(&condition.text, inner, Detail::Panel),
+        )
+    } else {
+        let known = app.context().known_spell(name).cloned();
+        let mut doc = Doc::new(inner);
+        let title = match &known {
+            Some(spell) => {
+                let mut kind = if spell.level == 0 {
+                    "Cantrip".to_string()
+                } else {
+                    format!("Level {} spell", spell.level)
+                };
+                if spell.concentration {
+                    kind += ", concentration";
+                }
+                if spell.ritual {
+                    kind += ", ritual";
+                }
+                doc.line(vec![plain(kind)]);
+                if !spell.notes.is_empty() {
+                    doc.blank();
+                    doc.prose(vec![plain(spell.notes.clone())]);
+                }
+                doc.blank();
+                spell.name.clone()
+            }
+            None => effect.map_or(name.to_string(), |e| e.name.clone()),
+        };
+        let what = if known.is_some() {
+            "spell"
+        } else {
+            "condition"
+        };
+        doc.prose(vec![dim(format!(
+            "No description of {title} in the campaign; `campaign-edit {what} add` can add one."
+        ))]);
+        (title, doc.into_lines())
+    };
+    lines.extend(text);
+    let title = if effect.is_some() {
+        format!(" {title} · in play ")
+    } else {
+        format!(" {title} ")
+    };
+    let scrolled = app.panel.place(topic, 0, lines.len(), height);
+    render_panel(frame, area, title, Text::from(lines), scrolled);
+}
+
+/// Who an effect in play is on, who put it there, and how long it lasts.
+fn effect_rows(doc: &mut Doc, effect: &Effect, state: &CombatState) {
+    let named = |id: &Uuid| state.combatant(*id).map(|c| c.name.clone());
+    let on: Vec<String> = effect.targets.iter().filter_map(named).collect();
+    doc.row(
+        0,
+        "On",
+        5,
+        vec![plain(if on.is_empty() {
+            "nobody: it's put down".to_string()
+        } else {
+            on.join(", ")
+        })],
+    );
+    if let Some(source) = effect.source.as_ref().and_then(named) {
+        let concentrating = if effect.concentration {
+            ", concentrating"
+        } else {
+            ""
+        };
+        doc.row(0, "By", 5, vec![plain(format!("{source}{concentrating}"))]);
+    }
+    let left = time_left(effect, state);
+    let left = left.trim_start_matches(" · ");
+    doc.row(
+        0,
+        "Lasts",
+        5,
+        vec![plain(if left.is_empty() {
+            "until removed".to_string()
+        } else {
+            left.to_string()
+        })],
+    );
+}
+
+fn render_panel(
+    frame: &mut Frame,
+    area: Rect,
+    title: String,
+    text: Text<'static>,
+    scrolled: crate::styled::Scrolled,
+) {
+    let mut block = Block::bordered().title(title);
+    if let Some(hint) = scrolled.hint() {
+        block = block.title_bottom(Line::from(hint).dark_gray().right_aligned());
+    }
+    frame.render_widget(
+        Paragraph::new(text)
+            .scroll((u16::try_from(scrolled.offset).unwrap_or(u16::MAX), 0))
+            .wrap(Wrap { trim: false })
+            .block(block),
+        area,
+    );
+}
+
+fn draw_sheet(frame: &mut Frame, app: &App, area: Rect, combatant: &Combatant) {
     // Inside the borders.
     let inner = usize::from(area.width.saturating_sub(2));
     let height = usize::from(area.height.saturating_sub(2));
@@ -296,17 +488,7 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
     } else {
         format!(" {} ", combatant.name)
     };
-    let mut block = Block::bordered().title(title);
-    if let Some(hint) = scrolled.hint() {
-        block = block.title_bottom(Line::from(hint).dark_gray().right_aligned());
-    }
-    frame.render_widget(
-        Paragraph::new(text)
-            .scroll((u16::try_from(scrolled.offset).unwrap_or(u16::MAX), 0))
-            .wrap(Wrap { trim: false })
-            .block(block),
-        area,
-    );
+    render_panel(frame, area, title, text, scrolled);
 }
 
 fn draw_log(frame: &mut Frame, app: &App, area: Rect) {
@@ -406,8 +588,8 @@ mod tests {
     fn every_action_fits_with_two_rows_to_spare_when_there_is_room() {
         assert_eq!(SUGGESTIONS as usize, command::ACTIONS + 2);
         assert_eq!(rows(60), (LOG, SUGGESTIONS));
-        // A 40-row terminal gives up a row of log for them.
-        assert_eq!(rows(40), (7, SUGGESTIONS));
+        // A 40-row terminal gives up two rows of log for them.
+        assert_eq!(rows(40), (6, SUGGESTIONS));
         // Shorter: the log shrinks to its least, then the suggestions.
         assert_eq!(rows(35), (LOG_MIN, 18));
         assert_eq!(rows(20), (LOG_MIN, 3));

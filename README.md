@@ -12,7 +12,7 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | `crates/auth-service` | Campaigns, the devices admitted to them, and login (axum + Postgres). |
 | `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
 | `crates/combat-service` | Live, event-sourced combat encounters (axum + Postgres + WebSocket). Runs as any number of instances. |
-| `crates/monster-service` | Monster stat blocks: a shared library (the SRD) and each campaign's own (axum + SQLite). |
+| `crates/monster-service` | Monster stat blocks and the text of spells and conditions: a shared library (the SRD) and each campaign's own (axum + SQLite). |
 | `crates/campaign-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
 | `crates/campaign-edit` | Git-style command-line frontend for editing character sheets. |
 
@@ -25,7 +25,7 @@ fight screen) is a native program.
 make server       # the servers' container image, from the Dockerfile
 make client       # campaign-edit, natively: target/release/campaign-edit
 make install      # campaign-edit into ~/.cargo/bin
-make srd          # download the SRD monsters into data/monsters (optional)
+make srd          # download the SRD monsters, spells and conditions into data/ (optional)
 make up           # build and start the servers; make down stops them
 make campaign NAME="Vox Machina" EDITION=2024   # the DM's setup code
 make delete-campaign ID=<id>     # a campaign and everything in it (asks first; YES=1 doesn't)
@@ -97,6 +97,8 @@ cargo run -p combat-service
 #   (created on first start), BIND_ADDR to 127.0.0.1:3001,
 # CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty turns HP write-back off)
 cargo run -p monster-service -- import data/monsters/*.json   # the SRD, once
+cargo run -p monster-service -- import --kind spells data/spells/*.json
+cargo run -p monster-service -- import --kind conditions data/conditions/*.json
 cargo run -p monster-service
 # DATABASE_URL defaults to sqlite://monsters.db, BIND_ADDR to 127.0.0.1:3003
 ```
@@ -227,6 +229,7 @@ effect Prone 3 for 1        Vex puts Prone on Goblin for 1 round
 effect Fire for 3           Vex puts down Fire for 3 rounds (no target needed)
 use favored foe             Vex uses Favored Foe (only ever on oneself)
 init 3 17 · init 3          set Goblin's initiative, or roll it
+show grappled · show 2      Grappled's description, or number 2's sheet, in the side panel
 drop hunter's mark · remove 3 · undo · pause · resume · end · quit
 ```
 
@@ -252,6 +255,14 @@ When the sheet doesn't fit its panel, it opens at the part the line needs:
 spellcasting for a cast, features for a use, a monster's actions for
 whatever it does. The panel's bottom edge says how much is hidden above and
 below.
+
+The panel describes what the line is about, too (see [Spells and
+conditions](#spells-and-conditions)): the spell being cast, under the
+caster's slots, as soon as Tab would pick it; the effect being put down or
+dropped, with whom an effect in play is on, who's concentrating on it and
+how long it has left. `show` keeps a description, or a combatant's sheet,
+there while the fight goes on, until another line runs or Esc on an empty
+line.
 
 Casting spends the caster's slot on their sheet (a pact slot when that's
 what works), records the cast in the combat log and, for concentration
@@ -302,7 +313,7 @@ campaign's **own** (homebrew), which only that campaign sees and can
 change.
 
 The SRD monsters aren't part of this repository. `make srd` (that is,
-`tools/fetch-srd-monsters.sh`) downloads them into `data/monsters/`: SRD
+`tools/fetch-srd.sh`) downloads them into `data/monsters/`: SRD
 5.1 for 2014 campaigns and SRD 5.2 for 2024, 334 and 341 monsters. Wizards
 of the Coast publishes the SRD only as PDFs, so the script takes the
 structured version from the community-maintained
@@ -361,6 +372,47 @@ A converter from another source only has to write this format, like
 | `POST` | `/monsters` | stat block | `201`, added to the campaign's own |
 | `PUT` | `/monsters/{id}` | stat block | replaced (the campaign's own only; shared is `403`) |
 | `DELETE` | `/monsters/{id}` | | `204` (the campaign's own only) |
+| | `/spells`, `/spells/{id}` | spell | the same for spells, but the list is of whole spells |
+| | `/conditions`, `/conditions/{id}` | condition | and for conditions |
+
+## Spells and conditions
+
+The monster service also keeps the full text of spells and conditions,
+shared and per campaign exactly like monsters, which the fight screen shows
+(see [Fight screen](#fight-screen)). `make srd` fetches the SRD's into
+`data/spells/` and `data/conditions/` (319 and 339 spells, and the fifteen
+conditions, for SRD 5.1 and 5.2), and the seed job loads them. Spells
+outside the SRD can be added as the campaign's own; until then the fight
+screen shows what a character's sheet says about one (its notes).
+
+```sh
+campaign-edit spell list fire               # name, level and school, C for concentration, source
+campaign-edit spell show fireball           # the description
+campaign-edit spell export bless > my-spell.json   # a starting point
+campaign-edit spell add my-spell.json       # the campaign's own: one, or a list
+campaign-edit spell delete "my spell"       # the campaign's own only
+campaign-edit condition list                # the same for conditions
+campaign-edit condition show grappled
+monster-service import --kind spells my-spells.json [--campaign <ID>]   # admin
+```
+
+A spell is JSON; everything but `name` is optional:
+
+```json
+{
+  "name": "Zephyr Strike", "level": 1, "school": "Transmutation",
+  "casting_time": "Bonus Action", "range": "Self", "components": "V",
+  "material": "", "duration": "up to 1 minute", "concentration": true,
+  "ritual": false, "classes": ["Ranger"],
+  "description": "You move like the wind. ...\n- One list item\n- **Bold.** Another",
+  "higher_levels": "", "source": "Homebrew", "edition": "2024"
+}
+```
+
+A condition is a `name`, a `description` and optionally `source` and
+`edition`; any named effect worth describing (a homebrew "Marked") can be
+one. In descriptions, each line is a paragraph, `- ` starts a list item and
+`**…**` is bold.
 
 ## Character API
 
@@ -685,7 +737,8 @@ conditions.
 - `crates/campaign-auth/src/eff_short_wordlist_1.txt` is the EFF's short
   wordlist 1 (https://www.eff.org/dice), licensed under CC BY 3.0 US
   (attribution in the file; "yo-yo" is written "yoyo").
-- The SRD monsters are not included; see [Monsters](#monsters) for how
-  `make srd` fetches them, and `data/monsters/README.md` for their
+- The SRD monsters, spells and conditions are not included; see
+  [Monsters](#monsters) for how `make srd` fetches them, and
+  `data/monsters/README.md` (and its neighbours) for their
   attribution (System Reference Document 5.1 and 5.2 by Wizards of the
   Coast LLC, CC BY 4.0).

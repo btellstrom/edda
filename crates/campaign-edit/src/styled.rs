@@ -92,6 +92,11 @@ impl Doc {
         self.push(vec![plain("    ")], 4, content);
     }
 
+    /// Running text, from the left edge.
+    pub fn prose(&mut self, content: Vec<Span<'static>>) {
+        self.push(Vec::new(), 0, content);
+    }
+
     /// A paragraph in a section.
     pub fn paragraph(&mut self, content: Vec<Span<'static>>) {
         self.push(vec![plain("  ")], 2, content);

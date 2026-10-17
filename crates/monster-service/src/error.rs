@@ -3,18 +3,20 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use campaign_types::monster::MonsterError;
+use campaign_types::{monster::MonsterError, rules_text::RulesTextError};
 use serde_json::json;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
-    #[error("monster not found")]
+    #[error("not found")]
     NotFound,
-    /// Shared monsters are changed by importing, not through the API.
-    #[error("shared monsters can't be changed here; make a copy for the campaign instead")]
+    /// The shared library is changed by importing, not through the API.
+    #[error("the shared library can't be changed here; make a copy for the campaign instead")]
     Shared,
     #[error(transparent)]
     Invalid(#[from] MonsterError),
+    #[error(transparent)]
+    InvalidText(#[from] RulesTextError),
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
     #[error("corrupt stored data: {0}")]
@@ -26,7 +28,7 @@ impl IntoResponse for ApiError {
         let status = match &self {
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::Shared => StatusCode::FORBIDDEN,
-            ApiError::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            ApiError::Invalid(_) | ApiError::InvalidText(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => {
                 tracing::error!(error = %self, "internal error");
                 StatusCode::INTERNAL_SERVER_ERROR

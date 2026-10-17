@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Convert 5e-database's SRD monsters into campaign-manager's monster format.
+"""Convert 5e-database's SRD monsters, spells or conditions into campaign-manager's formats.
 
-The input is a 5e-SRD-Monsters.json from https://github.com/5e-bits/5e-database
-(src/2014/en for SRD 5.1, src/2024/en for SRD 5.2). The output is a JSON
-array of stat blocks, ready for `monster-service import`.
+The input is a 5e-SRD-Monsters.json (or -Spells, -Conditions) from
+https://github.com/5e-bits/5e-database (src/2014/en for SRD 5.1, src/2024/en
+for SRD 5.2). The output is a JSON array, ready for `monster-service import`
+(with `--kind spells` or `--kind conditions` for those).
 
     tools/convert-5e-database.py --edition 2024 5e-SRD-Monsters.json > srd-5.2.json
+    tools/convert-5e-database.py --kind spells --edition 2024 5e-SRD-Spells.json > srd-5.2.json
 
 Only the standard library is used. The SRD is licensed under CC BY 4.0; see
-data/monsters/README.md for the attribution that goes with the output.
+the README.md beside the output (data/monsters/ and so on) for the
+attribution that goes with it.
 """
 
 import argparse
@@ -155,15 +158,61 @@ def convert(monster, edition, source):
     return {k: v for k, v in out.items() if v not in ("", [], {})}
 
 
+def paragraphs(text):
+    """5e-database's text, a list of paragraphs (2014) or one string with
+    them on separate lines (2024), as paragraphs one per line."""
+    if isinstance(text, list):
+        lines = text
+    else:
+        lines = (text or "").split("\n")
+    return "\n".join(line.strip() for line in lines if line.strip())
+
+
+def convert_spell(spell, edition, source):
+    out = {
+        "name": spell["name"],
+        "level": spell["level"],
+        "school": spell["school"]["name"],
+        "casting_time": spell.get("casting_time", ""),
+        "range": spell.get("range", ""),
+        "components": ", ".join(spell.get("components", [])),
+        "material": spell.get("material", ""),
+        "duration": spell.get("duration", ""),
+        "concentration": spell.get("concentration", False),
+        "ritual": spell.get("ritual", False),
+        "classes": [c["name"] for c in spell.get("classes", [])],
+        "description": paragraphs(spell.get("desc") or spell.get("description")),
+        "higher_levels": paragraphs(spell.get("higher_level")),
+        "source": source,
+        "edition": edition,
+    }
+    return {k: v for k, v in out.items() if v not in ("", [], {}, False)}
+
+
+def convert_condition(condition, edition, source):
+    return {
+        "name": condition["name"],
+        "description": paragraphs(condition.get("desc") or condition.get("description")),
+        "source": source,
+        "edition": edition,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("input", help="5e-SRD-Monsters.json from 5e-database")
+    parser.add_argument("input", help="5e-SRD-Monsters.json (or Spells, Conditions) from 5e-database")
     parser.add_argument("--edition", choices=["2014", "2024"], required=True)
+    parser.add_argument("--kind", choices=["monsters", "spells", "conditions"], default="monsters")
     args = parser.parse_args()
     with open(args.input, encoding="utf-8") as f:
-        monsters = json.load(f)
+        entries = json.load(f)
     source = {"2014": "SRD 5.1", "2024": "SRD 5.2"}[args.edition]
-    converted = [convert(m, args.edition, source) for m in monsters]
+    convert_one = {
+        "monsters": convert,
+        "spells": convert_spell,
+        "conditions": convert_condition,
+    }[args.kind]
+    converted = [convert_one(e, args.edition, source) for e in entries]
     converted.sort(key=lambda m: m["name"])
     json.dump(converted, sys.stdout, indent=1, ensure_ascii=False)
     sys.stdout.write("\n")

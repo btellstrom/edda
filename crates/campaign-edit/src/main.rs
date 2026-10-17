@@ -9,13 +9,17 @@ mod identity;
 mod monsters;
 mod parse;
 mod plan;
+mod rules;
 mod styled;
 
 use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
 use campaign_client::Client;
-use campaign_types::{Character, CharacterAction, CharacterSheet};
+use campaign_types::{
+    Character, CharacterAction, CharacterSheet,
+    rules_text::{ConditionText, SpellText},
+};
 use clap::{CommandFactory, FromArgMatches, Parser, ValueEnum};
 use uuid::Uuid;
 
@@ -69,13 +73,27 @@ async fn run(cli: Cli) -> Result<()> {
             .with_token(&session.token);
         return monsters::run(&client, command).await;
     }
+    if let TopCommand::Spell(_) | TopCommand::Condition(_) = cli.command {
+        let (_, session) = identity::Identity::locate()?.login().await?;
+        let client = campaign_client::monsters::MonsterClient::new(&cli.monster_server)
+            .with_token(&session.token);
+        return match cli.command {
+            TopCommand::Spell(command) => rules::run::<SpellText>(&client, command.into()).await,
+            TopCommand::Condition(command) => {
+                rules::run::<ConditionText>(&client, command.into()).await
+            }
+            _ => unreachable!("matched above"),
+        };
+    }
     let (_, session) = identity::Identity::locate()?.login().await?;
     let client = Client::new(&cli.server).with_token(&session.token);
     match cli.command {
         TopCommand::Auth(_)
         | TopCommand::Fight(_)
         | TopCommand::Plan(_)
-        | TopCommand::Monster(_) => {
+        | TopCommand::Monster(_)
+        | TopCommand::Spell(_)
+        | TopCommand::Condition(_) => {
             unreachable!("handled above")
         }
         TopCommand::List => println!("{}", display::list(&client.list().await?)),
