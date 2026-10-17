@@ -9,11 +9,11 @@ server-side and any number of frontends talking to it over HTTP/JSON.
 | --- | --- |
 | `crates/campaign-types` | Shared domain models, rules helpers (modifiers, proficiency) and validation. No server deps, so frontends (including WASM) can depend on it. |
 | `crates/campaign-auth` | Device keys, signed device certificates and tokens. Shared by the services and clients. |
-| `crates/campaign-server` | What every service shares: logging, the auth service's key, serving (with the CORS setting), error responses and SQLite backups. |
+| `crates/campaign-server` | What every service shares: logging, opening its database, the auth service's key, serving (with the CORS setting and the limits) and error responses. |
 | `crates/auth-service` | Campaigns, the devices admitted to them, and login (axum + Postgres). |
-| `crates/character-service` | Character sheet CRUD API (axum + SQLite). |
+| `crates/character-service` | Character sheet CRUD API (axum + Postgres). |
 | `crates/combat-service` | Live, event-sourced combat encounters (axum + Postgres + WebSocket). Runs as any number of instances. |
-| `crates/monster-service` | Monster stat blocks and the text of spells and conditions: a shared library (the SRD) and each campaign's own (axum + SQLite). |
+| `crates/monster-service` | Monster stat blocks and the text of spells and conditions: a shared library (the SRD) and each campaign's own (axum + Postgres). |
 | `crates/campaign-client` | Typed async client for the services, plus `Replica` for optimistic UIs. Shared by all frontends. |
 | `crates/campaign-edit` | Git-style command-line frontend for editing character sheets. |
 
@@ -146,12 +146,28 @@ make backup                           # into backups/<date and time>; the server
 make restore FROM=backups/<date>      # replaces all data with the backup's
 ```
 
-A backup holds the auth and combat databases (`pg_dump`), the characters
-and monsters (consistent SQLite copies, made by the services themselves),
-and the combat service's key. Restoring stops the four services, puts it
-all back and starts them again. Copy `backups/` somewhere else: a backup
-on the same disk is lost with it. The smoke test backs up, loses a
-character and restores it.
+A backup holds the four services' databases (`pg_dump`) and the combat
+service's key. Restoring stops the four services, puts it all back and
+starts them again. Copy `backups/` somewhere else: a backup on the same
+disk is lost with it. The smoke test backs up, loses a character and
+restores it.
+
+#### Upgrading from SQLite
+
+The character and monster services used to keep their data in SQLite
+files, in their volumes; now everything is in Postgres. After upgrading,
+bring it over once:
+
+```sh
+make up               # the new services, with empty databases (and the SRD seeded)
+make migrate-sqlite   # the characters, then the monsters, spells and conditions
+```
+
+Everything comes over as it was, ids included, so plans, combats and
+devices that refer to it still do. Each import is all or nothing, and
+refuses to run over data that's already there (the seeded shared library
+excepted, which the old one replaces), so it can't be run twice by
+mistake. The old files stay in the volumes until you delete them.
 
 ### Servers natively
 
@@ -175,7 +191,8 @@ cargo run -p auth-service
 cargo run -p auth-service -- new-campaign "Vox Machina" --edition 2024   # the DM's setup code
 
 cargo run -p character-service
-# DATABASE_URL defaults to sqlite://characters.db, BIND_ADDR to 127.0.0.1:3000
+# DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/characters,
+#   BIND_ADDR to 127.0.0.1:3000
 cargo run -p combat-service
 # DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/combats
 #   (created on first start), BIND_ADDR to 127.0.0.1:3001,
@@ -185,7 +202,8 @@ cargo run -p monster-service -- import data/monsters/*.json   # the SRD, once
 cargo run -p monster-service -- import --kind spells data/spells/*.json
 cargo run -p monster-service -- import --kind conditions data/conditions/*.json
 cargo run -p monster-service
-# DATABASE_URL defaults to sqlite://monsters.db, BIND_ADDR to 127.0.0.1:3003
+# DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/monsters,
+#   BIND_ADDR to 127.0.0.1:3003
 ```
 
 On first start the combat service creates its own key (`SERVICE_KEY_FILE`,
@@ -617,11 +635,11 @@ tools/sandbox.sh down                  # stop it and delete everything in it
 reach the stack `make up` runs, its databases, or this machine's
 `campaign-edit` config:
 
-- *Tests.* The auth and combat tests need Postgres, and only ever a
-  throwaway one: `make test` (`tools/with-test-postgres.sh`) starts one on
-  a port of its own and deletes it afterwards. There's no default:
-  `cargo test` without `TEST_POSTGRES_URL` stops, and a server holding a
-  real stack's `auth` or `combats` database is refused.
+- *Tests.* The services' tests need Postgres, and only ever a throwaway
+  one: `make test` (`tools/with-test-postgres.sh`) starts one on a port of
+  its own and deletes it afterwards. There's no default: `cargo test`
+  without `TEST_POSTGRES_URL` stops, and a server holding any of a real
+  stack's databases is refused (`campaign_server::testing`).
 - *Trying things.* `tools/sandbox.sh` runs a complete stack (its own
   Postgres container, ports 23000–23003 and 25432, data in
   `target/sandbox`) with a campaign, the example characters and the SRD,

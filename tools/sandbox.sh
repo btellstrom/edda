@@ -110,15 +110,15 @@ up() {
     DATABASE_URL="$pg_url/auth" "$bin/auth-service" add-service combat-service \
         "$(SERVICE_KEY_FILE="$dir/combat.key" "$bin/combat-service" public-key 2>/dev/null)" >/dev/null
 
-    DATABASE_URL="sqlite://$dir/characters.db" BIND_ADDR="127.0.0.1:$characters_port" \
+    DATABASE_URL="$pg_url/characters" BIND_ADDR="127.0.0.1:$characters_port" \
         AUTH_SERVICE_URL="$auth" start characters "$bin/character-service"
     for kind in monsters spells conditions; do
         for file in "$root"/data/"$kind"/*.json; do
             [ -e "$file" ] || continue
-            DATABASE_URL="sqlite://$dir/monsters.db" "$bin/monster-service" import --kind "$kind" "$file" >/dev/null
+            DATABASE_URL="$pg_url/monsters" "$bin/monster-service" import --kind "$kind" "$file" >/dev/null
         done
     done
-    DATABASE_URL="sqlite://$dir/monsters.db" AUTH_SERVICE_URL="$auth" \
+    DATABASE_URL="$pg_url/monsters" AUTH_SERVICE_URL="$auth" \
         start monsters "$bin/monster-service" serve --bind "127.0.0.1:$monsters_port"
     DATABASE_URL="$pg_url/combats" BIND_ADDR="127.0.0.1:$combat_port" AUTH_SERVICE_URL="$auth" \
         CHARACTER_SERVICE_URL="http://127.0.0.1:$characters_port" \

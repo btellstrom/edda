@@ -12,7 +12,11 @@ use uuid::Uuid;
 #[derive(Parser)]
 #[command(about = "Campaign manager monster service")]
 struct Cli {
-    #[arg(long, env = "DATABASE_URL", default_value = "sqlite://monsters.db")]
+    #[arg(
+        long,
+        env = "DATABASE_URL",
+        default_value = "postgres://postgres:postgres@localhost:5432/monsters"
+    )]
     database_url: String,
     #[command(subcommand)]
     command: Option<Command>,
@@ -40,9 +44,9 @@ enum Command {
     /// Delete a campaign's own monsters (`make delete-campaign` deletes
     /// the rest of the campaign too).
     DeleteCampaign { campaign: Uuid },
-    /// Write a copy of the database to a new file, while the service runs
-    /// (tools/backup.sh).
-    Backup { to: PathBuf },
+    /// Bring the monsters, spells and conditions over from the SQLite
+    /// database the service used to keep (make migrate-sqlite).
+    ImportSqlite { file: PathBuf },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -107,7 +111,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Deleted {deleted} monster(s) of campaign {campaign}");
             Ok(())
         }
-        Some(Command::Backup { to }) => Ok(campaign_server::backup(&pool, &to).await?),
+        Some(Command::ImportSqlite { file }) => {
+            let imported = monster_service::sqlite::import_sqlite(&pool, &file).await?;
+            println!(
+                "Imported {} monster(s) and {} spell(s) and condition(s) from {}",
+                imported.monsters,
+                imported.rules_texts,
+                file.display()
+            );
+            Ok(())
+        }
     }
 }
 
@@ -131,7 +144,7 @@ async fn import_texts<T: RulesText>(
     Ok(store.import_texts(campaign, &texts).await)
 }
 
-async fn serve(pool: sqlx::SqlitePool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
     let verifier = campaign_auth::server::TokenVerifier::new(
         campaign_server::auth_key(&campaign_server::auth_service_url()).await?,
     );

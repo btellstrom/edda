@@ -8,7 +8,6 @@ use axum::{
 use campaign_server::Limits;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
-use sqlx::sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 
 use campaign_auth::{
@@ -34,7 +33,7 @@ struct App {
 }
 
 impl App {
-    fn new(pool: sqlx::SqlitePool, limits: Limits) -> App {
+    fn new(pool: sqlx::PgPool, limits: Limits) -> App {
         let signer = Arc::new(TokenSigner::new(&DeviceKey::generate()));
         let verifier = TokenVerifier::new(signer.public_key());
         let app = App {
@@ -93,14 +92,16 @@ async fn test_app() -> App {
 }
 
 async fn test_app_with(limits: Limits) -> App {
-    // An in-memory database lives per connection, so pin the pool to one.
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    character_service::migrate(&pool).await.unwrap();
-    App::new(pool, limits)
+    App::new(database().await, limits)
+}
+
+/// A database of the test's own, on the test Postgres.
+async fn database() -> sqlx::PgPool {
+    character_service::connect(
+        &campaign_server::testing::fresh_database_url("characters_test").await,
+    )
+    .await
+    .unwrap()
 }
 
 async fn send(app: &App, method: Method, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
@@ -416,12 +417,7 @@ async fn an_action_with_an_idempotency_key_is_applied_once() {
 
 #[tokio::test]
 async fn concurrent_actions_never_overspend() {
-    // Needs a real file so the pool can hold several connections.
-    let path = std::env::temp_dir().join(format!("cm-test-{}.db", uuid::Uuid::new_v4()));
-    let pool = character_service::connect(&format!("sqlite://{}", path.display()))
-        .await
-        .unwrap();
-    let app = App::new(pool, Limits::off());
+    let app = App::new(database().await, Limits::off());
 
     let mut sheet = caster();
     sheet["resources"][0]["max"] = json!(5);
@@ -449,9 +445,6 @@ async fn concurrent_actions_never_overspend() {
 
     let (_, c) = send(&app, Method::GET, &uri.replace("/actions", ""), None).await;
     assert_eq!(c["resources"][0]["used"], 5);
-    for suffix in ["", "-wal", "-shm"] {
-        let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
-    }
 }
 
 #[tokio::test]
@@ -574,12 +567,7 @@ async fn campaigns_only_see_their_own_characters() {
 
 #[tokio::test]
 async fn deleting_a_campaign_deletes_only_its_characters() {
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    character_service::migrate(&pool).await.unwrap();
+    let pool = database().await;
     let app = App::new(pool.clone(), Limits::off());
     let campaign = Uuid::new_v4();
     let doomed = app.as_campaign(Some(campaign));
@@ -726,4 +714,83 @@ async fn a_campaign_keeps_only_as_many_characters_as_its_limit() {
     )
     .await;
     assert_eq!(status, StatusCode::CREATED);
+}
+
+#[tokio::test]
+async fn characters_come_over_from_sqlite_as_they_were() {
+    // A database the way the service kept them in SQLite.
+    let file = std::env::temp_dir().join(format!("characters-{}.db", Uuid::new_v4()));
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&file)
+        .create_if_missing(true);
+    let old = sqlx::SqlitePool::connect_with(options).await.unwrap();
+    let migrations = concat!(env!("CARGO_MANIFEST_DIR"), "/sqlite-migrations");
+    sqlx::migrate::Migrator::new(std::path::Path::new(migrations))
+        .await
+        .unwrap()
+        .run(&old)
+        .await
+        .unwrap();
+    let (vex, campaign, laura) = (Uuid::new_v4(), Uuid::new_v4(), "laura-key");
+    let insert = "INSERT INTO characters (id, campaign, owners, name, sheet, version, created_at, updated_at) \
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    sqlx::query(insert)
+        .bind(vex.to_string())
+        .bind(campaign.to_string())
+        .bind(format!("[\"{laura}\"]"))
+        .bind("Vex")
+        .bind(json!({ "name": "Vex", "race": "Half-Elf" }).to_string())
+        .bind(7)
+        .bind(Utc::now())
+        .bind(Utc::now())
+        .execute(&old)
+        .await
+        .unwrap();
+    // From before campaigns: nobody could see it.
+    sqlx::query(insert)
+        .bind(Uuid::new_v4().to_string())
+        .bind(None::<String>)
+        .bind("[]")
+        .bind("Lost")
+        .bind(json!({ "name": "Lost" }).to_string())
+        .bind(1)
+        .bind(Utc::now())
+        .bind(Utc::now())
+        .execute(&old)
+        .await
+        .unwrap();
+    old.close().await;
+
+    let pool = database().await;
+    let imported = character_service::sqlite::import_sqlite(&pool, &file)
+        .await
+        .unwrap();
+    assert_eq!(
+        imported,
+        character_service::sqlite::Imported {
+            characters: 1,
+            without_campaign: 1
+        }
+    );
+    let app = App::new(pool.clone(), Limits::off()).as_campaign(Some(campaign));
+    let (status, got) = send(&app, Method::GET, &format!("/characters/{vex}"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        (&got["name"], &got["race"], &got["version"], &got["owners"]),
+        (
+            &json!("Vex"),
+            &json!("Half-Elf"),
+            &json!(7),
+            &json!([laura])
+        )
+    );
+    // Never twice.
+    let again = character_service::sqlite::import_sqlite(&pool, &file).await;
+    assert!(
+        again
+            .unwrap_err()
+            .to_string()
+            .contains("already has 1 character")
+    );
+    std::fs::remove_file(file).ok();
 }

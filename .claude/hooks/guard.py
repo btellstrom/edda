@@ -54,6 +54,7 @@ SERVICES = {"auth-service", "character-service", "combat-service", "monster-serv
 # Make targets that act on the real stack, or install over campaign-edit.
 REAL_STACK_TARGETS = {
     "up", "down", "logs", "campaign", "delete-campaign", "server", "install", "backup", "restore",
+    "migrate-sqlite",
 }
 # Compose projects of their own: the smoke test's and the sandbox's.
 ISOLATED_PROJECTS = ("campaign-manager-smoke", "campaign-manager-sandbox")
@@ -615,6 +616,7 @@ SELF_TEST = {
     "make install": True,
     "make backup": True,
     "make restore FROM=backups/x": True,
+    "make migrate-sqlite": True,
     "tools/restore.sh backups/x": True,
     "target/debug/character-service backup /tmp/x.db": True,
     "target/debug/combat-service delete-campaign 1": True,

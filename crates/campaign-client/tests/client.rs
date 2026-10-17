@@ -10,15 +10,10 @@ use campaign_auth::{
 use campaign_client::{Client, ClientError};
 use campaign_server::Limits;
 use campaign_types::{CharacterAction, CharacterSheet, ClassLevel, Pool, Recharge, Resource};
-use sqlx::sqlite::SqlitePoolOptions;
 
 async fn server() -> Client {
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    character_service::migrate(&pool).await.unwrap();
+    let url = campaign_server::testing::database_url("characters_test").await;
+    let pool = character_service::connect(&url).await.unwrap();
     // A token signed locally: these tests are about characters, not auth.
     let signer = TokenSigner::new(&DeviceKey::generate());
     let token = signer

@@ -648,12 +648,9 @@ async fn using(
 
 /// A monster service, and a goblin of the campaign's own in it.
 async fn goblins(auth: &Auth, party: &Party) -> (String, campaign_types::monster::Monster) {
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
+    let pool = monster_service::connect(&database_url("monsters_test").await)
         .await
         .unwrap();
-    monster_service::migrate(&pool).await.unwrap();
     let url = support::serve(monster_service::app(
         pool,
         TokenVerifier::new(auth.key),
@@ -1037,12 +1034,9 @@ async fn casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
 }
 
 async fn character_service(auth: &Auth) -> campaign_client::Client {
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
+    let pool = character_service::connect(&database_url("characters_test").await)
         .await
         .unwrap();
-    character_service::migrate(&pool).await.unwrap();
     let app = character_service::app(pool, TokenVerifier::new(auth.key), Limits::off());
     campaign_client::Client::new(support::serve(app).await)
 }

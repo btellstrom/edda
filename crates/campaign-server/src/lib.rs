@@ -1,8 +1,10 @@
-//! What every campaign-manager service shares: logging, finding the auth
-//! service's key, serving (with the CORS setting and the limits), error
-//! responses, and for the SQLite ones, backups.
+//! What every campaign-manager service shares: logging, opening its
+//! database, finding the auth service's key, serving (with the CORS setting
+//! and the limits), and error responses.
 
 pub mod limits;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 pub use limits::Limits;
 
@@ -16,6 +18,7 @@ use axum::{
 use campaign_auth::PublicKey;
 use campaign_client::auth::AuthClient;
 use serde_json::json;
+use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing_subscriber::EnvFilter;
 
@@ -29,6 +32,22 @@ pub fn init_logging(crate_name: &str) {
             format!("{crate_name}=info,campaign_server=info,tower_http=info").into()
         }))
         .init();
+}
+
+/// A connection pool to the Postgres database at `url`, creating the
+/// database first if there's none yet. The service then applies its own
+/// migrations (sqlx serialises them with an advisory lock, so instances
+/// may start at once).
+pub async fn open_database(url: &str) -> Result<PgPool, sqlx::Error> {
+    if !Postgres::database_exists(url).await? {
+        // Another instance may be creating it at the same moment.
+        if let Err(e) = Postgres::create_database(url).await
+            && !Postgres::database_exists(url).await?
+        {
+            return Err(e);
+        }
+    }
+    PgPoolOptions::new().connect(url).await
 }
 
 /// The key the auth service signs tokens with: `AUTH_PUBLIC_KEY` if set,
@@ -136,17 +155,6 @@ fn cors_for(setting: &str) -> Result<CorsLayer, String> {
         .allow_methods(Any)
         .allow_headers(Any)
         .expose_headers([header::ETAG, header::LOCATION]))
-}
-
-/// Writes a consistent copy of the database to `to`, which mustn't exist
-/// yet, while the service keeps running (SQLite's `VACUUM INTO`).
-#[cfg(feature = "sqlite")]
-pub async fn backup(pool: &sqlx::SqlitePool, to: &std::path::Path) -> Result<(), sqlx::Error> {
-    sqlx::query("VACUUM INTO ?")
-        .bind(to.to_string_lossy())
-        .execute(pool)
-        .await
-        .map(drop)
 }
 
 #[cfg(test)]

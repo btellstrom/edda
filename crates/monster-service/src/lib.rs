@@ -6,38 +6,35 @@
 
 pub mod error;
 pub mod routes;
+pub mod sqlite;
 pub mod store;
 pub mod texts;
 
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use axum::{Extension, Router};
 use campaign_auth::server::TokenVerifier;
 use campaign_server::Limits;
-use sqlx::{
-    SqlitePool,
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-};
+use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 
 pub use store::MonsterStore;
 
 /// Opens (creating if needed) the database and applies migrations.
-pub async fn connect(database_url: &str) -> Result<SqlitePool, sqlx::Error> {
-    let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);
-    let pool = SqlitePoolOptions::new().connect_with(options).await?;
+pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    let pool = campaign_server::open_database(database_url).await?;
     migrate(&pool).await?;
     Ok(pool)
 }
 
-pub async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::migrate::MigrateError> {
+pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
     sqlx::migrate!().run(pool).await
 }
 
 /// The service, accepting tokens that `verifier` vouches for, within
 /// `limits` (how many monsters, spells and conditions of its own a campaign
 /// may keep).
-pub fn app(pool: SqlitePool, verifier: TokenVerifier, limits: Limits) -> Router {
+pub fn app(pool: PgPool, verifier: TokenVerifier, limits: Limits) -> Router {
     Router::new()
         .merge(routes::router())
         .with_state(MonsterStore::new(pool))

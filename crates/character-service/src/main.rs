@@ -4,8 +4,8 @@ use std::env;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     campaign_server::init_logging("character_service");
 
-    let database_url =
-        env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://characters.db".to_string());
+    let database_url = env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/characters".to_string());
 
     // `character-service delete-campaign <ID>` deletes a campaign's
     // characters (`make delete-campaign` deletes the rest of it too).
@@ -21,13 +21,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Deleted {deleted} character(s) of campaign {campaign}");
         return Ok(());
     }
-    // `character-service backup <PATH>` writes a copy of the database to
-    // PATH, while the service runs (tools/backup.sh).
-    if let [command, path] = args.as_slice()
-        && command == "backup"
+    // `character-service import-sqlite <FILE>` brings the characters over
+    // from the SQLite database the service used to keep (make
+    // migrate-sqlite).
+    if let [command, file] = args.as_slice()
+        && command == "import-sqlite"
     {
         let pool = character_service::connect(&database_url).await?;
-        campaign_server::backup(&pool, std::path::Path::new(path)).await?;
+        let imported =
+            character_service::sqlite::import_sqlite(&pool, std::path::Path::new(file)).await?;
+        println!("Imported {} character(s) from {file}", imported.characters);
+        if imported.without_campaign > 0 {
+            println!(
+                "Left behind {} from before campaigns, which no campaign could see",
+                imported.without_campaign
+            );
+        }
         return Ok(());
     }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_string());

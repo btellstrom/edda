@@ -14,36 +14,7 @@ use campaign_client::auth::AuthClient;
 use campaign_server::Limits;
 use uuid::Uuid;
 
-/// The test database `name` on the throwaway Postgres at
-/// `TEST_POSTGRES_URL`. There's deliberately no default: test data must
-/// never land in a real stack's Postgres, so one holding a real stack's
-/// databases is refused too.
-pub async fn database_url(name: &str) -> String {
-    let server = std::env::var("TEST_POSTGRES_URL").expect(
-        "set TEST_POSTGRES_URL to a throwaway Postgres (`make test` starts one and sets it)",
-    );
-    let server = server.trim_end_matches('/').to_string();
-    static CHECKED: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
-    CHECKED.get_or_init(|| refuse_a_real_stack(&server)).await;
-    format!("{server}/{name}")
-}
-
-async fn refuse_a_real_stack(server: &str) {
-    use sqlx::Connection;
-    let mut connection = sqlx::PgConnection::connect(&format!("{server}/postgres"))
-        .await
-        .expect("TEST_POSTGRES_URL can't be reached");
-    let real: Vec<(String,)> =
-        sqlx::query_as("SELECT datname FROM pg_database WHERE datname IN ('auth', 'combats')")
-            .fetch_all(&mut connection)
-            .await
-            .unwrap();
-    assert!(
-        real.is_empty(),
-        "TEST_POSTGRES_URL is a real stack's Postgres (it holds {real:?}); \
-         tests only run against a throwaway one"
-    );
-}
+pub use campaign_server::testing::database_url;
 
 pub async fn serve(app: axum::Router) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

@@ -18,7 +18,7 @@ CARGO     ?= cargo
 PROFILES   = $(if $(HTTPS),--profile https)
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore test check deny smoke clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite test check deny smoke clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -68,6 +68,12 @@ backup: ## back up the servers' data into backups/<date> (they keep running)
 restore: ## put a backup back: make restore FROM=backups/<date> (replaces all data)
 	@test -n "$(FROM)" || { echo 'usage: make restore FROM=backups/<date>' >&2; exit 2; }
 	CONTAINER=$(CONTAINER) tools/restore.sh "$(FROM)"
+
+migrate-sqlite: ## once, after upgrading: bring characters and monsters over from SQLite
+	$(COMPOSE) run --rm --no-deps characters character-service import-sqlite /data/characters.db
+	$(COMPOSE) run --rm --no-deps monsters monster-service import-sqlite /data/monsters.db
+	@# The shared library is the old one now; the SRD again over it, by name.
+	$(COMPOSE) run --rm seed-monsters
 
 test: ## run all tests, against a throwaway Postgres of their own
 	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked

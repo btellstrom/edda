@@ -76,17 +76,21 @@ services:
     <<: *app
     command: ["character-service"]
     environment:
-      DATABASE_URL: sqlite:///data/characters.db
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/characters
       BIND_ADDR: 0.0.0.0:3000
       LIMITS: ${LIMITS:-on}
       TRUST_PROXY: "1"
       AUTH_SERVICE_URL: http://auth:3002
     ports:
       - "127.0.0.1:${CHARACTERS_PORT:-3000}:3000"
+    # Where the service kept its data in SQLite, for `make migrate-sqlite`.
     volumes:
       - characters-data:/data
     depends_on:
-      - auth
+      postgres:
+        condition: service_healthy
+      auth:
+        condition: service_started
 
   # Runs on every start: loads the monsters, spells and conditions in
   # data/monsters/, data/spells/ and data/conditions/ (the SRD, from
@@ -108,24 +112,27 @@ services:
           fi
         done
     environment:
-      DATABASE_URL: sqlite:///data/monsters.db
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/monsters
     volumes:
-      - monsters-data:/data
       - ./data/monsters:/srd/monsters:ro
       - ./data/spells:/srd/spells:ro
       - ./data/conditions:/srd/conditions:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   monsters:
     <<: *app
     command: ["monster-service", "serve"]
     environment:
-      DATABASE_URL: sqlite:///data/monsters.db
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/monsters
       BIND_ADDR: 0.0.0.0:3003
       LIMITS: ${LIMITS:-on}
       TRUST_PROXY: "1"
       AUTH_SERVICE_URL: http://auth:3002
     ports:
       - "127.0.0.1:${MONSTERS_PORT:-3003}:3003"
+    # Where the service kept its data in SQLite, for `make migrate-sqlite`.
     volumes:
       - monsters-data:/data
     depends_on:

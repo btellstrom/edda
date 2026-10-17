@@ -3,19 +3,19 @@
 
 use campaign_types::rules_text::{Entry, RulesText};
 use chrono::{DateTime, Utc};
-use sqlx::SqliteExecutor;
+use sqlx::{PgExecutor, types::Json};
 use uuid::Uuid;
 
 use crate::{
     MonsterStore,
     error::ApiError,
-    store::{Imported, Scope},
+    store::{Imported, Scope, now},
 };
 
 type Row = (
-    String,
-    Option<String>,
-    String,
+    Uuid,
+    Option<Uuid>,
+    Json<serde_json::Value>,
     i64,
     DateTime<Utc>,
     DateTime<Utc>,
@@ -35,12 +35,12 @@ impl MonsterStore {
         let rows: Vec<Row> = sqlx::query_as(concat!(
             "SELECT ",
             columns!(),
-            " FROM rules_text WHERE kind = ? AND (campaign = ? \
-             OR (campaign IS NULL AND (edition IS NULL OR edition = ?))) \
-             ORDER BY name COLLATE NOCASE, campaign IS NULL"
+            " FROM rules_text WHERE kind = $1 AND (campaign = $2 \
+             OR (campaign IS NULL AND (edition IS NULL OR edition = $3))) \
+             ORDER BY lower(name), campaign IS NULL"
         ))
         .bind(T::KIND)
-        .bind(scope.campaign.to_string())
+        .bind(scope.campaign)
         .bind(scope.edition.to_string())
         .fetch_all(self.pool())
         .await?;
@@ -52,28 +52,28 @@ impl MonsterStore {
         let row: Option<Row> = sqlx::query_as(concat!(
             "SELECT ",
             columns!(),
-            " FROM rules_text WHERE kind = ? AND id = ? AND (campaign IS NULL OR campaign = ?)"
+            " FROM rules_text WHERE kind = $1 AND id = $2 AND (campaign IS NULL OR campaign = $3)"
         ))
         .bind(T::KIND)
-        .bind(id.to_string())
-        .bind(scope.campaign.to_string())
+        .bind(id)
+        .bind(scope.campaign)
         .fetch_optional(self.pool())
         .await?;
         row.map(from_row).transpose()?.ok_or(ApiError::NotFound)
     }
 
-    /// Adds one to the campaign's own.
     /// How many texts of this kind of its own `campaign` keeps.
     pub async fn count_own_texts<T: RulesText>(&self, campaign: Uuid) -> Result<i64, ApiError> {
         let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM rules_text WHERE kind = ? AND campaign = ?")
+            sqlx::query_as("SELECT COUNT(*) FROM rules_text WHERE kind = $1 AND campaign = $2")
                 .bind(T::KIND)
-                .bind(campaign.to_string())
+                .bind(campaign)
                 .fetch_one(self.pool())
                 .await?;
         Ok(count)
     }
 
+    /// Adds one to the campaign's own.
     pub async fn create_text<T: RulesText>(
         &self,
         scope: Scope,
@@ -98,8 +98,8 @@ impl MonsterStore {
     /// Deletes one of the campaign's own.
     pub async fn delete_text<T: RulesText>(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
         self.owned_text::<T>(scope, id).await?;
-        sqlx::query("DELETE FROM rules_text WHERE id = ?")
-            .bind(id.to_string())
+        sqlx::query("DELETE FROM rules_text WHERE id = $1")
+            .bind(id)
             .execute(self.pool())
             .await?;
         Ok(())
@@ -126,12 +126,12 @@ impl MonsterStore {
         let mut tx = self.pool().begin().await?;
         let mut imported = Imported::default();
         for text in texts {
-            let existing: Option<(String,)> = sqlx::query_as(
-                "SELECT id FROM rules_text WHERE kind = ? AND campaign IS ? AND name = ? \
-                 AND source = ? AND edition IS ?",
+            let existing: Option<(Uuid,)> = sqlx::query_as(
+                "SELECT id FROM rules_text WHERE kind = $1 AND campaign IS NOT DISTINCT FROM $2 \
+                 AND name = $3 AND source = $4 AND edition IS NOT DISTINCT FROM $5",
             )
             .bind(T::KIND)
-            .bind(campaign.map(|c| c.to_string()))
+            .bind(campaign)
             .bind(text.name())
             .bind(text.source())
             .bind(text.edition().map(|e| e.to_string()))
@@ -139,7 +139,7 @@ impl MonsterStore {
             .await?;
             match existing {
                 Some((id,)) => {
-                    update(&mut *tx, parse_id(&id)?, text).await?;
+                    update(&mut *tx, id, text).await?;
                     imported.updated += 1;
                 }
                 None => {
@@ -154,11 +154,11 @@ impl MonsterStore {
 }
 
 async fn insert<T: RulesText>(
-    executor: impl SqliteExecutor<'_>,
+    executor: impl PgExecutor<'_>,
     campaign: Option<Uuid>,
     text: &T,
 ) -> Result<Entry<T>, ApiError> {
-    let now = Utc::now();
+    let now = now();
     let entry = Entry {
         id: Uuid::new_v4(),
         campaign,
@@ -167,61 +167,63 @@ async fn insert<T: RulesText>(
         created_at: now,
         updated_at: now,
     };
-    sqlx::query(
-        "INSERT INTO rules_text (id, kind, campaign, name, source, edition, body, version, \
-         created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
-    )
-    .bind(entry.id.to_string())
-    .bind(T::KIND)
-    .bind(campaign.map(|c| c.to_string()))
-    .bind(text.name())
-    .bind(text.source())
-    .bind(text.edition().map(|e| e.to_string()))
-    .bind(to_json(text)?)
-    .bind(now)
-    .bind(now)
-    .execute(executor)
-    .await?;
+    insert_as_is(executor, &entry).await?;
     Ok(entry)
 }
 
+/// Stores `entry` as it is, id and version included.
+pub(crate) async fn insert_as_is<T: RulesText>(
+    executor: impl PgExecutor<'_>,
+    entry: &Entry<T>,
+) -> Result<(), ApiError> {
+    let text = &entry.text;
+    sqlx::query(
+        "INSERT INTO rules_text (id, kind, campaign, name, source, edition, body, version, \
+         created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+    )
+    .bind(entry.id)
+    .bind(T::KIND)
+    .bind(entry.campaign)
+    .bind(text.name())
+    .bind(text.source())
+    .bind(text.edition().map(|e| e.to_string()))
+    .bind(Json(text))
+    .bind(i64::try_from(entry.version).map_err(|e| ApiError::Corrupt(e.to_string()))?)
+    .bind(entry.created_at)
+    .bind(entry.updated_at)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
 async fn update<T: RulesText>(
-    executor: impl SqliteExecutor<'_>,
+    executor: impl PgExecutor<'_>,
     id: Uuid,
     text: &T,
 ) -> Result<Entry<T>, ApiError> {
     let row: Option<Row> = sqlx::query_as(concat!(
-        "UPDATE rules_text SET name = ?, source = ?, edition = ?, body = ?, \
-         version = version + 1, updated_at = ? WHERE id = ? RETURNING ",
+        "UPDATE rules_text SET name = $1, source = $2, edition = $3, body = $4, \
+         version = version + 1, updated_at = $5 WHERE id = $6 RETURNING ",
         columns!()
     ))
     .bind(text.name())
     .bind(text.source())
     .bind(text.edition().map(|e| e.to_string()))
-    .bind(to_json(text)?)
-    .bind(Utc::now())
-    .bind(id.to_string())
+    .bind(Json(text))
+    .bind(now())
+    .bind(id)
     .fetch_optional(executor)
     .await?;
     row.map(from_row).transpose()?.ok_or(ApiError::NotFound)
 }
 
-fn to_json<T: RulesText>(text: &T) -> Result<String, ApiError> {
-    serde_json::to_string(text).map_err(|e| ApiError::Corrupt(e.to_string()))
-}
-
-fn parse_id(id: &str) -> Result<Uuid, ApiError> {
-    id.parse()
-        .map_err(|e: uuid::Error| ApiError::Corrupt(e.to_string()))
-}
-
 fn from_row<T: RulesText>(
-    (id, campaign, body, version, created_at, updated_at): Row,
+    (id, campaign, Json(body), version, created_at, updated_at): Row,
 ) -> Result<Entry<T>, ApiError> {
     Ok(Entry {
-        id: parse_id(&id)?,
-        campaign: campaign.as_deref().map(parse_id).transpose()?,
-        text: serde_json::from_str(&body).map_err(|e| ApiError::Corrupt(e.to_string()))?,
+        id,
+        campaign,
+        text: serde_json::from_value(body).map_err(|e| ApiError::Corrupt(e.to_string()))?,
         version: u64::try_from(version).map_err(|e| ApiError::Corrupt(e.to_string()))?,
         created_at,
         updated_at,

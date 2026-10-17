@@ -1,20 +1,20 @@
-//! Persistence for monsters, backed by SQLite.
+//! Persistence for monsters, in Postgres.
 
 use campaign_auth::protocol::Claims;
 use campaign_types::{
     Edition,
     monster::{Monster, MonsterSheet},
 };
-use chrono::{DateTime, Utc};
-use sqlx::{SqliteExecutor, SqlitePool};
+use chrono::{DateTime, SubsecRound, Utc};
+use sqlx::{PgExecutor, PgPool, types::Json};
 use uuid::Uuid;
 
 use crate::error::ApiError;
 
 type Row = (
-    String,
-    Option<String>,
-    String,
+    Uuid,
+    Option<Uuid>,
+    Json<MonsterSheet>,
     i64,
     DateTime<Utc>,
     DateTime<Utc>,
@@ -53,29 +53,29 @@ pub struct Imported {
 
 #[derive(Clone)]
 pub struct MonsterStore {
-    pool: SqlitePool,
+    pool: PgPool,
 }
 
 impl MonsterStore {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
-    pub(crate) fn pool(&self) -> &SqlitePool {
+    pub fn pool(&self) -> &PgPool {
         &self.pool
     }
 
     /// The shared monsters suiting the campaign's edition and the
-    /// campaign's own, by name.
+    /// campaign's own, by name (the campaign's first, where both have one).
     pub async fn list(&self, scope: Scope) -> Result<Vec<Monster>, ApiError> {
         let rows: Vec<Row> = sqlx::query_as(concat!(
             "SELECT ",
             columns!(),
             " FROM monsters \
-             WHERE campaign = ? OR (campaign IS NULL AND (edition IS NULL OR edition = ?)) \
-             ORDER BY name COLLATE NOCASE, campaign IS NULL"
+             WHERE campaign = $1 OR (campaign IS NULL AND (edition IS NULL OR edition = $2)) \
+             ORDER BY lower(name), campaign IS NULL"
         ))
-        .bind(scope.campaign.to_string())
+        .bind(scope.campaign)
         .bind(scope.edition.to_string())
         .fetch_all(&self.pool)
         .await?;
@@ -87,25 +87,25 @@ impl MonsterStore {
         let row: Option<Row> = sqlx::query_as(concat!(
             "SELECT ",
             columns!(),
-            " FROM monsters WHERE id = ? AND (campaign IS NULL OR campaign = ?)"
+            " FROM monsters WHERE id = $1 AND (campaign IS NULL OR campaign = $2)"
         ))
-        .bind(id.to_string())
-        .bind(scope.campaign.to_string())
+        .bind(id)
+        .bind(scope.campaign)
         .fetch_optional(&self.pool)
         .await?;
         row.map(from_row).transpose()?.ok_or(ApiError::NotFound)
     }
 
-    /// Adds a monster to the campaign's own.
     /// How many monsters of its own `campaign` keeps.
     pub async fn count_own(&self, campaign: Uuid) -> Result<i64, ApiError> {
-        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM monsters WHERE campaign = ?")
-            .bind(campaign.to_string())
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM monsters WHERE campaign = $1")
+            .bind(campaign)
             .fetch_one(&self.pool)
             .await?;
         Ok(count)
     }
 
+    /// Adds a monster to the campaign's own.
     pub async fn create(&self, scope: Scope, sheet: MonsterSheet) -> Result<Monster, ApiError> {
         sheet.validate()?;
         insert(&self.pool, Some(scope.campaign), &sheet).await
@@ -126,8 +126,8 @@ impl MonsterStore {
     /// Deletes one of the campaign's own monsters.
     pub async fn delete(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
         self.owned(scope, id).await?;
-        sqlx::query("DELETE FROM monsters WHERE id = ?")
-            .bind(id.to_string())
+        sqlx::query("DELETE FROM monsters WHERE id = $1")
+            .bind(id)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -157,11 +157,11 @@ impl MonsterStore {
         let mut tx = self.pool.begin().await?;
         let mut imported = Imported::default();
         for sheet in sheets {
-            let existing: Option<(String,)> = sqlx::query_as(
-                "SELECT id FROM monsters WHERE campaign IS ? AND name = ? AND source = ? \
-                 AND edition IS ?",
+            let existing: Option<(Uuid,)> = sqlx::query_as(
+                "SELECT id FROM monsters WHERE campaign IS NOT DISTINCT FROM $1 AND name = $2 \
+                 AND source = $3 AND edition IS NOT DISTINCT FROM $4",
             )
-            .bind(campaign.map(|c| c.to_string()))
+            .bind(campaign)
             .bind(&sheet.name)
             .bind(&sheet.source)
             .bind(sheet.edition.map(|e| e.to_string()))
@@ -169,7 +169,7 @@ impl MonsterStore {
             .await?;
             match existing {
                 Some((id,)) => {
-                    update(&mut *tx, parse_id(&id)?, sheet).await?;
+                    update(&mut *tx, id, sheet).await?;
                     imported.updated += 1;
                 }
                 None => {
@@ -186,12 +186,12 @@ impl MonsterStore {
     /// how many monsters there were.
     pub async fn delete_campaign(&self, campaign: Uuid) -> Result<u64, ApiError> {
         let mut tx = self.pool.begin().await?;
-        sqlx::query("DELETE FROM rules_text WHERE campaign = ?")
-            .bind(campaign.to_string())
+        sqlx::query("DELETE FROM rules_text WHERE campaign = $1")
+            .bind(campaign)
             .execute(&mut *tx)
             .await?;
-        let result = sqlx::query("DELETE FROM monsters WHERE campaign = ?")
-            .bind(campaign.to_string())
+        let result = sqlx::query("DELETE FROM monsters WHERE campaign = $1")
+            .bind(campaign)
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
@@ -199,12 +199,18 @@ impl MonsterStore {
     }
 }
 
+/// The time, as precisely as Postgres keeps it (microseconds), so what's
+/// returned matches what's read back later.
+pub(crate) fn now() -> DateTime<Utc> {
+    Utc::now().trunc_subsecs(6)
+}
+
 async fn insert(
-    executor: impl SqliteExecutor<'_>,
+    executor: impl PgExecutor<'_>,
     campaign: Option<Uuid>,
     sheet: &MonsterSheet,
 ) -> Result<Monster, ApiError> {
-    let now = Utc::now();
+    let now = now();
     let monster = Monster {
         id: Uuid::new_v4(),
         campaign,
@@ -213,60 +219,62 @@ async fn insert(
         created_at: now,
         updated_at: now,
     };
-    sqlx::query(
-        "INSERT INTO monsters (id, campaign, name, source, edition, sheet, version, created_at, \
-         updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)",
-    )
-    .bind(monster.id.to_string())
-    .bind(campaign.map(|c| c.to_string()))
-    .bind(&sheet.name)
-    .bind(&sheet.source)
-    .bind(sheet.edition.map(|e| e.to_string()))
-    .bind(to_json(sheet)?)
-    .bind(now)
-    .bind(now)
-    .execute(executor)
-    .await?;
+    insert_as_is(executor, &monster).await?;
     Ok(monster)
 }
 
+/// Stores `monster` as it is, id and version included.
+pub(crate) async fn insert_as_is(
+    executor: impl PgExecutor<'_>,
+    monster: &Monster,
+) -> Result<(), ApiError> {
+    let sheet = &monster.sheet;
+    sqlx::query(
+        "INSERT INTO monsters (id, campaign, name, source, edition, sheet, version, created_at, \
+         updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    )
+    .bind(monster.id)
+    .bind(monster.campaign)
+    .bind(&sheet.name)
+    .bind(&sheet.source)
+    .bind(sheet.edition.map(|e| e.to_string()))
+    .bind(Json(sheet))
+    .bind(i64::try_from(monster.version).map_err(|e| ApiError::Corrupt(e.to_string()))?)
+    .bind(monster.created_at)
+    .bind(monster.updated_at)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
 async fn update(
-    executor: impl SqliteExecutor<'_>,
+    executor: impl PgExecutor<'_>,
     id: Uuid,
     sheet: &MonsterSheet,
 ) -> Result<Monster, ApiError> {
     let row: Option<Row> = sqlx::query_as(concat!(
-        "UPDATE monsters SET name = ?, source = ?, edition = ?, sheet = ?, \
-         version = version + 1, updated_at = ? WHERE id = ? RETURNING ",
+        "UPDATE monsters SET name = $1, source = $2, edition = $3, sheet = $4, \
+         version = version + 1, updated_at = $5 WHERE id = $6 RETURNING ",
         columns!()
     ))
     .bind(&sheet.name)
     .bind(&sheet.source)
     .bind(sheet.edition.map(|e| e.to_string()))
-    .bind(to_json(sheet)?)
-    .bind(Utc::now())
-    .bind(id.to_string())
+    .bind(Json(sheet))
+    .bind(now())
+    .bind(id)
     .fetch_optional(executor)
     .await?;
     row.map(from_row).transpose()?.ok_or(ApiError::NotFound)
 }
 
-fn to_json(sheet: &MonsterSheet) -> Result<String, ApiError> {
-    serde_json::to_string(sheet).map_err(|e| ApiError::Corrupt(e.to_string()))
-}
-
-fn parse_id(id: &str) -> Result<Uuid, ApiError> {
-    id.parse()
-        .map_err(|e: uuid::Error| ApiError::Corrupt(e.to_string()))
-}
-
 fn from_row(
-    (id, campaign, sheet, version, created_at, updated_at): Row,
+    (id, campaign, Json(sheet), version, created_at, updated_at): Row,
 ) -> Result<Monster, ApiError> {
     Ok(Monster {
-        id: parse_id(&id)?,
-        campaign: campaign.as_deref().map(parse_id).transpose()?,
-        sheet: serde_json::from_str(&sheet).map_err(|e| ApiError::Corrupt(e.to_string()))?,
+        id,
+        campaign,
+        sheet,
         version: u64::try_from(version).map_err(|e| ApiError::Corrupt(e.to_string()))?,
         created_at,
         updated_at,
