@@ -27,6 +27,11 @@ cast_possible_truncation = "warn"
 cast_possible_wrap = "warn"
 cast_sign_loss = "warn"
 
+# Debug builds (and the tests) keep only line tables: backtraces still
+# name files and lines, and the build takes a fraction of the disk.
+[profile.dev]
+debug = "line-tables-only"
+
 # Release builds (the server image, `make client` and `make install`) are
 # made small: whole-program optimisation in one unit, and no symbols. That
 # makes the binaries about 40% smaller, and a release build from scratch
