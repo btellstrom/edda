@@ -3,13 +3,13 @@
 
 use campaign_types::{
     CharacterAction,
-    combat::{CombatCommand, Combatant, NewEffect, SpellSlot},
+    combat::{CombatCommand, Combatant, NewEffect, SpellSlot, monster_names},
 };
 use uuid::Uuid;
 
 use super::{
     Context, Step, Topic, VERBS, Verb,
-    names::{longest_name, monster_names, names, targets, verb_s},
+    names::{longest_name, names, targets, verb_s},
 };
 use crate::session::monster_named;
 
@@ -617,11 +617,11 @@ fn add(args: &[&str], ctx: &Context) -> Interpreted {
         };
         return (
             format!("{who} {verb} the combat {hp}"),
-            Ok(vec![Step::Summon {
+            Ok(vec![Step::Combat(CombatCommand::AddMonsters {
                 monster: monster.id,
                 count,
                 roll,
-            }]),
+            })]),
         );
     }
     if count.is_some() || roll {

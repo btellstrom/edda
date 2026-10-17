@@ -8,11 +8,13 @@
 //! reconciling when the server's events arrive.
 
 mod cost;
+mod monsters;
 mod protocol;
 mod rules;
 pub mod undo;
 
 pub use cost::SheetCost;
+pub use monsters::{add_monsters, monster_names};
 pub use protocol::{
     ClientMessage, CombatSnapshot, CombatSummary, CommandEnvelope, LoggedEvent, ServerMessage,
 };

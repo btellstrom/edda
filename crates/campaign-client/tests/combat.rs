@@ -13,7 +13,11 @@ use campaign_types::combat::{
     CombatCommand, CombatEvent, CombatState, CombatStatus, Combatant, CommandEnvelope, NewEffect,
     ServerMessage, SpellSlot,
 };
-use combat_service::sync::SheetSyncConfig;
+use campaign_types::{
+    encounter::{EncounterPlan, PlannedMonster},
+    monster::MonsterSheet,
+};
+use combat_service::services::ServicesConfig;
 use uuid::Uuid;
 
 mod support;
@@ -607,10 +611,19 @@ async fn hit_points_are_written_back_to_character_sheets() {
     wait_for_hp(&characters, vex.id, (20, 0)).await;
 }
 
-/// A combat service config that keeps `characters`' sheets in step. The
-/// combat service does it as itself, with a key registered with the auth
-/// service.
+/// A combat service config that keeps `characters`' sheets in step.
 async fn writing_to(auth: &Auth, characters: &campaign_client::Client) -> combat_service::Config {
+    using(auth, Some(characters.base_url()), None).await
+}
+
+/// A combat service config that uses the character and monster services
+/// at these URLs. The combat service does it as itself, with a key
+/// registered with the auth service.
+async fn using(
+    auth: &Auth,
+    characters: Option<&str>,
+    monsters: Option<&str>,
+) -> combat_service::Config {
     let service_key = DeviceKey::generate();
     auth.store
         .add_service(
@@ -620,13 +633,166 @@ async fn writing_to(auth: &Auth, characters: &campaign_client::Client) -> combat
         .await
         .unwrap();
     combat_service::Config {
-        sheet_sync: Some(SheetSyncConfig {
-            character_service: characters.base_url().to_string(),
+        services: Some(ServicesConfig {
             auth_service: auth.url.clone(),
             auth_key: auth.key,
             key: Arc::new(service_key),
+            character_service: characters.map(str::to_string),
+            monster_service: monsters.map(str::to_string),
         }),
     }
+}
+
+/// A monster service, and a goblin of the campaign's own in it.
+async fn goblins(auth: &Auth, party: &Party) -> (String, campaign_types::monster::Monster) {
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    monster_service::migrate(&pool).await.unwrap();
+    let url = support::serve(monster_service::app(pool, TokenVerifier::new(auth.key))).await;
+    let goblin = campaign_client::monsters::MonsterClient::new(&url)
+        .with_token(&party.dm.token)
+        .create(&MonsterSheet {
+            name: "Goblin".into(),
+            hit_points: 7,
+            hit_dice: "2d6".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    (url, goblin)
+}
+
+/// The names and maximum hit points of the combatants `events` add.
+fn added(events: &[CombatEvent]) -> Vec<(String, u16)> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            CombatEvent::CombatantAdded { combatant } => {
+                Some((combatant.name.clone(), combatant.hit_points.max))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn monsters_are_added_numbered_and_rolled_by_the_server() {
+    let (auth, party, without) = setup().await;
+    let (monsters, goblin) = goblins(&auth, &party).await;
+    let server = Server::start_with(&auth, using(&auth, None, Some(&monsters)).await).await;
+    let combats = server.client(&party.dm);
+    let combat = combats.create("Ambush").await.unwrap().id;
+    let add = |count, roll| CombatCommand::AddMonsters {
+        monster: goblin.id,
+        count,
+        roll,
+    };
+
+    let events = run(&combats, combat, add(2, false)).await;
+    assert_eq!(
+        added(&events),
+        [("Goblin 1".to_string(), 12), ("Goblin 2".to_string(), 12)]
+    );
+    let events = run(&combats, combat, add(1, true)).await;
+    let [(name, hp)] = added(&events).try_into().unwrap();
+    assert_eq!(name, "Goblin 3");
+    assert!((2..=12).contains(&hp), "2d6 rolled {hp}");
+
+    // Undoing takes back all of one command's monsters.
+    run(&combats, combat, CombatCommand::Undo { command: None }).await;
+    let state = combats.snapshot(combat).await.unwrap().state;
+    assert_eq!(state.combatants.len(), 2);
+
+    let refused = |command| {
+        let combats = combats.clone();
+        async move {
+            combats
+                .command(combat, &CommandEnvelope::new(command))
+                .await
+                .unwrap_err()
+        }
+    };
+    let unknown = CombatCommand::AddMonsters {
+        monster: Uuid::new_v4(),
+        count: 1,
+        roll: false,
+    };
+    assert!(
+        matches!(refused(unknown).await, ClientError::Rejected(m) if m.contains("no such monster"))
+    );
+    assert!(matches!(
+        refused(add(0, false)).await,
+        ClientError::Rejected(_)
+    ));
+
+    // A combat service without the monster service can't add them.
+    let elsewhere = without.client(&party.dm);
+    let combat = elsewhere.create("Elsewhere").await.unwrap().id;
+    let refused = elsewhere
+        .command(combat, &CommandEnvelope::new(add(1, false)))
+        .await
+        .unwrap_err();
+    assert!(matches!(refused, ClientError::Rejected(m) if m.contains("no monster service")));
+}
+
+#[tokio::test]
+async fn a_fight_starts_from_a_plan_with_its_monsters_or_not_at_all() {
+    let (auth, party, _) = setup().await;
+    let (monsters, goblin) = goblins(&auth, &party).await;
+    let server = Server::start_with(&auth, using(&auth, None, Some(&monsters)).await).await;
+    let combats = server.client(&party.dm);
+    let entry = |monster: Uuid, count, roll| PlannedMonster {
+        monster,
+        name: "Goblin".into(),
+        count,
+        xp: 50,
+        roll,
+    };
+    let plan = combats
+        .create_encounter(&EncounterPlan {
+            name: "Goblin Ambush".into(),
+            monsters: vec![entry(goblin.id, 3, false), entry(goblin.id, 1, true)],
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+    let snapshot = combats.create_from_plan(plan.id, None).await.unwrap();
+    assert_eq!(snapshot.state.name, "Goblin Ambush");
+    let names: Vec<_> = snapshot
+        .state
+        .combatants
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    assert_eq!(names, ["Goblin 1", "Goblin 2", "Goblin 3", "Goblin 4"]);
+    let named = combats
+        .create_from_plan(plan.id, Some("Round two"))
+        .await
+        .unwrap();
+    assert_eq!(named.state.name, "Round two");
+
+    // A monster gone from the campaign: no combat at all.
+    let gone = combats
+        .create_encounter(&EncounterPlan {
+            name: "Half gone".into(),
+            monsters: vec![entry(goblin.id, 2, false), entry(Uuid::new_v4(), 1, false)],
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    let before = combats.list(None).await.unwrap().len();
+    let refused = combats.create_from_plan(gone.id, None).await.unwrap_err();
+    assert!(matches!(refused, ClientError::Rejected(m) if m.contains("isn't among")));
+    assert_eq!(combats.list(None).await.unwrap().len(), before);
+
+    // Plans are the DM's.
+    let player = server.client(&party.player(&auth, "Vex").await);
+    let refused = player.create_from_plan(plan.id, None).await.unwrap_err();
+    assert!(matches!(refused, ClientError::Forbidden(_)));
 }
 
 #[tokio::test]

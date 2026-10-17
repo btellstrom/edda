@@ -391,7 +391,7 @@ fn suggestions_complete_actions_names_and_numbers() {
 }
 
 #[test]
-fn monsters_join_numbered_at_their_maximum_or_rolled() {
+fn adding_monsters_says_who_joins_and_leaves_the_rest_to_the_server() {
     // The fight already has a plain "Goblin" (number 3).
     let w = world();
     let goblin = w.bestiary[2].id;
@@ -402,11 +402,11 @@ fn monsters_join_numbered_at_their_maximum_or_rolled() {
     );
     assert_eq!(
         p.plan,
-        Ok(vec![Step::Summon {
+        Ok(vec![Step::Combat(CombatCommand::AddMonsters {
             monster: goblin,
             count: 2,
             roll: false
-        }])
+        })])
     );
     let p = w.parse("add goblin boss roll");
     assert_eq!(
@@ -415,17 +415,17 @@ fn monsters_join_numbered_at_their_maximum_or_rolled() {
     );
     assert!(matches!(
         p.plan.unwrap()[0],
-        Step::Summon {
+        Step::Combat(CombatCommand::AddMonsters {
             roll: true,
             count: 1,
             ..
-        }
+        })
     ));
     let own_troll = w.bestiary[1].id;
     assert!(
         matches!(
             w.parse("add cave troll").plan.unwrap()[0],
-            Step::Summon { monster, .. } if monster == own_troll
+            Step::Combat(CombatCommand::AddMonsters { monster, .. }) if monster == own_troll
         ),
         "the campaign's own before the shared one"
     );
@@ -434,7 +434,10 @@ fn monsters_join_numbered_at_their_maximum_or_rolled() {
         Err("no monster called \"dragon\"; Tab lists them".into())
     );
     assert!(
-        matches!(w.parse("add Goblin 7").plan.unwrap()[0], Step::Combat(_)),
+        matches!(
+            w.parse("add Goblin 7").plan.unwrap()[0],
+            Step::Combat(CombatCommand::AddCombatant { .. })
+        ),
         "a name and hit points still adds anyone"
     );
 
@@ -447,20 +450,6 @@ fn monsters_join_numbered_at_their_maximum_or_rolled() {
         "characters come one at a time"
     );
     assert_eq!(w.lines("add goblin "), ["add goblin roll "]);
-}
-
-#[test]
-fn monster_names_number_on_from_those_in_the_fight() {
-    let mut state = CombatState::default();
-    assert_eq!(monster_names("Rat", 1, &state), ["Rat"]);
-    assert_eq!(monster_names("Rat", 2, &state), ["Rat 1", "Rat 2"]);
-    for name in ["Goblin", "Goblin 4", "Goblin Boss"] {
-        state.apply(&CombatEvent::CombatantAdded {
-            combatant: Combatant::new(name, 7),
-        });
-    }
-    assert_eq!(monster_names("Goblin", 2, &state), ["Goblin 5", "Goblin 6"]);
-    assert_eq!(monster_names("Goblin Boss", 1, &state), ["Goblin Boss 2"]);
 }
 
 #[test]

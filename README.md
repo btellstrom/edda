@@ -95,7 +95,8 @@ cargo run -p character-service
 cargo run -p combat-service
 # DATABASE_URL defaults to postgres://postgres:postgres@localhost:5432/combats
 #   (created on first start), BIND_ADDR to 127.0.0.1:3001,
-# CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty leaves character sheets alone)
+# CHARACTER_SERVICE_URL to http://127.0.0.1:3000 (empty leaves character sheets alone),
+# MONSTER_SERVICE_URL to http://127.0.0.1:3003 (empty: no adding monsters by id)
 cargo run -p monster-service -- import data/monsters/*.json   # the SRD, once
 cargo run -p monster-service -- import --kind spells data/spells/*.json
 cargo run -p monster-service -- import --kind conditions data/conditions/*.json
@@ -573,7 +574,7 @@ in `campaign-types::combat`, so clients run exactly the same code.
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
 | `GET` | `/combats?status=…` | | the campaign's combats (status, round, last activity), most recently active first |
-| `POST` | `/combats` | `{"name": ...}` | `201` snapshot |
+| `POST` | `/combats` | `{"name": ...}`, or `{"encounter": <plan id>}` | `201` snapshot |
 | `GET` | `/combats/{id}` | | snapshot: round, current turn, initiative order, effects, and `seq` |
 | `GET` | `/combats/{id}/log?after=N` | | the complete log (or the part after `seq` N) |
 | `POST` | `/combats/{id}/commands` | command envelope | the events it produced |
@@ -596,7 +597,8 @@ puts there:
 { "command_id": "…", "actor": "Vex", "command": { "type": "damage", "combatant": "…", "amount": 5 } }
 ```
 
-Commands: `add_combatant` (any time, also mid-combat), `remove_combatant`,
+Commands: `add_combatant` (any time, also mid-combat), `add_monsters`,
+`remove_combatant`,
 `roll_initiative` (pass `roll` for physical dice, omit it for a server roll),
 `roll_initiative_for_all`, `set_initiative`, `start`, `next_turn`, `damage`
 (temporary HP first), `heal`, `set_temporary_hit_points`, `add_effect`,
@@ -694,6 +696,22 @@ service is unreachable, write-back and give-backs are retried every 30
 seconds; only one instance syncs a combat at a time and it always writes
 the latest HP, so sheets never go backwards. With `CHARACTER_SERVICE_URL`
 empty, sheets are left alone entirely.
+
+### Adding monsters
+
+`add_monsters` (`monster`, `count`, `roll`) adds monsters from the
+campaign's own and shared ones by id. The combat service fetches the stat
+block from the monster service (as itself, like the sheets), names and
+numbers them on from any already in the fight ("Goblin 3"), and gives them
+their maximum hit points or, with `roll`, rolls them with its own dice.
+Clients can't predict it, so it shows up once the server answers; undoing
+it takes all of them out again.
+
+`POST /combats` with `{"encounter": <plan id>}` (DM devices only) starts a
+combat from a planned encounter, named after the plan unless a `name` is
+given, with the plan's monsters already in it. It's all or nothing: if a
+monster in the plan is gone from the campaign, there's no combat, and the
+error says which. With `MONSTER_SERVICE_URL` empty, both are refused.
 
 ## Authentication
 

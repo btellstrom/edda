@@ -21,6 +21,9 @@ pub enum ApiError {
     /// The character service couldn't be reached to spend it.
     #[error("couldn't reach the character's sheet: {0}")]
     SheetUnavailable(String),
+    /// The monster service couldn't be reached for a stat block.
+    #[error("couldn't reach the monsters: {0}")]
+    MonstersUnavailable(String),
     #[error(transparent)]
     Combat(#[from] CombatError),
     #[error("database error: {0}")]
@@ -40,6 +43,14 @@ impl ApiError {
             other => ApiError::SheetUnavailable(other.to_string()),
         }
     }
+
+    /// What the monster service said about a stat block.
+    pub fn from_monsters(error: ClientError) -> Self {
+        match error {
+            ClientError::NotFound => ApiError::BadRequest("there's no such monster".into()),
+            other => ApiError::MonstersUnavailable(other.to_string()),
+        }
+    }
 }
 
 impl IntoResponse for ApiError {
@@ -49,7 +60,9 @@ impl IntoResponse for ApiError {
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
             ApiError::Sheet(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            ApiError::SheetUnavailable(_) => StatusCode::BAD_GATEWAY,
+            ApiError::SheetUnavailable(_) | ApiError::MonstersUnavailable(_) => {
+                StatusCode::BAD_GATEWAY
+            }
             ApiError::Combat(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => {
                 tracing::error!(error = %self, "internal error");

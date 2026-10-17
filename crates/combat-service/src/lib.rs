@@ -6,6 +6,7 @@ pub mod encounters;
 pub mod error;
 pub mod hub;
 pub mod routes;
+pub mod services;
 pub mod store;
 pub mod sync;
 
@@ -18,9 +19,9 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
-    /// Where and as whom to write combatants' hit points back to character
-    /// sheets. `None` turns the write-back off.
-    pub sheet_sync: Option<sync::SheetSyncConfig>,
+    /// The other services to use, as this service itself. `None` uses
+    /// none: sheets are left alone, and monsters can't be added by id.
+    pub services: Option<services::ServicesConfig>,
 }
 
 /// Connects to the database, creating it if needed, and applies migrations.
@@ -52,10 +53,17 @@ pub async fn app(
     config: Config,
 ) -> Result<Router, sqlx::Error> {
     let store = store::Store::new(pool);
-    let sheet_sync = config
-        .sheet_sync
-        .map(|config| sync::SheetSync::new(store.clone(), config));
-    let hub = hub::Hub::start(store, sheet_sync).await?;
+    let (mut sheet_sync, mut monsters) = (None, None);
+    if let Some(config) = config.services {
+        let login = Arc::new(services::ServiceLogin::new(&config));
+        sheet_sync = config
+            .character_service
+            .map(|url| sync::SheetSync::new(store.clone(), login.clone(), url));
+        monsters = config
+            .monster_service
+            .map(|url| services::Monsters::new(login, url));
+    }
+    let hub = hub::Hub::start(store, sheet_sync, monsters).await?;
     Ok(Router::new()
         .merge(routes::router())
         .merge(encounters::router())

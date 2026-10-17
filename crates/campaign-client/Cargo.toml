@@ -30,6 +30,7 @@ campaign-auth = { path = "../campaign-auth", features = ["server"] }
 character-service = { path = "../character-service" }
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 combat-service = { path = "../combat-service" }
+monster-service = { path = "../monster-service" }
 reqwest = { version = "0.13.5", features = ["json"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["sqlite", "postgres", "runtime-tokio"] }
 tokio = { version = "1.53.3", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }

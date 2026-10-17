@@ -24,7 +24,6 @@ use campaign_types::{
 use uuid::Uuid;
 
 use interpret::{interpret, section, topic, verb};
-pub use names::monster_names;
 pub use suggest::suggest;
 
 /// What a line is interpreted against.
@@ -61,12 +60,6 @@ pub enum Step {
     Combat(CombatCommand),
     /// Add a campaign character, as their sheet currently stands.
     Join(Uuid),
-    /// Add `count` of a monster, at their maximum hit points or rolled.
-    Summon {
-        monster: Uuid,
-        count: u16,
-        roll: bool,
-    },
     /// Keep a description in the side panel.
     Show(Topic),
     Quit,

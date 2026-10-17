@@ -20,16 +20,21 @@ use std::{
     time::{Duration, Instant},
 };
 
-use campaign_types::combat::{
-    CombatCommand, CombatEvent, CombatSnapshot, CombatState, CommandEnvelope, Dice, LoggedEvent,
-    SheetCost, decide, undo,
+use campaign_types::{
+    combat::{
+        CombatCommand, CombatEvent, CombatSnapshot, CombatState, CommandEnvelope, Dice,
+        LoggedEvent, SheetCost, add_monsters, decide, undo,
+    },
+    monster::Monster,
 };
 use sqlx::postgres::PgListener;
 use tokio::sync::{Mutex, broadcast};
 use uuid::Uuid;
 
 use crate::{
+    encounters,
     error::ApiError,
+    services::Monsters,
     store::{self, Notice, Store},
     sync::SheetSync,
 };
@@ -45,6 +50,7 @@ pub struct Hub {
     store: Store,
     live: Mutex<HashMap<Uuid, Arc<LiveCombat>>>,
     sheet_sync: Option<Arc<SheetSync>>,
+    monsters: Option<Monsters>,
 }
 
 pub struct LiveCombat {
@@ -81,17 +87,19 @@ pub enum Outcome {
 struct ServerDice;
 
 impl Dice for ServerDice {
-    fn d20(&mut self) -> Option<u8> {
-        Some(rand::random_range(1..=20))
+    fn roll(&mut self, sides: u16) -> Option<u16> {
+        Some(rand::random_range(1..=sides.max(1)))
     }
 }
 
 impl Hub {
     /// Starts listening for events from all instances, and the background
-    /// upkeep: evicting idle combats and retrying HP write-back.
+    /// upkeep: evicting idle combats and retrying HP write-back. Monsters
+    /// are added from `monsters`.
     pub async fn start(
         store: Store,
         sheet_sync: Option<SheetSync>,
+        monsters: Option<Monsters>,
     ) -> Result<Arc<Self>, sqlx::Error> {
         let mut listener = PgListener::connect_with(store.pool()).await?;
         listener.listen(store::CHANNEL).await?;
@@ -99,6 +107,7 @@ impl Hub {
             store,
             live: Mutex::new(HashMap::new()),
             sheet_sync: sheet_sync.map(Arc::new),
+            monsters,
         });
         tokio::spawn(hub.clone().listen(listener));
         tokio::spawn(hub.clone().evict_idle());
@@ -113,8 +122,60 @@ impl Hub {
     }
 
     pub async fn create(&self, campaign: &str, name: &str) -> Result<CombatSnapshot, ApiError> {
-        let id = self.store.create(campaign, name).await?;
+        let id = self.store.create(campaign, name, Vec::new()).await?;
         self.combat(id).await?.snapshot(&self.store).await
+    }
+
+    /// Creates a combat from one of `campaign`'s plans, with the plan's
+    /// monsters in it, and called `name` or after the plan. All or nothing:
+    /// if any of the monsters can't be added, there's no combat.
+    pub async fn create_from_plan(
+        &self,
+        campaign: Uuid,
+        encounter: Uuid,
+        name: Option<&str>,
+    ) -> Result<CombatSnapshot, ApiError> {
+        let plan = encounters::plan(self, campaign, encounter).await?;
+        let name = name.filter(|n| !n.trim().is_empty()).unwrap_or(&plan.name);
+        let mut state = CombatState::default();
+        state.apply(&CombatEvent::Created {
+            name: name.to_string(),
+            campaign: campaign.to_string(),
+        });
+        let mut setup = Vec::new();
+        for entry in &plan.monsters {
+            let monster = match self.stat_block(campaign, entry.monster).await {
+                Err(ApiError::BadRequest(_)) => {
+                    return Err(ApiError::BadRequest(format!(
+                        "{} from the plan isn't among the campaign's monsters any more",
+                        entry.name
+                    )));
+                }
+                other => other?,
+            };
+            for event in add_monsters(&state, &monster, entry.count, entry.roll, &mut ServerDice)? {
+                state.apply(&event);
+                setup.push(event);
+            }
+        }
+        let id = self
+            .store
+            .create(&campaign.to_string(), name, setup)
+            .await?;
+        self.combat(id).await?.snapshot(&self.store).await
+    }
+
+    /// A monster's stat block, from the monster service.
+    async fn stat_block(&self, campaign: Uuid, monster: Uuid) -> Result<Monster, ApiError> {
+        let monsters = self.monsters.as_ref().ok_or_else(|| {
+            ApiError::BadRequest(
+                "this combat service can't add monsters (no monster service)".into(),
+            )
+        })?;
+        monsters
+            .get(campaign, monster)
+            .await
+            .map_err(ApiError::from_monsters)
     }
 
     /// The live combat, loading it from its log if it isn't in memory.
@@ -153,8 +214,16 @@ impl Hub {
     ) -> Result<Outcome, ApiError> {
         let combat = self.combat(id).await?;
         let command_id = envelope.command_id;
+        let stat_block = match &envelope.command {
+            CombatCommand::AddMonsters { monster, .. } => {
+                Some(self.stat_block(combat.campaign_id()?, *monster).await?)
+            }
+            _ => None,
+        };
         let spent = self.spend(&combat, &envelope).await?;
-        let outcome = combat.execute(&self.store, envelope, actor_key).await;
+        let outcome = combat
+            .execute(&self.store, envelope, actor_key, stat_block.as_ref())
+            .await;
         if let (Err(_), Some((sync, campaign, character, cost))) = (&outcome, &spent) {
             let key = crate::sync::refused_key(command_id);
             if let Err(e) = sync.give_back(*campaign, *character, cost, key).await {
@@ -197,10 +266,7 @@ impl Hub {
         else {
             return Ok(None);
         };
-        let campaign: Uuid = combat
-            .campaign
-            .parse()
-            .map_err(|e: uuid::Error| ApiError::Corrupt(e.to_string()))?;
+        let campaign = combat.campaign_id()?;
         sync.spend(campaign, character, &cost, envelope.command_id)
             .await
             .map_err(ApiError::from_sheet)?;
@@ -274,6 +340,12 @@ impl LiveCombat {
         }
     }
 
+    fn campaign_id(&self) -> Result<Uuid, ApiError> {
+        self.campaign
+            .parse()
+            .map_err(|e: uuid::Error| ApiError::Corrupt(e.to_string()))
+    }
+
     fn touch(&self) {
         *self.last_used.lock().expect("not poisoned") = Instant::now();
     }
@@ -328,11 +400,13 @@ impl LiveCombat {
         Ok(())
     }
 
+    /// Runs a command. `AddMonsters` needs the monster's `stat_block`.
     async fn execute(
         &self,
         store: &Store,
         envelope: CommandEnvelope,
         actor_key: &str,
+        stat_block: Option<&Monster>,
     ) -> Result<Outcome, ApiError> {
         let mut core = self.core.lock().await;
         let mut tx = store.begin().await?;
@@ -358,6 +432,10 @@ impl LiveCombat {
                 let log = store.events_in(&mut tx, self.id, 0).await?;
                 let mine = store.commands_by(&mut tx, self.id, actor_key).await?;
                 undo::undo(&log, command, |c| mine.contains(&c))?
+            }
+            CombatCommand::AddMonsters { count, roll, .. } => {
+                let monster = stat_block.expect("fetched by Hub::execute");
+                add_monsters(&core.state, monster, count, roll, &mut ServerDice)?
             }
             ref command => decide(&core.state, command, &mut ServerDice)?,
         };

@@ -21,6 +21,7 @@ use tokio::sync::broadcast::error::RecvError;
 use uuid::Uuid;
 
 use crate::{
+    encounters,
     error::ApiError,
     hub::{Hub, LiveCombat, Outcome},
     store::ListFilter,
@@ -40,19 +41,31 @@ pub fn router() -> Router<AppState> {
 
 #[derive(Deserialize)]
 struct NewCombat {
-    name: String,
+    /// What to call it; with a plan, the plan's name by default.
+    #[serde(default)]
+    name: Option<String>,
+    /// A planned encounter to start it from, with the plan's monsters in it.
+    #[serde(default)]
+    encounter: Option<Uuid>,
 }
 
-/// Creates a combat in the caller's campaign.
+/// Creates a combat in the caller's campaign, empty or from a plan.
 async fn create(
     State(hub): State<AppState>,
     Authenticated(claims): Authenticated,
     Json(body): Json<NewCombat>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if body.name.trim().is_empty() {
-        return Err(ApiError::BadRequest("name must not be empty".into()));
-    }
-    let snapshot = hub.create(&claims.campaign.to_string(), &body.name).await?;
+    let snapshot = match (body.encounter, body.name) {
+        (Some(encounter), name) => {
+            encounters::dm_only(&claims)?;
+            hub.create_from_plan(claims.campaign, encounter, name.as_deref())
+                .await?
+        }
+        (None, Some(name)) if !name.trim().is_empty() => {
+            hub.create(&claims.campaign.to_string(), &name).await?
+        }
+        (None, _) => return Err(ApiError::BadRequest("name must not be empty".into())),
+    };
     let location = format!("/combats/{}", snapshot.id);
     Ok((
         StatusCode::CREATED,

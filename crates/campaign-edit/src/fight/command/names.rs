@@ -1,34 +1,8 @@
-//! Naming combatants: in sentences, and when more of a monster join.
+//! Naming combatants in sentences.
 
-use campaign_types::combat::{CombatState, Combatant};
+use campaign_types::combat::Combatant;
 
 use super::Context;
-
-/// Names for `count` more of a monster: just its name for the only one in
-/// the fight, otherwise numbered on from any already there ("Goblin 2").
-pub fn monster_names(base: &str, count: u16, state: &CombatState) -> Vec<String> {
-    let mut plain = false;
-    let mut highest = 0;
-    for combatant in &state.combatants {
-        if combatant.name == base {
-            plain = true;
-        } else if let Some(n) = combatant
-            .name
-            .strip_prefix(base)
-            .and_then(|rest| rest.strip_prefix(' '))
-            .and_then(|n| n.parse::<u16>().ok())
-        {
-            highest = highest.max(n);
-        }
-    }
-    if count == 1 && !plain && highest == 0 {
-        return vec![base.to_string()];
-    }
-    let first = highest.max(u16::from(plain)) + 1;
-    (first..first + count)
-        .map(|n| format!("{base} {n}"))
-        .collect()
-}
 
 /// The combatants that target words refer to.
 pub(super) fn targets<'c>(words: &[&str], ctx: &'c Context) -> Result<Vec<&'c Combatant>, String> {

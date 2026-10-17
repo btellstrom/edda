@@ -42,13 +42,14 @@ pub fn dm_only(claims: &Claims) -> Result<(), ApiError> {
     }
 }
 
-/// Fails with a bad request unless `id` is one of `campaign`'s plans.
-pub async fn exists(hub: &Hub, campaign: Uuid, id: Uuid) -> Result<(), ApiError> {
+/// One of `campaign`'s plans, to start a fight from; a bad request if
+/// there's no such plan.
+pub async fn plan(hub: &Hub, campaign: Uuid, id: Uuid) -> Result<EncounterPlan, ApiError> {
     match get_one(hub, campaign, id).await {
         Err(ApiError::NotFound) => Err(ApiError::BadRequest(
             "there's no such planned encounter".into(),
         )),
-        other => other.map(|_| ()),
+        other => other.map(|e| e.plan),
     }
 }
 

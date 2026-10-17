@@ -68,37 +68,54 @@ impl Store {
         Ok(self.pool.begin().await?)
     }
 
-    /// Creates a combat whose log starts with a `Created` event.
-    pub async fn create(&self, campaign: &str, name: &str) -> Result<Uuid, ApiError> {
+    /// Creates a combat whose log starts with a `Created` event, followed
+    /// by `setup` (a plan's monsters, say), all at once.
+    pub async fn create(
+        &self,
+        campaign: &str,
+        name: &str,
+        setup: Vec<CombatEvent>,
+    ) -> Result<Uuid, ApiError> {
         let id = Uuid::new_v4();
-        let created = LoggedEvent {
-            seq: 1,
-            command_id: None,
-            actor: None,
-            at: now(),
-            event: CombatEvent::Created {
-                name: name.to_string(),
-                campaign: campaign.to_string(),
-            },
+        let at = now();
+        let created = CombatEvent::Created {
+            name: name.to_string(),
+            campaign: campaign.to_string(),
         };
+        let log: Vec<LoggedEvent> = std::iter::once(created)
+            .chain(setup)
+            .zip(1..)
+            .map(|(event, seq)| LoggedEvent {
+                seq,
+                command_id: None,
+                actor: None,
+                at,
+                event,
+            })
+            .collect();
+        let seq = from_seq(log.len() as u64)?;
         let mut tx = self.begin().await?;
         sqlx::query(
             "INSERT INTO combats (id, campaign, name, status, round, seq, created_at, updated_at) \
-             VALUES ($1, $2, $3, $4, 0, 1, $5, $5)",
+             VALUES ($1, $2, $3, $4, 0, $5, $6, $6)",
         )
         .bind(id)
         .bind(campaign)
         .bind(name)
         .bind(status_str(CombatStatus::Preparing))
-        .bind(created.at)
+        .bind(seq)
+        .bind(at)
         .execute(&mut *tx)
         .await?;
-        insert_event(&mut tx, id, &created).await?;
-        sqlx::query("INSERT INTO combat_hp_sync (combat_id, synced_seq) VALUES ($1, 1)")
+        for event in &log {
+            insert_event(&mut tx, id, event).await?;
+        }
+        sqlx::query("INSERT INTO combat_hp_sync (combat_id, synced_seq) VALUES ($1, $2)")
             .bind(id)
+            .bind(seq)
             .execute(&mut *tx)
             .await?;
-        notify(&mut tx, id, 1).await?;
+        notify(&mut tx, id, log.len() as u64).await?;
         tx.commit().await?;
         Ok(id)
     }

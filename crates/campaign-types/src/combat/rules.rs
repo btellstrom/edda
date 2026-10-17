@@ -14,6 +14,18 @@ pub enum CombatCommand {
     AddCombatant {
         combatant: Combatant,
     },
+    /// Add `count` of a monster from the campaign's monsters, named and
+    /// numbered on from any already in the fight ("Goblin 3"), at their
+    /// maximum hit points or, with `roll`, rolled. Only the server can
+    /// decide this (it needs the stat block and dice); see
+    /// [`super::add_monsters`].
+    AddMonsters {
+        monster: Uuid,
+        #[serde(default = "one")]
+        count: u16,
+        #[serde(default)]
+        roll: bool,
+    },
     RemoveCombatant {
         combatant: Uuid,
     },
@@ -125,6 +137,8 @@ pub enum CombatError {
     InvalidRoll(u8),
     #[error("everyone already has initiative")]
     NothingToRoll,
+    #[error("add at least one")]
+    NothingToAdd,
     #[error("nobody has initiative yet")]
     NoInitiative,
     #[error("combat has not started")]
@@ -158,13 +172,18 @@ pub enum CombatError {
 /// Source of d20 rolls. The server rolls real dice; clients predicting an
 /// outcome use [`NoDice`], so anything needing a roll waits for the server.
 pub trait Dice {
-    fn d20(&mut self) -> Option<u8>;
+    /// A roll of a die with `sides` sides.
+    fn roll(&mut self, sides: u16) -> Option<u16>;
+
+    fn d20(&mut self) -> Option<u8> {
+        self.roll(20).and_then(|r| u8::try_from(r).ok())
+    }
 }
 
 pub struct NoDice;
 
 impl Dice for NoDice {
-    fn d20(&mut self) -> Option<u8> {
+    fn roll(&mut self, _sides: u16) -> Option<u16> {
         None
     }
 }
@@ -177,7 +196,7 @@ pub fn decide(
     command: &CombatCommand,
     dice: &mut dyn Dice,
 ) -> Result<Vec<CombatEvent>, CombatError> {
-    if let CombatCommand::Undo { .. } = command {
+    if let CombatCommand::Undo { .. } | CombatCommand::AddMonsters { .. } = command {
         return Err(CombatError::ServerOnly);
     }
     if state.status == CombatStatus::Ended {
@@ -257,7 +276,9 @@ pub fn decide(
             out.emit(CombatEvent::Resumed);
         }
         CombatCommand::End => out.emit(CombatEvent::Ended),
-        CombatCommand::Undo { .. } => unreachable!("handled above"),
+        CombatCommand::Undo { .. } | CombatCommand::AddMonsters { .. } => {
+            unreachable!("handled above")
+        }
     }
     Ok(out.events)
 }
@@ -577,8 +598,8 @@ mod tests {
     struct Loaded(Vec<u8>);
 
     impl Dice for Loaded {
-        fn d20(&mut self) -> Option<u8> {
-            Some(self.0.remove(0))
+        fn roll(&mut self, _sides: u16) -> Option<u16> {
+            Some(u16::from(self.0.remove(0)))
         }
     }
 

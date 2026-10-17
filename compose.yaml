@@ -127,6 +127,7 @@ services:
       BIND_ADDR: 0.0.0.0:3001
       AUTH_SERVICE_URL: http://auth:3002
       CHARACTER_SERVICE_URL: http://characters:3000
+      MONSTER_SERVICE_URL: http://monsters:3003
       SERVICE_KEY_FILE: /data/combat-service.key
     ports:
       - "127.0.0.1:${COMBAT_PORT:-3001}:3001"

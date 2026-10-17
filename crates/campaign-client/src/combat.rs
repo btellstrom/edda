@@ -61,6 +61,17 @@ impl CombatClient {
         send(self.http.post(self.url("/combats")).json(&body)).await
     }
 
+    /// Creates a combat from a planned encounter, with the plan's monsters
+    /// in it, called `name` or after the plan. All or nothing.
+    pub async fn create_from_plan(
+        &self,
+        encounter: Uuid,
+        name: Option<&str>,
+    ) -> Result<CombatSnapshot, ClientError> {
+        let body = json!({ "encounter": encounter, "name": name });
+        send(self.http.post(self.url("/combats")).json(&body)).await
+    }
+
     /// Round, whose turn it is, initiative order and effects in play.
     pub async fn snapshot(&self, id: Uuid) -> Result<CombatSnapshot, ClientError> {
         send(self.http.get(self.url(&format!("/combats/{id}")))).await

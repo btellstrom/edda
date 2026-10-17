@@ -88,7 +88,8 @@ up() {
     DATABASE_URL="sqlite://$dir/monsters.db" AUTH_SERVICE_URL="$auth" \
         start monsters "$bin/monster-service" serve --bind "127.0.0.1:$monsters_port"
     DATABASE_URL="$pg_url/combats" BIND_ADDR="127.0.0.1:$combat_port" AUTH_SERVICE_URL="$auth" \
-        CHARACTER_SERVICE_URL="http://127.0.0.1:$characters_port" SERVICE_KEY_FILE="$dir/combat.key" \
+        CHARACTER_SERVICE_URL="http://127.0.0.1:$characters_port" \
+        MONSTER_SERVICE_URL="http://127.0.0.1:$monsters_port" SERVICE_KEY_FILE="$dir/combat.key" \
         start combat "$bin/combat-service"
     for port in $characters_port $monsters_port $combat_port; do
         wait_for "http://127.0.0.1:$port/health"

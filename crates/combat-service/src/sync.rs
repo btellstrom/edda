@@ -11,44 +11,26 @@
 //! the latest HP, so sheets never go backwards. Spending and giving back
 //! carry an idempotency key, so a retry never does either twice.
 //!
-//! The service logs in to the auth service with its own key (registered
-//! there with `auth-service add-service`) to get a token for each
-//! campaign it writes to.
+//! It writes as this service itself (see [`crate::services`]).
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use campaign_auth::{DeviceKey, PublicKey, protocol::Session};
-use campaign_client::{Client, ClientError, auth::AuthClient};
+use campaign_client::{Client, ClientError};
 use campaign_types::{
     HitPoints,
     combat::{CombatEvent, CombatState, LoggedEvent, SheetCost},
 };
-use chrono::Utc;
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::{error::ApiError, store::Store};
+use crate::{error::ApiError, services::ServiceLogin, store::Store};
 
 /// How often combats whose write-back failed are retried.
 const RETRY_INTERVAL: Duration = Duration::from_secs(30);
 
-/// Where and as whom to write hit points back.
-#[derive(Debug, Clone)]
-pub struct SheetSyncConfig {
-    pub character_service: String,
-    pub auth_service: String,
-    /// The auth service's token key, checked when logging in.
-    pub auth_key: PublicKey,
-    /// This service's own key.
-    pub key: Arc<DeviceKey>,
-}
-
 pub struct SheetSync {
     store: Store,
-    config: SheetSyncConfig,
-    auth: AuthClient,
-    /// A token per campaign, reused until shortly before it expires.
-    sessions: Mutex<HashMap<Uuid, Session>>,
+    login: Arc<ServiceLogin>,
+    character_service: String,
 }
 
 /// Idempotency keys: what a command spends is keyed by the command itself;
@@ -75,31 +57,18 @@ enum SyncError {
 }
 
 impl SheetSync {
-    pub fn new(store: Store, config: SheetSyncConfig) -> Self {
+    pub fn new(store: Store, login: Arc<ServiceLogin>, character_service: String) -> Self {
         Self {
             store,
-            auth: AuthClient::new(&config.auth_service),
-            config,
-            sessions: Mutex::new(HashMap::new()),
+            login,
+            character_service,
         }
     }
 
     /// A character service client authorised for `campaign`.
     async fn characters(&self, campaign: Uuid) -> Result<Client, ClientError> {
-        let mut sessions = self.sessions.lock().await;
-        let fresh = |s: &Session| s.claims.expires_at > Utc::now() + chrono::Duration::minutes(1);
-        let session = match sessions.get(&campaign).filter(|s| fresh(s)) {
-            Some(session) => session.clone(),
-            None => {
-                let session = self
-                    .auth
-                    .login(campaign, &self.config.key, Some(self.config.auth_key))
-                    .await?;
-                sessions.insert(campaign, session.clone());
-                session
-            }
-        };
-        Ok(Client::new(&self.config.character_service).with_token(&session.token))
+        let token = self.login.token(campaign).await?;
+        Ok(Client::new(&self.character_service).with_token(&token))
     }
 
     /// Spends `cost` on `character`'s sheet for `command`, once however

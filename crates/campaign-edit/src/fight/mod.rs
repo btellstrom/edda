@@ -17,7 +17,6 @@ use campaign_types::{
         CombatCommand, CombatEvent, CombatStatus, CombatSummary, Combatant, CommandEnvelope,
         LoggedEvent, ServerMessage,
     },
-    encounter::EncounterPlan,
     monster::{Monster, MonsterSummary},
     rules_text::{ConditionEntry, ConditionText, SpellEntry, SpellText},
 };
@@ -77,19 +76,16 @@ pub struct App {
 pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> Result<()> {
     let mut login = Login::new(characters_url, &args.combat_server, monsters_url).await?;
     let combats = login.combats().await?;
-    let plan = match &args.plan {
-        Some(wanted) => {
+    let combat = match (&args.plan, &args.new) {
+        (Some(wanted), _) => {
             let encounters = combats.encounters().await?;
             let found = session::find_plan(&encounters, wanted, false).ok_or_else(|| {
                 anyhow!("no plan matches \"{wanted}\" (see `campaign-edit plan`)")
             })?;
-            Some(found.plan.clone())
+            // The combat service puts the plan's monsters in it.
+            combats.create_from_plan(found.id, None).await?.id
         }
-        None => None,
-    };
-    let combat = match (&args.new, &plan) {
-        (Some(name), _) => combats.create(name).await?.id,
-        (None, Some(plan)) => combats.create(&plan.name).await?.id,
+        (None, Some(name)) => combats.create(name).await?.id,
         (None, None) => choose(&combats.list(None).await?, args.combat.as_deref())?,
     };
     let log = combats.log(combat, 0).await?;
@@ -135,9 +131,6 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
         retries: 0,
     };
     app.refresh_sheets().await;
-    if let Some(plan) = plan {
-        app.load(&plan).await;
-    }
 
     let mut terminal = ratatui::init();
     let mut keys = EventStream::new();
@@ -327,11 +320,6 @@ impl App {
                     }
                     Err(e) => Err(e),
                 },
-                Step::Summon {
-                    monster,
-                    count,
-                    roll,
-                } => self.summon(monster, count, roll).await,
             };
             if let Err(e) = outcome {
                 self.status = Some((format!("{}: {e:#}", parsed.sentence), true));
@@ -340,47 +328,6 @@ impl App {
         }
         self.status = Some((parsed.sentence, false));
         true
-    }
-
-    /// Puts a plan's monsters in the fight.
-    async fn load(&mut self, plan: &EncounterPlan) {
-        let mut missing = Vec::new();
-        for entry in &plan.monsters {
-            if self
-                .summon(entry.monster, entry.count, entry.roll)
-                .await
-                .is_err()
-            {
-                missing.push(entry.name.clone());
-            }
-        }
-        self.status = Some(if missing.is_empty() {
-            (format!("{} is set up from its plan", plan.name), false)
-        } else {
-            (
-                format!(
-                    "couldn't add {} (deleted from the monsters?)",
-                    missing.join(", ")
-                ),
-                true,
-            )
-        });
-    }
-
-    /// Adds `count` of a monster, numbered on from any already in the fight,
-    /// at their maximum hit points or with them rolled.
-    async fn summon(&mut self, id: Uuid, count: u16, roll: bool) -> Result<()> {
-        let monster = self.monster(id).await?;
-        let names = command::monster_names(&monster.sheet.name, count, self.replica.state());
-        for name in names {
-            let hit_points = match (roll, monster.sheet.hit_dice()) {
-                (true, Some(dice)) => dice.roll(|sides| rand::random_range(1..=sides)),
-                _ => monster.sheet.max_hit_points(),
-            };
-            let combatant = Combatant::from_monster(&monster, name, hit_points);
-            self.send(CombatCommand::AddCombatant { combatant }).await?;
-        }
-        Ok(())
     }
 
     /// A monster's stat block, fetched once.

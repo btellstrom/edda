@@ -1,7 +1,7 @@
 use std::{env, path::Path, sync::Arc};
 
 use campaign_auth::{DeviceKey, PublicKey, server::TokenVerifier};
-use combat_service::sync::SheetSyncConfig;
+use combat_service::services::ServicesConfig;
 
 use tracing_subscriber::EnvFilter;
 
@@ -47,22 +47,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_key = auth_key(&auth_service).await?;
 
     // Set CHARACTER_SERVICE_URL to an empty string to leave character sheets
-    // alone: no HP written back, no slots or feature uses spent.
-    let character_service =
-        env::var("CHARACTER_SERVICE_URL").unwrap_or_else(|_| "http://127.0.0.1:3000".to_string());
-    let sheet_sync = if character_service.is_empty() {
+    // alone (no HP written back, no slots or feature uses spent), and
+    // MONSTER_SERVICE_URL to refuse adding monsters by id and fights from
+    // plans.
+    let other = |var: &str, default: &str| {
+        Some(env::var(var).unwrap_or_else(|_| default.to_string())).filter(|url| !url.is_empty())
+    };
+    let character_service = other("CHARACTER_SERVICE_URL", "http://127.0.0.1:3000");
+    let monster_service = other("MONSTER_SERVICE_URL", "http://127.0.0.1:3003");
+    let services = if character_service.is_none() && monster_service.is_none() {
         None
     } else {
         let key_file =
             env::var("SERVICE_KEY_FILE").unwrap_or_else(|_| DEFAULT_KEY_FILE.to_string());
-        Some(SheetSyncConfig {
-            character_service,
+        Some(ServicesConfig {
             auth_service,
             auth_key,
             key: Arc::new(service_key(Path::new(&key_file))?),
+            character_service,
+            monster_service,
         })
     };
-    let config = combat_service::Config { sheet_sync };
+    let config = combat_service::Config { services };
 
     let pool = combat_service::connect(&database_url).await?;
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
@@ -97,8 +103,8 @@ async fn auth_key(auth_service: &str) -> Result<PublicKey, Box<dyn std::error::E
     Ok(key)
 }
 
-/// This service's own key, for writing hit points back. Created on first
-/// start; it must then be registered with the auth service.
+/// This service's own key, for reaching the other services. Created on
+/// first start; it must then be registered with the auth service.
 fn service_key(path: &Path) -> Result<DeviceKey, Box<dyn std::error::Error>> {
     let key = match DeviceKey::load(path)? {
         Some(key) => key,
@@ -107,7 +113,7 @@ fn service_key(path: &Path) -> Result<DeviceKey, Box<dyn std::error::Error>> {
             key.save(path)?;
             tracing::warn!(
                 path = %path.display(),
-                "created a service key; register it for HP write-back with: \
+                "created a service key; register it with: \
                  auth-service add-service combat-service {}",
                 key.public()
             );
