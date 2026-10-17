@@ -1,0 +1,7035 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Edda",
+    "description": "The services behind Edda: auth, characters, combat and monsters. Behind the HTTPS proxy they share one address; run on their own, each has its own (see docs/api.md). Every route but a few needs a token from `POST /login`.",
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://{host}",
+      "description": "Behind the HTTPS proxy, e.g. dnd.example.com:8443",
+      "variables": {
+        "host": {
+          "default": "localhost:8443"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/campaign": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth.campaign",
+        "responses": {
+          "200": {
+            "description": "The token's campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/characters": {
+      "get": {
+        "tags": [
+          "characters"
+        ],
+        "operationId": "characters.list",
+        "responses": {
+          "200": {
+            "description": "The campaign's characters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CharacterSummary"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "characters"
+        ],
+        "operationId": "characters.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CharacterSheet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Its version, quoted."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Where it is: `/characters/{id}`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Character"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The campaign has as many characters as it may keep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid sheet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/characters/{id}": {
+      "get": {
+        "tags": [
+          "characters"
+        ],
+        "operationId": "characters.fetch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The character's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The character.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The character's version, quoted: `\"3\"`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Character"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such character in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "characters"
+        ],
+        "operationId": "characters.replace",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The character's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The version the new sheet is based on, quoted (`\"3\"`), or `*` to overwrite whatever is there.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CharacterSheet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Replaced.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The character's version, quoted: `\"3\"`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Character"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`If-Match` isn't one version or `*`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a character this device plays.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such character in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Changed since that version: re-apply the change to `current` and try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stale"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid sheet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "No `If-Match`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "characters"
+        ],
+        "operationId": "characters.remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The character's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a character this device plays.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such character in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/characters/{id}/actions": {
+      "post": {
+        "tags": [
+          "characters"
+        ],
+        "summary": "Applies an action; with an `Idempotency-Key` header, once per key.",
+        "operationId": "characters.apply_action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The character's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Applies the action once per key: sent again, the character comes back unchanged.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CharacterAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Applied.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The character's version, quoted: `\"3\"`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Character"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a character this device plays.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such character in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No slots or uses left.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not an action this character can take.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/characters/{id}/owners": {
+      "put": {
+        "tags": [
+          "characters"
+        ],
+        "summary": "Sets which player devices play a character (DM devices only): a list of\ndevice keys, as `auth devices` shows them.",
+        "operationId": "characters.set_owners",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The character's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The device keys of the player devices that play it.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Set.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The character's version, quoted: `\"3\"`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Character"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a device key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such character in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/combats": {
+      "get": {
+        "tags": [
+          "combats"
+        ],
+        "summary": "The caller's campaign's combats, most recently active first; filter with\n`?status=paused`.",
+        "operationId": "combats.list",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "path",
+            "description": "Only combats with this status.",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CombatStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The campaign's combats.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CombatSummary"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "combats"
+        ],
+        "summary": "Creates a combat in the caller's campaign (DM devices only), empty or\nfrom a plan.",
+        "operationId": "combats.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewCombat"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Started.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Where it is: `/combats/{id}`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatSnapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Neither a name nor a plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or the campaign has as many combats as it may keep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such plan in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A monster in the plan is gone from the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The monster service can't be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/combats/{id}": {
+      "get": {
+        "tags": [
+          "combats"
+        ],
+        "summary": "Current state: round, whose turn it is, initiative order and effects.",
+        "operationId": "combats.snapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The combat's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Where the combat stands, with `seq`, the last event it includes. A player's device sees monsters' numbers concealed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such combat in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/combats/{id}/commands": {
+      "post": {
+        "tags": [
+          "combats"
+        ],
+        "summary": "Runs a command and returns the events it produced. Resending a command\nreturns its original events rather than applying it twice.",
+        "operationId": "combats.command",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The combat's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandEnvelope"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The events it produced (the same ones again for a resent `command_id`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LoggedEvent"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not this device's to do, or the combat has as many events as it may keep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such combat in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The rules refuse it, or the character has no slots or uses left for it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The character or monster service can't be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/combats/{id}/log": {
+      "get": {
+        "tags": [
+          "combats"
+        ],
+        "summary": "The complete log, or the part after `?after=<seq>`.",
+        "operationId": "combats.log",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The combat's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "path",
+            "description": "Only the events after this `seq`.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The events, in order. A player's device sees monsters' numbers concealed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LoggedEvent"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such combat in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/combats/{id}/ws": {
+      "get": {
+        "tags": [
+          "combats"
+        ],
+        "summary": "Live: the server sends a `ServerMessage` snapshot, then every event in\nlog order; the client sends `ClientMessage`s (commands, undos). Both are\nJSON text messages.",
+        "operationId": "combats.websocket",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The combat's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Upgraded to a WebSocket."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "As many devices are watching the combat as may.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such combat in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/conditions": {
+      "get": {
+        "tags": [
+          "conditions"
+        ],
+        "operationId": "conditions.list",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "path",
+            "description": "Only those whose name contains this (any case).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The shared ones of the campaign's edition and its own, by name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Entry_ConditionText"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "conditions"
+        ],
+        "operationId": "conditions.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Added to the campaign's own.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry_ConditionText"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or the campaign has as many as it may keep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/conditions/{id}": {
+      "get": {
+        "tags": [
+          "conditions"
+        ],
+        "operationId": "conditions.fetch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One, shared or the campaign's own.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry_ConditionText"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "conditions"
+        ],
+        "operationId": "conditions.replace",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Replaced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry_ConditionText"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or a shared one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "conditions"
+        ],
+        "operationId": "conditions.remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or a shared one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/devices": {
+      "get": {
+        "tags": [
+          "devices"
+        ],
+        "operationId": "devices",
+        "responses": {
+          "200": {
+            "description": "Every device of the campaign, revoked ones too, with its certificate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Device"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "devices"
+        ],
+        "summary": "A DM device vouches for a new device with a certificate it signed.",
+        "operationId": "devices.add_device",
+        "requestBody": {
+          "description": "A certificate for the device, signed by this DM device.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignedCert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not signed by this device, or not for this campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or the campaign has as many devices as it may.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The key is in the campaign already.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/devices/{key}": {
+      "delete": {
+        "tags": [
+          "devices"
+        ],
+        "operationId": "devices.revoke",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "The device's key.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked: it can't log in any more.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a device key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such device in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The campaign's last DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/encounters": {
+      "get": {
+        "tags": [
+          "encounters"
+        ],
+        "summary": "The campaign's plans, by name.",
+        "operationId": "encounters.list",
+        "responses": {
+          "200": {
+            "description": "The campaign's plans.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Encounter"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "encounters"
+        ],
+        "operationId": "encounters.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EncounterPlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Kept.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Where it is: `/encounters/{id}`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Encounter"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or the campaign has as many plans as it may keep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/encounters/{id}": {
+      "get": {
+        "tags": [
+          "encounters"
+        ],
+        "operationId": "encounters.fetch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The plan's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Encounter"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such plan in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "encounters"
+        ],
+        "summary": "Replaces a plan; the last save wins.",
+        "operationId": "encounters.replace",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The plan's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EncounterPlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Replaced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Encounter"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such plan in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "encounters"
+        ],
+        "operationId": "encounters.remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The plan's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such plan in the campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "`GET /health`: answers `ok` while the service runs.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "The service is running.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "ok"
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth.login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "A token, valid for 15 minutes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not a valid signature of a current challenge.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/login/challenge": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth.challenge",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChallengeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "What to sign; valid for a minute, once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Challenge"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not a device of that campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/monsters": {
+      "get": {
+        "tags": [
+          "monsters"
+        ],
+        "summary": "The shared monsters of the campaign's edition and its own, by name.",
+        "operationId": "monsters.list",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "path",
+            "description": "Only those whose name contains this (any case).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The monsters, by name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MonsterSummary"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "monsters"
+        ],
+        "summary": "Adds a monster to the campaign's own.",
+        "operationId": "monsters.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonsterSheet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Added.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Where it is: `/monsters/{id}`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Monster"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or the campaign has as many monsters as it may keep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid stat block.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/monsters/{id}": {
+      "get": {
+        "tags": [
+          "monsters"
+        ],
+        "operationId": "monsters.fetch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The monster's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stat block.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Monster"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such monster, shared or the campaign's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "monsters"
+        ],
+        "summary": "Replaces one of the campaign's own.",
+        "operationId": "monsters.replace",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The monster's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonsterSheet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Replaced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Monster"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or a shared monster.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such monster, shared or the campaign's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid stat block.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "monsters"
+        ],
+        "summary": "Deletes one of the campaign's own.",
+        "operationId": "monsters.remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The monster's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or a shared monster.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such monster, shared or the campaign's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/pairings": {
+      "post": {
+        "tags": [
+          "pairing"
+        ],
+        "operationId": "pairing.open",
+        "responses": {
+          "201": {
+            "description": "A pairing, for 10 minutes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingSlot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No free pairings; try again shortly.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/pairings/{slot}": {
+      "delete": {
+        "tags": [
+          "pairing"
+        ],
+        "operationId": "pairing.cancel",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "description": "The pairing's number: the first part of the code.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such pairing of this device's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/pairings/{slot}/host/{n}": {
+      "get": {
+        "tags": [
+          "pairing"
+        ],
+        "operationId": "pairing.receive_from_host",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "description": "The pairing's number: the first part of the code.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "description": "Which message of that side: 0 or 1.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The host's message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingMessage"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Not sent yet, after waiting up to 20 seconds: ask again."
+          },
+          "404": {
+            "description": "No such pairing, or it has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      },
+      "put": {
+        "tags": [
+          "pairing"
+        ],
+        "operationId": "pairing.send_as_host",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "description": "The pairing's number: the first part of the code.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "description": "Which message of that side: 0 or 1.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairingMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Relayed."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such pairing of this device's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "That message was sent already.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/pairings/{slot}/joiner/{n}": {
+      "get": {
+        "tags": [
+          "pairing"
+        ],
+        "operationId": "pairing.receive_from_joiner",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "description": "The pairing's number: the first part of the code.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "description": "Which message of that side: 0 or 1.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The joiner's message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingMessage"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Not sent yet, after waiting up to 20 seconds: ask again."
+          },
+          "404": {
+            "description": "No such pairing, or it has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      },
+      "put": {
+        "tags": [
+          "pairing"
+        ],
+        "summary": "Anyone who has the code may join, but only once: the first joiner's\nfirst message claims the pairing.",
+        "operationId": "pairing.send_as_joiner",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "description": "The pairing's number: the first part of the code.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "description": "Which message of that side: 0 or 1.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairingMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Relayed."
+          },
+          "404": {
+            "description": "No such pairing, or it has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The code has been used already, or that message was sent already.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/public-key": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth.public_key",
+        "responses": {
+          "200": {
+            "description": "The key tokens are signed with.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerKey"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/setup": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Registers a campaign's first (or, after recovery, a new) DM device.",
+        "operationId": "auth.setup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The device is the campaign's DM.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The certificate isn't a DM's, self-signed, for the code's campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not a valid setup code, or it has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/setup/lookup": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Which campaign a setup code is for, without using it up: the DM's\ndevice needs the campaign id to sign its certificate.",
+        "operationId": "auth.lookup_setup_code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The campaign it's for.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not a valid setup code, or it has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/spells": {
+      "get": {
+        "tags": [
+          "spells"
+        ],
+        "operationId": "spells.list",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "path",
+            "description": "Only those whose name contains this (any case).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The shared ones of the campaign's edition and its own, by name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Entry_SpellText"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "spells"
+        ],
+        "operationId": "spells.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpellText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Added to the campaign's own.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry_SpellText"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or the campaign has as many as it may keep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    },
+    "/spells/{id}": {
+      "get": {
+        "tags": [
+          "spells"
+        ],
+        "operationId": "spells.fetch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One, shared or the campaign's own.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry_SpellText"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "spells"
+        ],
+        "operationId": "spells.replace",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpellText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Replaced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry_SpellText"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or a shared one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "spells"
+        ],
+        "operationId": "spells.remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "No token, or not a valid one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a DM device, or a shared one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "token": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Ability": {
+        "type": "string",
+        "description": "One of the six abilities.",
+        "enum": [
+          "strength",
+          "dexterity",
+          "constitution",
+          "intelligence",
+          "wisdom",
+          "charisma"
+        ]
+      },
+      "AbilityScores": {
+        "type": "object",
+        "description": "The six ability scores.",
+        "properties": {
+          "charisma": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          },
+          "constitution": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          },
+          "dexterity": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          },
+          "intelligence": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          },
+          "strength": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          },
+          "wisdom": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          }
+        }
+      },
+      "Campaign": {
+        "type": "object",
+        "description": "A campaign: its id, name and edition.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "edition": {
+            "$ref": "#/components/schemas/Edition",
+            "description": "Chosen when the campaign is created."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Challenge": {
+        "type": "object",
+        "description": "`POST /login/challenge`: what to sign to log in, valid for a minute.",
+        "required": [
+          "id",
+          "nonce",
+          "campaign",
+          "server",
+          "expires_at"
+        ],
+        "properties": {
+          "campaign": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nonce": {
+            "$ref": "#/components/schemas/Nonce"
+          },
+          "server": {
+            "$ref": "#/components/schemas/PublicKey",
+            "description": "The auth service's own key, which the device should check against\nthe one it expects (so it isn't logging in somewhere else)."
+          }
+        }
+      },
+      "ChallengeRequest": {
+        "type": "object",
+        "description": "`POST /login/challenge`",
+        "required": [
+          "campaign",
+          "key"
+        ],
+        "properties": {
+          "campaign": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "$ref": "#/components/schemas/PublicKey"
+          }
+        }
+      },
+      "Character": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CharacterSheet"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "campaign",
+              "version",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "campaign": {
+                "type": "string",
+                "format": "uuid",
+                "description": "The campaign it belongs to; only that campaign's devices can see it."
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "owners": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The player devices that play it, by key (as `auth devices` shows\nthem): they may change it, and act for it in a fight. The DM's\ndevices may change any character."
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Incremented on every change. Send it back in `If-Match` when replacing\nthe sheet so stale copies can't overwrite newer data.",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "A stored character: server-assigned metadata plus the editable sheet."
+      },
+      "CharacterAction": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Cast a known spell, expending the appropriate slot. Cantrips and\nritual casts don't use a slot.",
+            "required": [
+              "spell",
+              "type"
+            ],
+            "properties": {
+              "at_level": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "description": "Slot level to cast at (upcasting). Defaults to the spell's level.",
+                "minimum": 0
+              },
+              "pact": {
+                "type": "boolean",
+                "description": "Use a Pact Magic slot instead of a regular one."
+              },
+              "ritual": {
+                "type": "boolean",
+                "description": "Cast as a ritual (spell must have the ritual tag)."
+              },
+              "spell": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "cast_spell"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "level",
+              "type"
+            ],
+            "properties": {
+              "level": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "expend_spell_slot"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "level",
+              "type"
+            ],
+            "properties": {
+              "level": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "restore_spell_slot"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "expend_pact_slot"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "restore_pact_slot"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "use_resource"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "restore_resource"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "type"
+            ],
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/RestKind"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "rest"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "A change made in play, applied atomically by the character service:\n`POST /characters/{id}/actions`."
+      },
+      "CharacterSheet": {
+        "type": "object",
+        "description": "The editable contents of a character sheet. This is the request body for\nboth creating and replacing a character.",
+        "properties": {
+          "ability_scores": {
+            "$ref": "#/components/schemas/AbilityScores",
+            "default": {
+              "charisma": 10,
+              "constitution": 10,
+              "dexterity": 10,
+              "intelligence": 10,
+              "strength": 10,
+              "wisdom": 10
+            }
+          },
+          "alignment": {
+            "type": "string",
+            "default": ""
+          },
+          "armor_class": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          },
+          "background": {
+            "type": "string",
+            "default": ""
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassLevel"
+            },
+            "default": []
+          },
+          "experience_points": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "minimum": 0
+          },
+          "hit_points": {
+            "$ref": "#/components/schemas/HitPoints",
+            "default": {
+              "current": 0,
+              "max": 0,
+              "temporary": 0
+            }
+          },
+          "inventory": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            },
+            "default": []
+          },
+          "name": {
+            "type": "string",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "default": ""
+          },
+          "player_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "race": {
+            "type": "string",
+            "default": ""
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Resource"
+            },
+            "description": "Limited-use class features and abilities (Action Surge, Rage, Ki...).",
+            "default": []
+          },
+          "saving_throw_proficiencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ability"
+            },
+            "default": []
+          },
+          "skill_proficiencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Skill"
+            },
+            "default": []
+          },
+          "speed": {
+            "type": "integer",
+            "format": "int32",
+            "default": 30,
+            "minimum": 0
+          },
+          "spellcasting": {
+            "$ref": "#/components/schemas/Spellcasting",
+            "default": {
+              "slots": {},
+              "spells": []
+            }
+          }
+        }
+      },
+      "CharacterSummary": {
+        "type": "object",
+        "description": "Lightweight view used when listing characters.",
+        "required": [
+          "id",
+          "name",
+          "race",
+          "level",
+          "classes",
+          "updated_at"
+        ],
+        "properties": {
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassLevel"
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The player devices that play it, by key."
+          },
+          "player_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "race": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Claims": {
+        "type": "object",
+        "description": "What a token grants: who is calling, in which campaign, as what.",
+        "required": [
+          "key",
+          "campaign",
+          "role",
+          "name",
+          "expires_at"
+        ],
+        "properties": {
+          "campaign": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "edition": {
+            "$ref": "#/components/schemas/Edition",
+            "description": "The rules the campaign plays by, so services can apply them."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "key": {
+            "$ref": "#/components/schemas/PublicKey",
+            "description": "The device's (or service's) key."
+          },
+          "name": {
+            "type": "string",
+            "description": "\"Vex's laptop\", or the service's name. Used as the actor in logs."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Principal"
+          }
+        }
+      },
+      "ClassLevel": {
+        "type": "object",
+        "description": "Levels in one class (with its subclass, and the ability it casts with, if any).",
+        "required": [
+          "name",
+          "level"
+        ],
+        "properties": {
+          "level": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "spellcasting_ability": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Ability",
+                "description": "Set for classes that cast spells (e.g. Intelligence for Wizard)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subclass": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ClientMessage": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "data",
+              "type"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/CommandEnvelope"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "command"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Sent by a client over a combat's WebSocket."
+      },
+      "CombatCommand": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Join the combat, at any point. If `initiative` is already set the\ncombatant slots straight into the turn order.",
+            "required": [
+              "combatant",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "$ref": "#/components/schemas/Combatant"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "add_combatant"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Add `count` of a monster from the campaign's monsters, named and\nnumbered on from any already in the fight (\"Goblin 3\"), at their\nmaximum hit points or, with `roll`, rolled. Only the server can\ndecide this (it needs the stat block and dice); see\n[`super::add_monsters`].",
+            "required": [
+              "monster",
+              "type"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "monster": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "roll": {
+                "type": "boolean"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "add_monsters"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "remove_combatant"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Roll d20 + modifier. Pass `roll` when the player rolled physical\ndice; leave it out to have the server roll.",
+            "required": [
+              "combatant",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "roll": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "roll_initiative"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Server rolls for everyone who hasn't got initiative yet.",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "roll_initiative_for_all"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "total",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "total": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "set_initiative"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "start"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "next_turn"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "amount",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "damage"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "amount",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "heal"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "amount",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "set_temporary_hit_points"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "effect",
+              "type"
+            ],
+            "properties": {
+              "effect": {
+                "$ref": "#/components/schemas/NewEffect"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "add_effect"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "effect",
+              "type"
+            ],
+            "properties": {
+              "effect": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "remove_effect"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Record a spell cast in the log. The slot is spent on the caster's\ncharacter sheet, separately; `slot` says which, for the record.\nFor a concentration spell, `concentration` is the id of the effect\nthat puts it into play on its targets (ending the caster's previous\nconcentration).",
+            "required": [
+              "caster",
+              "spell",
+              "type"
+            ],
+            "properties": {
+              "caster": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "concentration": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "slot": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SpellSlot"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "spell": {
+                "type": "string"
+              },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "cast_spell"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Use a limited feature (Rage, Action Surge...). For a character, the\ncombat service spends the uses on their sheet first.",
+            "required": [
+              "combatant",
+              "feature",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "feature": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "use_feature"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Interrupt an active combat. While paused, only `Resume` and `End`\nare accepted.",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pause"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "resume"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "end"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Take back one of the sender's own earlier commands: `command`, or\nwhen that's left out, their latest one not yet undone. Only the\nserver can decide this (it needs the log); see [`super::undo`].",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "command": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "undo"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "What a participant wants to happen. Turned into events by [`decide`]."
+      },
+      "CombatEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "properties": {
+              "campaign": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "created"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "$ref": "#/components/schemas/Combatant"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "combatant_added"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "combatant_removed"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "roll",
+              "modifier",
+              "total",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "modifier": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "roll": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "total": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "initiative_rolled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "total",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "total": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "initiative_set"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "started"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "round",
+              "type"
+            ],
+            "properties": {
+              "round": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "round_started"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "turn_started"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "amount",
+              "hit_points",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "hit_points": {
+                "$ref": "#/components/schemas/HitPoints"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "damaged"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "amount",
+              "hit_points",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "hit_points": {
+                "$ref": "#/components/schemas/HitPoints"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "healed"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "combatant",
+              "hit_points",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "hit_points": {
+                "$ref": "#/components/schemas/HitPoints"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "temporary_hit_points_set"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "effect",
+              "type"
+            ],
+            "properties": {
+              "effect": {
+                "$ref": "#/components/schemas/Effect"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "effect_added"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "effect",
+              "reason",
+              "type"
+            ],
+            "properties": {
+              "effect": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "reason": {
+                "$ref": "#/components/schemas/EffectEndReason"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "effect_ended"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A record only: the slot was spent on the caster's sheet.",
+            "required": [
+              "caster",
+              "spell",
+              "type"
+            ],
+            "properties": {
+              "caster": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slot": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SpellSlot"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "spell": {
+                "type": "string"
+              },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "spell_cast"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A record; the combat service spends the use on the character's\nsheet before logging it.",
+            "required": [
+              "combatant",
+              "feature",
+              "amount",
+              "type"
+            ],
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "combatant": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "feature": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "feature_used"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "paused"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "resumed"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ended"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "The command `command` was undone. The events after it, from the\nsame undo, put back what that command changed.",
+            "required": [
+              "command",
+              "type"
+            ],
+            "properties": {
+              "command": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "undone"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A combatant put back as they were (or with their own command's\nchange reverted), joining again if they had left.",
+            "required": [
+              "combatant",
+              "type"
+            ],
+            "properties": {
+              "combatant": {
+                "$ref": "#/components/schemas/Combatant"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "combatant_restored"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "An effect put back, in play again if it had ended.",
+            "required": [
+              "effect",
+              "type"
+            ],
+            "properties": {
+              "effect": {
+                "$ref": "#/components/schemas/Effect"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "effect_restored"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Status, round and turn set back.",
+            "required": [
+              "status",
+              "round",
+              "type"
+            ],
+            "properties": {
+              "current_turn": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "round": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "status": {
+                "$ref": "#/components/schemas/CombatStatus"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "progress_restored"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Something that happened in a combat. Events are facts: they carry\noutcomes (the rolled number, the resulting HP) so replaying the log never\nneeds to re-roll or re-decide anything."
+      },
+      "CombatSnapshot": {
+        "type": "object",
+        "description": "The current state of a combat as of log position `seq`.",
+        "required": [
+          "id",
+          "seq",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "state": {
+            "$ref": "#/components/schemas/CombatState"
+          }
+        }
+      },
+      "CombatState": {
+        "type": "object",
+        "description": "Where a combat stands: the result of applying its log, event by event.",
+        "required": [
+          "name",
+          "status",
+          "round",
+          "combatants",
+          "effects"
+        ],
+        "properties": {
+          "campaign": {
+            "type": "string",
+            "description": "The campaign this combat belongs to."
+          },
+          "combatants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Combatant"
+            },
+            "description": "Always kept in initiative order; combatants without initiative last."
+          },
+          "current_turn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Whose turn it is."
+          },
+          "effects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Effect"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "description": "0 until the combat starts.",
+            "minimum": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/CombatStatus"
+          }
+        }
+      },
+      "CombatStatus": {
+        "type": "string",
+        "description": "Whether a combat is being set up, running, paused or over.",
+        "enum": [
+          "preparing",
+          "active",
+          "paused",
+          "ended"
+        ]
+      },
+      "CombatSummary": {
+        "type": "object",
+        "description": "A combat in a list: `GET /combats`.",
+        "required": [
+          "id",
+          "campaign",
+          "name",
+          "status",
+          "round",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "campaign": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "status": {
+            "$ref": "#/components/schemas/CombatStatus"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the last event happened."
+          }
+        }
+      },
+      "Combatant": {
+        "type": "object",
+        "description": "Anyone in a combat: a character, a monster, or anyone else the DM adds.",
+        "required": [
+          "id",
+          "name",
+          "hit_points"
+        ],
+        "properties": {
+          "armor_class": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "character_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Set when this combatant is a character from the character service."
+          },
+          "concealed": {
+            "type": "boolean",
+            "description": "Its hit points and armor class are behind the DM's screen: a\nplayer's device sees monsters like this (see [`view`])."
+          },
+          "hit_points": {
+            "$ref": "#/components/schemas/HitPoints",
+            "description": "While [`Self::concealed`], only how hurt it looks: see [`Vitality`]."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Chosen by the client that adds the combatant, so it can predict the\noutcome exactly. The server rejects duplicates."
+          },
+          "initiative": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Initiative total. `None` until rolled or set."
+          },
+          "initiative_modifier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "monster_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Set when this combatant is a monster from the monster service, so\nits stat block can be shown."
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CommandEnvelope": {
+        "type": "object",
+        "description": "A command plus the metadata that makes it trackable. `command_id` is\nchosen by the client: the server tags the resulting events with it (so\nthe client knows its prediction was confirmed) and ignores repeats (so\nresending after a dropped connection is safe).",
+        "required": [
+          "command_id",
+          "command"
+        ],
+        "properties": {
+          "actor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text name of whoever issued it, for the log (\"DM\", \"Travis\")."
+          },
+          "command": {
+            "$ref": "#/components/schemas/CombatCommand"
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ConditionText": {
+        "type": "object",
+        "description": "A condition, such as Prone, or any other named effect worth describing.",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "As for [`SpellText::description`].",
+            "default": ""
+          },
+          "edition": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Edition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "type": "string",
+            "default": ""
+          },
+          "source": {
+            "type": "string",
+            "default": "Homebrew"
+          }
+        }
+      },
+      "Device": {
+        "type": "object",
+        "description": "A device of a campaign: its certificate, and when it was added and\nrevoked.",
+        "required": [
+          "cert",
+          "added_at"
+        ],
+        "properties": {
+          "added_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cert": {
+            "$ref": "#/components/schemas/SignedCert"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "DeviceCert": {
+        "type": "object",
+        "description": "A statement that `device` belongs to `campaign` with `role`, signed by\n`issuer`: a DM device of that campaign, or for the very first DM device\n(set up with a one-time code) the device itself.",
+        "required": [
+          "campaign",
+          "device",
+          "role",
+          "name",
+          "issued_at",
+          "issuer"
+        ],
+        "properties": {
+          "campaign": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "device": {
+            "$ref": "#/components/schemas/PublicKey"
+          },
+          "issued_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Whole seconds since 1970, so the signed encoding is a plain integer."
+          },
+          "issuer": {
+            "$ref": "#/components/schemas/PublicKey"
+          },
+          "name": {
+            "type": "string",
+            "description": "Whose device it is, for people: \"Vex's laptop\"."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
+      },
+      "Edition": {
+        "type": "string",
+        "description": "Which rules a campaign plays by: the 2014 or the 2024 ones.",
+        "enum": [
+          "2014",
+          "2024"
+        ]
+      },
+      "Effect": {
+        "type": "object",
+        "description": "Anything in play with a duration or a target: spells, conditions, auras.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "concentration": {
+            "type": "boolean",
+            "description": "A creature can concentrate on one effect at a time, and loses\nconcentration when dropped to 0 HP."
+          },
+          "expires": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Expiry",
+                "description": "`None` lasts until removed."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Who created it (e.g. the caster)."
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "EffectEndReason": {
+        "type": "string",
+        "description": "Why an effect ended.",
+        "enum": [
+          "removed",
+          "expired",
+          "concentration_replaced",
+          "concentration_broken",
+          "source_removed",
+          "undone"
+        ]
+      },
+      "Encounter": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EncounterPlan"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "campaign",
+              "version",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "campaign": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "A stored plan: server-assigned metadata plus the plan itself."
+      },
+      "EncounterPlan": {
+        "type": "object",
+        "description": "A fight planned ahead: its monsters, who of the party it's for, and\nnotes.",
+        "properties": {
+          "monsters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedMonster"
+            },
+            "default": []
+          },
+          "name": {
+            "type": "string",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "default": ""
+          },
+          "party": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The characters it's balanced for; empty means the whole party.",
+            "default": []
+          }
+        }
+      },
+      "Entry_ConditionText": {
+        "allOf": [
+          {
+            "type": "object",
+            "description": "A condition, such as Prone, or any other named effect worth describing.",
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "As for [`SpellText::description`].",
+                "default": ""
+              },
+              "edition": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Edition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "name": {
+                "type": "string",
+                "default": ""
+              },
+              "source": {
+                "type": "string",
+                "default": "Homebrew"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "version",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "campaign": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid",
+                "description": "The campaign whose homebrew it is; `None` for the shared library."
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "A stored piece of rules text: server-assigned metadata plus the text."
+      },
+      "Entry_SpellText": {
+        "allOf": [
+          {
+            "type": "object",
+            "description": "A spell as the books describe it. Everything but the name has a\ndefault, so a homebrew spell needs only what it has.",
+            "properties": {
+              "casting_time": {
+                "type": "string",
+                "default": ""
+              },
+              "classes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "components": {
+                "type": "string",
+                "description": "`V, S, M`.",
+                "default": ""
+              },
+              "concentration": {
+                "type": "boolean",
+                "default": false
+              },
+              "description": {
+                "type": "string",
+                "description": "Paragraphs, one per line; `- ` starts a list item and `**…**` is\nbold.",
+                "default": ""
+              },
+              "duration": {
+                "type": "string",
+                "default": ""
+              },
+              "edition": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Edition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "higher_levels": {
+                "type": "string",
+                "description": "Casting it with a higher slot (or, for a cantrip, at higher levels).",
+                "default": ""
+              },
+              "level": {
+                "type": "integer",
+                "format": "int32",
+                "description": "0 for a cantrip.",
+                "default": 0,
+                "minimum": 0
+              },
+              "material": {
+                "type": "string",
+                "description": "What the M stands for.",
+                "default": ""
+              },
+              "name": {
+                "type": "string",
+                "default": ""
+              },
+              "range": {
+                "type": "string",
+                "default": ""
+              },
+              "ritual": {
+                "type": "boolean",
+                "default": false
+              },
+              "school": {
+                "type": "string",
+                "default": ""
+              },
+              "source": {
+                "type": "string",
+                "default": "Homebrew"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "version",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "campaign": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid",
+                "description": "The campaign whose homebrew it is; `None` for the shared library."
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "A stored piece of rules text: server-assigned metadata plus the text."
+      },
+      "ErrorBody": {
+        "type": "object",
+        "description": "An error, from any route: `{\"error\": \"...\"}`.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "What went wrong, for people."
+          }
+        }
+      },
+      "Expiry": {
+        "type": "object",
+        "description": "When an effect ends: at the start of `at_turn_of`'s turn in `round`, or\nat the start of `round` if there's no such combatant (5e durations run\nfrom the caster's turn; for an effect nobody cast, from the turn it was\nput down in).",
+        "required": [
+          "round"
+        ],
+        "properties": {
+          "at_turn_of": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "Feature": {
+        "type": "object",
+        "description": "A trait, action, reaction or legendary action.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "HitPoints": {
+        "type": "object",
+        "description": "Current, maximum and temporary hit points.",
+        "properties": {
+          "current": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "minimum": 0
+          },
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "minimum": 0
+          },
+          "temporary": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "minimum": 0
+          }
+        }
+      },
+      "Item": {
+        "type": "object",
+        "description": "Something the character carries.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "LoggedEvent": {
+        "type": "object",
+        "description": "One entry in a combat's permanent log.",
+        "required": [
+          "seq",
+          "at",
+          "event"
+        ],
+        "properties": {
+          "actor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "command_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The command that caused it; `None` for the `Created` event."
+          },
+          "event": {
+            "$ref": "#/components/schemas/CombatEvent"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Position in the log, starting at 1 with no gaps.",
+            "minimum": 0
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "description": "`POST /login`",
+        "required": [
+          "challenge",
+          "signature"
+        ],
+        "properties": {
+          "challenge": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/Signature"
+          }
+        }
+      },
+      "Monster": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MonsterSheet"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "version",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "campaign": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid",
+                "description": "The campaign whose homebrew it is; `None` for the shared library,\nwhich every campaign (of a matching edition) sees."
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "A stored monster: server-assigned metadata plus the stat block."
+      },
+      "MonsterSheet": {
+        "type": "object",
+        "description": "A full stat block. Everything but the name has a default, so a file\nneeds only what the monster actually has.",
+        "properties": {
+          "ability_scores": {
+            "$ref": "#/components/schemas/AbilityScores",
+            "default": {
+              "charisma": 10,
+              "constitution": 10,
+              "dexterity": 10,
+              "intelligence": 10,
+              "strength": 10,
+              "wisdom": 10
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "default": []
+          },
+          "alignment": {
+            "type": "string",
+            "default": ""
+          },
+          "armor": {
+            "type": "string",
+            "description": "What the AC comes from: \"leather armor, shield\".",
+            "default": ""
+          },
+          "armor_class": {
+            "type": "integer",
+            "format": "int32",
+            "default": 10,
+            "minimum": 0
+          },
+          "bonus_actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "default": []
+          },
+          "challenge": {
+            "type": "string",
+            "description": "The challenge rating as printed: \"0\", \"1/8\", \"1/4\", \"1/2\", \"1\"...",
+            "default": "0"
+          },
+          "condition_immunities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "damage_immunities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "damage_resistances": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "damage_vulnerabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "edition": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Edition",
+                "description": "The rules it's written for; `None` suits either."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "hit_dice": {
+            "type": "string",
+            "description": "The hit dice, e.g. \"2d6\" or \"18d10+36\"; empty if there are none.",
+            "default": ""
+          },
+          "hit_points": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The average, as printed.",
+            "default": 1,
+            "minimum": 0
+          },
+          "initiative": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Overrides the Dexterity modifier (2024 stat blocks print it).",
+            "default": null
+          },
+          "languages": {
+            "type": "string",
+            "default": ""
+          },
+          "legendary_actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "default": []
+          },
+          "name": {
+            "type": "string",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "default": ""
+          },
+          "proficiency_bonus": {
+            "type": "integer",
+            "format": "int32",
+            "default": 2
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "default": []
+          },
+          "saving_throws": {
+            "type": "object",
+            "description": "Saving throw bonuses that differ from the plain modifier.",
+            "default": {},
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "One of the six abilities.",
+              "enum": [
+                "strength",
+                "dexterity",
+                "constitution",
+                "intelligence",
+                "wisdom",
+                "charisma"
+              ]
+            }
+          },
+          "senses": {
+            "type": "string",
+            "description": "\"darkvision 60 ft., passive Perception 9\"",
+            "default": ""
+          },
+          "size": {
+            "type": "string",
+            "description": "\"Medium\", \"Large\"...",
+            "default": "Medium"
+          },
+          "skills": {
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "propertyNames": {
+              "type": "string",
+              "description": "One of the eighteen skills.",
+              "enum": [
+                "acrobatics",
+                "animal_handling",
+                "arcana",
+                "athletics",
+                "deception",
+                "history",
+                "insight",
+                "intimidation",
+                "investigation",
+                "medicine",
+                "nature",
+                "perception",
+                "performance",
+                "persuasion",
+                "religion",
+                "sleight_of_hand",
+                "stealth",
+                "survival"
+              ]
+            }
+          },
+          "source": {
+            "type": "string",
+            "description": "Where it's from: \"SRD 5.1\", \"SRD 5.2\", \"Homebrew\"...",
+            "default": "Homebrew"
+          },
+          "speed": {
+            "type": "string",
+            "description": "\"30 ft., fly 60 ft.\"",
+            "default": "30 ft."
+          },
+          "traits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "default": []
+          },
+          "type": {
+            "type": "string",
+            "description": "The creature type: \"humanoid (goblinoid)\", \"dragon\"...",
+            "default": ""
+          },
+          "xp": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "minimum": 0
+          }
+        }
+      },
+      "MonsterSummary": {
+        "type": "object",
+        "description": "For listing and completing names.",
+        "required": [
+          "id",
+          "name",
+          "size",
+          "kind",
+          "challenge",
+          "hit_points",
+          "max_hit_points",
+          "armor_class",
+          "source",
+          "shared"
+        ],
+        "properties": {
+          "armor_class": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "challenge": {
+            "type": "string"
+          },
+          "hit_points": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "max_hit_points": {
+            "type": "integer",
+            "format": "int32",
+            "description": "What its hit dice can come to at most, which it joins a fight with.",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "In the shared library rather than the campaign's own."
+          },
+          "size": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "xp": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Experience points, from its challenge rating if the stat block\ndoesn't say.",
+            "minimum": 0
+          }
+        }
+      },
+      "NewCombat": {
+        "type": "object",
+        "description": "`POST /combats`: a name, a plan, or both.",
+        "properties": {
+          "encounter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "A planned encounter to start it from, with the plan's monsters in it."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What to call it; with a plan, the plan's name by default."
+          }
+        }
+      },
+      "NewEffect": {
+        "type": "object",
+        "description": "An effect for a command to put into play.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "concentration": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Chosen by the client, like combatant ids."
+          },
+          "name": {
+            "type": "string"
+          },
+          "rounds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Duration in rounds, counted in turns of the source, or (with no\nsource, like a fire on the floor) of whoever's turn it is when it's\nadded; `None` lasts until removed. Targets are optional too.",
+            "minimum": 0
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Nonce": {
+        "type": "string",
+        "description": "32 random bytes, for challenges. Shown as unpadded base64url."
+      },
+      "PactMagic": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Pool"
+          },
+          {
+            "type": "object",
+            "required": [
+              "slot_level"
+            ],
+            "properties": {
+              "slot_level": {
+                "type": "integer",
+                "format": "int32",
+                "description": "All pact slots are this level (1-5).",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "Warlock Pact Magic: slots all of one level."
+      },
+      "PairingMessage": {
+        "type": "object",
+        "description": "A message relayed between the two sides of a pairing:\n`PUT`/`GET /pairings/{slot}/{host|joiner}/{n}`. Opaque to the server.",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "string",
+            "description": "Unpadded base64url."
+          }
+        }
+      },
+      "PairingSlot": {
+        "type": "object",
+        "description": "`POST /pairings` (DM only): a slot for pairing a new device.",
+        "required": [
+          "slot",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "slot": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "PlannedMonster": {
+        "type": "object",
+        "description": "Some number of one monster.",
+        "required": [
+          "monster",
+          "name",
+          "count",
+          "xp"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "monster": {
+            "type": "string",
+            "format": "uuid",
+            "description": "In the monster service."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name when planned, shown even if it's since been deleted."
+          },
+          "roll": {
+            "type": "boolean",
+            "description": "Roll their hit points when the fight starts, instead of the maximum."
+          },
+          "xp": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Experience points each.",
+            "minimum": 0
+          }
+        }
+      },
+      "Pool": {
+        "type": "object",
+        "description": "A count of limited uses: spell slots, Action Surge, Ki points, etc.",
+        "properties": {
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "minimum": 0
+          },
+          "used": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0,
+            "minimum": 0
+          }
+        }
+      },
+      "Principal": {
+        "type": "string",
+        "description": "Who a token is for: a DM device, a player's, or a service.",
+        "enum": [
+          "dm",
+          "player",
+          "service"
+        ]
+      },
+      "PublicKey": {
+        "type": "string",
+        "description": "An Ed25519 public key. Shown as unpadded base64url."
+      },
+      "Recharge": {
+        "type": "string",
+        "description": "When a resource comes back on its own.",
+        "enum": [
+          "short_rest",
+          "long_rest",
+          "manual"
+        ]
+      },
+      "Resource": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Pool"
+          },
+          {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "recharge": {
+                "$ref": "#/components/schemas/Recharge"
+              }
+            }
+          }
+        ],
+        "description": "A named, limited-use class feature or ability, e.g. Action Surge."
+      },
+      "RestKind": {
+        "type": "string",
+        "description": "A short or a long rest.",
+        "enum": [
+          "short",
+          "long"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "description": "What a device may do in its campaign.",
+        "enum": [
+          "dm",
+          "player"
+        ]
+      },
+      "ServerKey": {
+        "type": "object",
+        "description": "`GET /public-key`: the key tokens are signed with.",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/PublicKey"
+          }
+        }
+      },
+      "ServerMessage": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Sent on connect, and again if this client fell too far behind.",
+            "required": [
+              "data",
+              "type"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/CombatSnapshot",
+                "description": "Sent on connect, and again if this client fell too far behind."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "snapshot"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Broadcast to everyone, in log order.",
+            "required": [
+              "data",
+              "type"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/LoggedEvent",
+                "description": "Broadcast to everyone, in log order."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "event"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Sent only to the client whose command was refused.",
+            "required": [
+              "data",
+              "type"
+            ],
+            "properties": {
+              "data": {
+                "type": "object",
+                "description": "Sent only to the client whose command was refused.",
+                "required": [
+                  "command_id",
+                  "error"
+                ],
+                "properties": {
+                  "command_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "rejected"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "The command was already applied earlier (e.g. resent after a\nreconnect); its events are already part of the state.",
+            "required": [
+              "data",
+              "type"
+            ],
+            "properties": {
+              "data": {
+                "type": "object",
+                "description": "The command was already applied earlier (e.g. resent after a\nreconnect); its events are already part of the state.",
+                "required": [
+                  "command_id"
+                ],
+                "properties": {
+                  "command_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "already_applied"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Sent by the server over a combat's WebSocket."
+      },
+      "Session": {
+        "type": "object",
+        "description": "`POST /login`: a token, and what it says.",
+        "required": [
+          "token",
+          "claims"
+        ],
+        "properties": {
+          "claims": {
+            "$ref": "#/components/schemas/Claims"
+          },
+          "token": {
+            "type": "string",
+            "description": "Send as `Authorization: Bearer <token>`."
+          }
+        }
+      },
+      "SetupCode": {
+        "type": "object",
+        "description": "`POST /setup/lookup`",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "SetupRequest": {
+        "type": "object",
+        "description": "`POST /setup`: the first DM device of a campaign, with the one-time code\nprinted when the campaign was created.",
+        "required": [
+          "code",
+          "cert"
+        ],
+        "properties": {
+          "cert": {
+            "$ref": "#/components/schemas/SignedCert",
+            "description": "Self-signed, role DM."
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "Signature": {
+        "type": "string",
+        "description": "An Ed25519 signature. Shown as unpadded base64url."
+      },
+      "SignedCert": {
+        "type": "object",
+        "description": "A [`DeviceCert`] with its issuer's signature.",
+        "required": [
+          "cert",
+          "signature"
+        ],
+        "properties": {
+          "cert": {
+            "$ref": "#/components/schemas/DeviceCert"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/Signature"
+          }
+        }
+      },
+      "Skill": {
+        "type": "string",
+        "description": "One of the eighteen skills.",
+        "enum": [
+          "acrobatics",
+          "animal_handling",
+          "arcana",
+          "athletics",
+          "deception",
+          "history",
+          "insight",
+          "intimidation",
+          "investigation",
+          "medicine",
+          "nature",
+          "perception",
+          "performance",
+          "persuasion",
+          "religion",
+          "sleight_of_hand",
+          "stealth",
+          "survival"
+        ]
+      },
+      "Spell": {
+        "type": "object",
+        "description": "A spell the character knows or has prepared.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "class": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Which class grants this spell, for multiclass characters."
+          },
+          "concentration": {
+            "type": "boolean"
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32",
+            "description": "0 for cantrips.",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "prepared": {
+            "type": "boolean",
+            "description": "Whether the spell can currently be cast. Defaults to true so \"known\"\ncasters (Sorcerer, Bard, ...) needn't care; Wizards and Clerics toggle it."
+          },
+          "ritual": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SpellSlot": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "level"
+            ],
+            "properties": {
+              "level": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "pact"
+            ],
+            "properties": {
+              "pact": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
+          }
+        ],
+        "description": "The slot a spell was cast with: a regular slot of some level, or a\nPact Magic slot (whose level is fixed)."
+      },
+      "SpellText": {
+        "type": "object",
+        "description": "A spell as the books describe it. Everything but the name has a\ndefault, so a homebrew spell needs only what it has.",
+        "properties": {
+          "casting_time": {
+            "type": "string",
+            "default": ""
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "components": {
+            "type": "string",
+            "description": "`V, S, M`.",
+            "default": ""
+          },
+          "concentration": {
+            "type": "boolean",
+            "default": false
+          },
+          "description": {
+            "type": "string",
+            "description": "Paragraphs, one per line; `- ` starts a list item and `**…**` is\nbold.",
+            "default": ""
+          },
+          "duration": {
+            "type": "string",
+            "default": ""
+          },
+          "edition": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Edition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "higher_levels": {
+            "type": "string",
+            "description": "Casting it with a higher slot (or, for a cantrip, at higher levels).",
+            "default": ""
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32",
+            "description": "0 for a cantrip.",
+            "default": 0,
+            "minimum": 0
+          },
+          "material": {
+            "type": "string",
+            "description": "What the M stands for.",
+            "default": ""
+          },
+          "name": {
+            "type": "string",
+            "default": ""
+          },
+          "range": {
+            "type": "string",
+            "default": ""
+          },
+          "ritual": {
+            "type": "boolean",
+            "default": false
+          },
+          "school": {
+            "type": "string",
+            "default": ""
+          },
+          "source": {
+            "type": "string",
+            "default": "Homebrew"
+          }
+        }
+      },
+      "Spellcasting": {
+        "type": "object",
+        "description": "Everything about a character's spellcasting. Empty for non-casters.",
+        "properties": {
+          "pact_magic": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PactMagic",
+                "description": "Warlock Pact Magic slots. Recover on a short or long rest."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "slots": {
+            "type": "object",
+            "description": "Regular spell slots keyed by slot level (1-9). Recover on a long rest.",
+            "default": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Pool"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "spells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Spell"
+            },
+            "default": []
+          }
+        }
+      },
+      "Stale": {
+        "type": "object",
+        "description": "A `412`: the character as it is now, to re-apply a change to.",
+        "required": [
+          "error",
+          "current"
+        ],
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/Character"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "token": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "PASETO v4.public",
+        "description": "From the auth service's `POST /login`; valid for 15 minutes."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Setting up a campaign's first DM device, and logging in."
+    },
+    {
+      "name": "devices",
+      "description": "A campaign's devices: DM devices add and revoke them."
+    },
+    {
+      "name": "pairing",
+      "description": "Relaying the messages that pair a new device with a DM's, by a code read out between them."
+    },
+    {
+      "name": "characters",
+      "description": "Character sheets, and what happens to them in play."
+    },
+    {
+      "name": "combats",
+      "description": "Live, event-sourced combats."
+    },
+    {
+      "name": "encounters",
+      "description": "Planned encounters: the DM's only."
+    },
+    {
+      "name": "monsters",
+      "description": "Stat blocks: the shared library of the campaign's edition, and the campaign's own. Only DM devices change them."
+    },
+    {
+      "name": "spells",
+      "description": "The text of spells, shared and the campaign's own, like monsters."
+    },
+    {
+      "name": "conditions",
+      "description": "The text of conditions, shared and the campaign's own, like monsters."
+    }
+  ]
+}

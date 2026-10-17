@@ -5,6 +5,12 @@ frontends can do the same. In Rust, `edda-client` wraps it (typed
 clients, and `Replica` for optimistic UIs), and `edda-types` holds the
 models and the combat rules, so a client runs exactly the server's code.
 
+[`openapi.json`](openapi.json) describes every route and every type, as
+OpenAPI 3.1, to read or to generate a client from in any language. It is
+made from the services' code, and a test fails when it falls behind
+(`make openapi` writes it anew). This page explains what the description
+can't: how versions, combats and undo work.
+
 ## Conventions
 
 - **JSON** in and out. Unknown fields in a sheet or stat block are

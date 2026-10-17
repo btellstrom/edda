@@ -25,6 +25,7 @@ use reqwest::StatusCode;
 
 use crate::{ClientError, auth::AuthClient, check, send};
 
+/// What can go wrong pairing a device.
 #[derive(Debug, thiserror::Error)]
 pub enum PairError {
     #[error(transparent)]
@@ -74,6 +75,7 @@ impl AuthClient {
         })
     }
 
+    /// Cancels a pairing this DM device opened.
     pub async fn cancel_pairing(&self, slot: u16) -> Result<(), ClientError> {
         let url = self.url(&format!("/pairings/{slot}"));
         check(self.http.delete(url).send().await?).await.map(drop)

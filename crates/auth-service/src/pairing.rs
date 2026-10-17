@@ -22,7 +22,7 @@ use edda_auth::{
     protocol::{Claims, PairingMessage, PairingSlot},
     server::Authenticated,
 };
-use edda_server::Limits;
+use edda_server::{Limits, openapi::ErrorBody};
 
 use crate::{error::ApiError, routes::AppState};
 
@@ -38,6 +38,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(150);
 
 type AppStateRef = Arc<AppState>;
 
+/// The pairing routes, the message relay limited like signing in.
 pub fn router(limits: &Limits) -> Router<AppStateRef> {
     // Joining needs no token, so the messages get fewer tries: someone
     // spraying slots can't spoil everyone's pairings.
@@ -56,6 +57,16 @@ pub fn router(limits: &Limits) -> Router<AppStateRef> {
         .merge(limits.guard_sign_ins(messages))
 }
 
+#[utoipa::path(
+    post,
+    path = "/pairings",
+    tag = "pairing",
+    responses(
+        (status = 201, description = "A pairing, for 10 minutes.", body = PairingSlot),
+        (status = 403, description = "Not a DM device.", body = ErrorBody),
+        (status = 409, description = "No free pairings; try again shortly.", body = ErrorBody),
+    )
+)]
 async fn open(
     State(state): State<AppStateRef>,
     Authenticated(claims): Authenticated,
@@ -89,6 +100,16 @@ async fn open(
     ))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/pairings/{slot}",
+    tag = "pairing",
+    params(("slot" = u16, Path, description = "The pairing's number: the first part of the code.")),
+    responses(
+        (status = 204, description = "Cancelled."),
+        (status = 404, description = "No such pairing of this device's.", body = ErrorBody),
+    )
+)]
 async fn cancel(
     State(state): State<AppStateRef>,
     Authenticated(claims): Authenticated,
@@ -102,6 +123,18 @@ async fn cancel(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    put,
+    path = "/pairings/{slot}/host/{n}",
+    tag = "pairing",
+    params(("slot" = u16, Path, description = "The pairing's number: the first part of the code."), ("n" = u8, Path, description = "Which message of that side: 0 or 1.")),
+    request_body = PairingMessage,
+    responses(
+        (status = 201, description = "Relayed."),
+        (status = 404, description = "No such pairing of this device's.", body = ErrorBody),
+        (status = 409, description = "That message was sent already.", body = ErrorBody),
+    )
+)]
 async fn send_as_host(
     State(state): State<AppStateRef>,
     Authenticated(claims): Authenticated,
@@ -120,6 +153,19 @@ async fn send_as_host(
     Ok(StatusCode::CREATED)
 }
 
+#[utoipa::path(
+    put,
+    path = "/pairings/{slot}/joiner/{n}",
+    tag = "pairing",
+    security(()),
+    params(("slot" = u16, Path, description = "The pairing's number: the first part of the code."), ("n" = u8, Path, description = "Which message of that side: 0 or 1.")),
+    request_body = PairingMessage,
+    responses(
+        (status = 201, description = "Relayed."),
+        (status = 404, description = "No such pairing, or it has expired.", body = ErrorBody),
+        (status = 409, description = "The code has been used already, or that message was sent already.", body = ErrorBody),
+    )
+)]
 /// Anyone who has the code may join, but only once: the first joiner's
 /// first message claims the pairing.
 async fn send_as_joiner(
@@ -231,4 +277,41 @@ fn require_dm(claims: &Claims) -> Result<(), ApiError> {
             "only a DM device can pair new devices".into(),
         ))
     }
+}
+
+/// Receiving, for the OpenAPI description: the routes call [`receive`]
+/// with their side, so these are only described, never called. Messages
+/// are sealed between the two devices, so reading needs no token.
+#[allow(dead_code)]
+pub(crate) mod described {
+    use edda_auth::protocol::PairingMessage;
+    use edda_server::openapi::ErrorBody;
+
+    #[utoipa::path(
+        get,
+        path = "/pairings/{slot}/host/{n}",
+        tag = "pairing",
+        security(()),
+        params(("slot" = u16, Path, description = "The pairing's number: the first part of the code."), ("n" = u8, Path, description = "Which message of that side: 0 or 1.")),
+        responses(
+            (status = 200, description = "The host's message.", body = PairingMessage),
+            (status = 204, description = "Not sent yet, after waiting up to 20 seconds: ask again."),
+            (status = 404, description = "No such pairing, or it has expired.", body = ErrorBody),
+        )
+    )]
+    pub fn receive_from_host() {}
+
+    #[utoipa::path(
+        get,
+        path = "/pairings/{slot}/joiner/{n}",
+        tag = "pairing",
+        security(()),
+        params(("slot" = u16, Path, description = "The pairing's number: the first part of the code."), ("n" = u8, Path, description = "Which message of that side: 0 or 1.")),
+        responses(
+            (status = 200, description = "The joiner's message.", body = PairingMessage),
+            (status = 204, description = "Not sent yet, after waiting up to 20 seconds: ask again."),
+            (status = 404, description = "No such pairing, or it has expired.", body = ErrorBody),
+        )
+    )]
+    pub fn receive_from_joiner() {}
 }

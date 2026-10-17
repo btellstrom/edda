@@ -27,6 +27,8 @@ make test     # every test, against a throwaway Postgres of their own
 make check    # formatting, lints (warnings fail), the tests and the guard hook: what CI runs
 make deny     # dependencies: licences, security advisories, yanked crates (cargo install cargo-deny)
 make smoke    # end to end: the compose stack, seeded, driven by edda (needs make srd)
+make doc      # the Rust docs, in a browser
+make openapi  # docs/openapi.json anew, after changing a route
 cargo test -p edda-types -- --ignored   # the SRD data from make srd loads and is valid
 ```
 
@@ -69,6 +71,22 @@ a commit message is just text, while one run through `bash -c`, `$( )`,
 tmux, ssh or a variable still counts. `make check` and CI run its
 self-test.
 
+## Documentation
+
+The guides are in `docs/`. Two references are made from the code:
+
+- **The Rust docs:** `make doc` builds and opens them. Every crate, type
+  and function says what it is for; fields and variants do where their
+  name doesn't.
+- **The API description:** `docs/openapi.json`, from the routes'
+  `#[utoipa::path]` attributes and the types' `ToSchema` (behind the
+  `openapi` feature of `edda-types` and `edda-auth`). A test compares it
+  with the code; after changing a route, `make openapi` writes it anew.
+
+On every push to master, `.github/workflows/docs.yml` publishes both to
+GitHub Pages, with a readable rendering of the API, once Pages is turned
+on (Settings → Pages → Source: GitHub Actions).
+
 ## Code quality
 
 The Rust version is pinned in `rust-toolchain.toml` (and the
@@ -81,7 +99,7 @@ about 40% smaller.
 ## CI and releases
 
 `.github/workflows/ci.yml` runs on every push to master and every pull
-request: formatting and lints; the tests against a Postgres service, the
+request: formatting, lints and the docs; the tests against a Postgres service, the
 SRD ones included, with a coverage report; cargo-deny and cargo-machete
 (unused dependencies); and the smoke test. Dependabot opens weekly pull
 requests for newer crates, base images and actions.

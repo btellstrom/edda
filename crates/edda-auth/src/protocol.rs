@@ -9,6 +9,7 @@ use crate::{Nonce, PublicKey, Role, Signature, SignedCert, bytes};
 
 /// What a token grants: who is calling, in which campaign, as what.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Claims {
     /// The device's (or service's) key.
     pub key: PublicKey,
@@ -22,7 +23,9 @@ pub struct Claims {
     pub expires_at: DateTime<Utc>,
 }
 
+/// Who a token is for: a DM device, a player's, or a service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Principal {
     Dm,
@@ -42,6 +45,7 @@ impl From<Role> for Principal {
 }
 
 impl Claims {
+    /// Whether the token is a DM device's.
     pub fn is_dm(&self) -> bool {
         self.role == Principal::Dm
     }
@@ -49,12 +53,15 @@ impl Claims {
 
 /// `POST /login/challenge`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ChallengeRequest {
     pub campaign: Uuid,
     pub key: PublicKey,
 }
 
+/// `POST /login/challenge`: what to sign to log in, valid for a minute.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Challenge {
     pub id: Uuid,
     pub nonce: Nonce,
@@ -68,6 +75,7 @@ pub struct Challenge {
 /// What a device signs to answer a challenge. Covers everything that
 /// identifies this login, so the signature is useless anywhere else.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct LoginProof {
     pub challenge: Uuid,
     pub nonce: Nonce,
@@ -88,12 +96,15 @@ impl From<&Challenge> for LoginProof {
 
 /// `POST /login`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct LoginRequest {
     pub challenge: Uuid,
     pub signature: Signature,
 }
 
+/// `POST /login`: a token, and what it says.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Session {
     /// Send as `Authorization: Bearer <token>`.
     pub token: String,
@@ -102,6 +113,7 @@ pub struct Session {
 
 /// `POST /setup/lookup`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SetupCode {
     pub code: String,
 }
@@ -109,13 +121,16 @@ pub struct SetupCode {
 /// `POST /setup`: the first DM device of a campaign, with the one-time code
 /// printed when the campaign was created.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SetupRequest {
     pub code: String,
     /// Self-signed, role DM.
     pub cert: SignedCert,
 }
 
+/// A campaign: its id, name and edition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Campaign {
     pub id: Uuid,
     pub name: String,
@@ -124,7 +139,10 @@ pub struct Campaign {
     pub edition: Edition,
 }
 
+/// A device of a campaign: its certificate, and when it was added and
+/// revoked.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Device {
     pub cert: SignedCert,
     pub added_at: DateTime<Utc>,
@@ -134,12 +152,14 @@ pub struct Device {
 
 /// `GET /public-key`: the key tokens are signed with.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ServerKey {
     pub key: PublicKey,
 }
 
 /// `POST /pairings` (DM only): a slot for pairing a new device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PairingSlot {
     pub slot: u16,
     pub expires_at: DateTime<Utc>,
@@ -148,7 +168,10 @@ pub struct PairingSlot {
 /// A message relayed between the two sides of a pairing:
 /// `PUT`/`GET /pairings/{slot}/{host|joiner}/{n}`. Opaque to the server.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PairingMessage {
+    /// Unpadded base64url.
     #[serde(with = "bytes::vec")]
+    #[cfg_attr(feature = "openapi", schema(value_type = String))]
     pub data: Vec<u8>,
 }

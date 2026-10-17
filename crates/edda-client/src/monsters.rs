@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::{ClientError, check, http_client, send};
 
+/// The monster service's client: monsters, spells and conditions.
 #[derive(Debug, Clone)]
 pub struct MonsterClient {
     base_url: String,
@@ -16,6 +17,7 @@ pub struct MonsterClient {
 }
 
 impl MonsterClient {
+    /// A client for the monster service at `base_url`, without a token.
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
@@ -40,6 +42,7 @@ impl MonsterClient {
         send(request).await
     }
 
+    /// One monster's stat block.
     pub async fn get(&self, id: Uuid) -> Result<Monster, ClientError> {
         send(self.http.get(self.monster_url(id))).await
     }
@@ -55,6 +58,7 @@ impl MonsterClient {
         send(self.http.put(self.monster_url(id)).json(sheet)).await
     }
 
+    /// Deletes one of the campaign's own monsters.
     pub async fn delete(&self, id: Uuid) -> Result<(), ClientError> {
         let response = self.http.delete(self.monster_url(id)).send().await?;
         check(response).await.map(drop)
@@ -74,6 +78,7 @@ impl MonsterClient {
         send(request).await
     }
 
+    /// One spell or condition.
     pub async fn text<T: RulesText>(&self, id: Uuid) -> Result<Entry<T>, ClientError> {
         send(self.http.get(self.text_url::<T>(id))).await
     }
@@ -98,6 +103,7 @@ impl MonsterClient {
         send(self.http.put(self.text_url::<T>(id)).json(text)).await
     }
 
+    /// Deletes one of the campaign's own spells or conditions.
     pub async fn delete_text<T: RulesText>(&self, id: Uuid) -> Result<(), ClientError> {
         let response = self.http.delete(self.text_url::<T>(id)).send().await?;
         check(response).await.map(drop)

@@ -74,10 +74,12 @@ pub struct CharacterStore {
 }
 
 impl CharacterStore {
+    /// A store in `pool`'s database.
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// The campaign's characters.
     pub async fn list(&self, scope: Scope) -> Result<Vec<Character>, ApiError> {
         let rows: Vec<Row> = sqlx::query_as(concat!(
             "SELECT ",
@@ -102,6 +104,7 @@ impl CharacterStore {
         Ok(count)
     }
 
+    /// One of the campaign's characters.
     pub async fn get(&self, scope: Scope, id: Uuid) -> Result<Character, ApiError> {
         let row: Option<Row> = sqlx::query_as(concat!(
             "SELECT ",
@@ -115,6 +118,8 @@ impl CharacterStore {
         Ok(scope.view(row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?))
     }
 
+    /// Creates a character, played by the device creating it if that's a
+    /// player's.
     pub async fn create(
         &self,
         scope: Scope,
@@ -270,6 +275,7 @@ impl CharacterStore {
         Ok(result.rows_affected())
     }
 
+    /// Deletes a character the device may change.
     pub async fn delete(&self, scope: Scope, id: Uuid) -> Result<(), ApiError> {
         if scope.player.is_some() {
             scope.may_change(&self.get(scope.clone(), id).await?)?;

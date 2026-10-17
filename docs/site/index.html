@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edda docs</title>
+  <style>
+    :root { --text: #1d1d1f; --muted: #5f6368; --link: #0b57d0; --bg: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+      :root { --text: #e8e8ea; --muted: #a0a4a8; --link: #8ab4f8; --bg: #1b1b1d; }
+    }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 16px/1.55 system-ui, sans-serif; }
+    main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1rem; }
+    h1 { margin: 0 0 .25rem; }
+    p.lead { color: var(--muted); margin-top: 0; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; }
+    a { color: var(--link); }
+    li { margin: .35rem 0; }
+    code { font-size: .92em; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Edda</h1>
+  <p class="lead">Reference documentation. The guides are in the
+    <a href="https://github.com/btellstrom/edda#documentation">repository</a>.</p>
+
+  <h2>The services' API</h2>
+  <ul>
+    <li><a href="api.html">API reference</a>: every route of the four services.</li>
+    <li><a href="openapi.json"><code>openapi.json</code></a>: the same, as OpenAPI 3.1, to generate clients from.</li>
+  </ul>
+
+  <h2>The Rust crates</h2>
+  <ul>
+    <li><a href="rust/edda_types/index.html"><code>edda-types</code></a>: the models, the rules and the combat engine, shared by everyone.</li>
+    <li><a href="rust/edda_client/index.html"><code>edda-client</code></a>: a typed client for the services, and <code>Replica</code> for optimistic UIs.</li>
+    <li><a href="rust/edda_auth/index.html"><code>edda-auth</code></a>: device keys, certificates, pairing and tokens.</li>
+    <li><a href="rust/edda_server/index.html"><code>edda-server</code></a>: what every service shares.</li>
+    <li><a href="rust/auth_service/index.html"><code>auth-service</code></a>,
+        <a href="rust/character_service/index.html"><code>character-service</code></a>,
+        <a href="rust/combat_service/index.html"><code>combat-service</code></a> and
+        <a href="rust/monster_service/index.html"><code>monster-service</code></a>: the services.</li>
+    <li><a href="rust/edda/index.html"><code>edda</code></a>: the command line.</li>
+  </ul>
+</main>
+</body>
+</html>

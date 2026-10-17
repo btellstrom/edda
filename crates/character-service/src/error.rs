@@ -8,6 +8,7 @@ use serde_json::json;
 
 use crate::routes::etag;
 
+/// What a request can fail with, and the status it answers.
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("character not found")]

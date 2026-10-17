@@ -14,6 +14,8 @@ use edda_types::encounter::{Encounter, EncounterPlan};
 use sqlx::{PgPool, types::Json as Jsonb};
 use uuid::Uuid;
 
+use edda_server::openapi::ErrorBody;
+
 use crate::{error::ApiError, hub::Hub, store};
 
 type Row = (
@@ -25,6 +27,7 @@ type Row = (
     DateTime<Utc>,
 );
 
+/// The `/encounters` routes.
 pub fn router() -> Router<std::sync::Arc<Hub>> {
     Router::new()
         .route("/encounters", get(list).post(create))
@@ -84,6 +87,15 @@ fn pool(hub: &Hub) -> &PgPool {
     hub.store().pool()
 }
 
+#[utoipa::path(
+    get,
+    path = "/encounters",
+    tag = "encounters",
+    responses(
+        (status = 200, description = "The campaign's plans.", body = Vec<Encounter>),
+        (status = 403, description = "Not a DM device.", body = ErrorBody),
+    )
+)]
 /// The campaign's plans, by name.
 async fn list(
     State(hub): State<std::sync::Arc<Hub>>,
@@ -114,6 +126,13 @@ async fn get_one(hub: &Hub, campaign: Uuid, id: Uuid) -> Result<Encounter, ApiEr
     row.map(from_row).transpose()?.ok_or(ApiError::NotFound)
 }
 
+#[utoipa::path(
+    get,
+    path = "/encounters/{id}",
+    tag = "encounters",
+    params(("id" = Uuid, Path, description = "The plan's id.")),
+    responses((status = 200, description = "The plan.", body = Encounter), (status = 403, description = "Not a DM device.", body = ErrorBody), (status = 404, description = "No such plan in the campaign.", body = ErrorBody))
+)]
 async fn fetch(
     State(hub): State<std::sync::Arc<Hub>>,
     Authenticated(claims): Authenticated,
@@ -123,6 +142,17 @@ async fn fetch(
     Ok(Json(get_one(&hub, claims.campaign, id).await?))
 }
 
+#[utoipa::path(
+    post,
+    path = "/encounters",
+    tag = "encounters",
+    request_body = EncounterPlan,
+    responses(
+        (status = 201, description = "Kept.", body = Encounter, headers(("Location" = String, description = "Where it is: `/encounters/{id}`."))),
+        (status = 403, description = "Not a DM device, or the campaign has as many plans as it may keep.", body = ErrorBody),
+        (status = 422, description = "Not a valid plan.", body = ErrorBody),
+    )
+)]
 async fn create(
     State(hub): State<std::sync::Arc<Hub>>,
     Authenticated(claims): Authenticated,
@@ -166,6 +196,19 @@ async fn create(
     ))
 }
 
+#[utoipa::path(
+    put,
+    path = "/encounters/{id}",
+    tag = "encounters",
+    params(("id" = Uuid, Path, description = "The plan's id.")),
+    request_body = EncounterPlan,
+    responses(
+        (status = 200, description = "Replaced.", body = Encounter),
+        (status = 403, description = "Not a DM device.", body = ErrorBody),
+        (status = 404, description = "No such plan in the campaign.", body = ErrorBody),
+        (status = 422, description = "Not a valid plan.", body = ErrorBody),
+    )
+)]
 /// Replaces a plan; the last save wins.
 async fn replace(
     State(hub): State<std::sync::Arc<Hub>>,
@@ -192,6 +235,13 @@ async fn replace(
     ))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/encounters/{id}",
+    tag = "encounters",
+    params(("id" = Uuid, Path, description = "The plan's id.")),
+    responses((status = 204, description = "Deleted."), (status = 403, description = "Not a DM device.", body = ErrorBody), (status = 404, description = "No such plan in the campaign.", body = ErrorBody))
+)]
 async fn remove(
     State(hub): State<std::sync::Arc<Hub>>,
     Authenticated(claims): Authenticated,

@@ -40,6 +40,7 @@ pub struct ServiceLogin {
 }
 
 impl ServiceLogin {
+    /// Logs in as configured, when a token is first needed.
     pub fn new(config: &ServicesConfig) -> Self {
         Self {
             auth: AuthClient::new(&config.auth_service),
@@ -73,6 +74,7 @@ pub struct Monsters {
 }
 
 impl Monsters {
+    /// The monster service at `url`, logged in to with `login`.
     pub fn new(login: Arc<ServiceLogin>, url: String) -> Self {
         Self { login, url }
     }

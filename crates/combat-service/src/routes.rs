@@ -23,6 +23,8 @@ use serde::Deserialize;
 use tokio::sync::broadcast::error::RecvError;
 use uuid::Uuid;
 
+use edda_server::openapi::ErrorBody;
+
 use crate::{
     error::ApiError,
     hub::{Hub, LiveCombat, Outcome},
@@ -31,9 +33,10 @@ use crate::{
 
 type AppState = Arc<Hub>;
 
+/// The `/combats` routes.
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(edda_server::health))
         .route("/combats", get(list).post(create))
         .route("/combats/{id}", get(snapshot))
         .route("/combats/{id}/log", get(log))
@@ -41,8 +44,9 @@ pub fn router() -> Router<AppState> {
         .route("/combats/{id}/ws", get(websocket))
 }
 
-#[derive(Deserialize)]
-struct NewCombat {
+/// `POST /combats`: a name, a plan, or both.
+#[derive(Deserialize, utoipa::ToSchema)]
+pub(crate) struct NewCombat {
     /// What to call it; with a plan, the plan's name by default.
     #[serde(default)]
     name: Option<String>,
@@ -51,6 +55,20 @@ struct NewCombat {
     encounter: Option<Uuid>,
 }
 
+#[utoipa::path(
+    post,
+    path = "/combats",
+    tag = "combats",
+    request_body = NewCombat,
+    responses(
+        (status = 201, description = "Started.", body = CombatSnapshot, headers(("Location" = String, description = "Where it is: `/combats/{id}`."))),
+        (status = 400, description = "Neither a name nor a plan.", body = ErrorBody),
+        (status = 403, description = "Not a DM device, or the campaign has as many combats as it may keep.", body = ErrorBody),
+        (status = 404, description = "No such plan in the campaign.", body = ErrorBody),
+        (status = 422, description = "A monster in the plan is gone from the campaign.", body = ErrorBody),
+        (status = 502, description = "The monster service can't be reached.", body = ErrorBody),
+    )
+)]
 /// Creates a combat in the caller's campaign (DM devices only), empty or
 /// from a plan.
 async fn create(
@@ -81,11 +99,19 @@ async fn create(
     ))
 }
 
-#[derive(Deserialize)]
-struct ListQuery {
+#[derive(Deserialize, utoipa::IntoParams)]
+pub(crate) struct ListQuery {
+    /// Only combats with this status.
     status: Option<CombatStatus>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/combats",
+    tag = "combats",
+    params(ListQuery),
+    responses((status = 200, description = "The campaign's combats.", body = Vec<CombatSummary>))
+)]
 /// The caller's campaign's combats, most recently active first; filter with
 /// `?status=paused`.
 async fn list(
@@ -100,6 +126,16 @@ async fn list(
     Ok(Json(hub.store().list(&filter).await?))
 }
 
+#[utoipa::path(
+    get,
+    path = "/combats/{id}",
+    tag = "combats",
+    params(("id" = Uuid, Path, description = "The combat's id.")),
+    responses(
+        (status = 200, description = "Where the combat stands, with `seq`, the last event it includes. A player's device sees monsters' numbers concealed.", body = CombatSnapshot),
+        (status = 404, description = "No such combat in the campaign.", body = ErrorBody),
+    )
+)]
 /// Current state: round, whose turn it is, initiative order and effects.
 async fn snapshot(
     State(hub): State<AppState>,
@@ -130,12 +166,23 @@ fn seen(claims: &Claims, state: &CombatState, events: Vec<LoggedEvent>) -> Vec<L
     events.iter().map(|e| concealer.event(e)).collect()
 }
 
-#[derive(Deserialize)]
-struct LogQuery {
+#[derive(Deserialize, utoipa::IntoParams)]
+pub(crate) struct LogQuery {
+    /// Only the events after this `seq`.
     #[serde(default)]
     after: u64,
 }
 
+#[utoipa::path(
+    get,
+    path = "/combats/{id}/log",
+    tag = "combats",
+    params(("id" = Uuid, Path, description = "The combat's id."), LogQuery),
+    responses(
+        (status = 200, description = "The events, in order. A player's device sees monsters' numbers concealed.", body = Vec<LoggedEvent>),
+        (status = 404, description = "No such combat in the campaign.", body = ErrorBody),
+    )
+)]
 /// The complete log, or the part after `?after=<seq>`.
 async fn log(
     State(hub): State<AppState>,
@@ -155,6 +202,20 @@ async fn log(
     Ok(Json(seen))
 }
 
+#[utoipa::path(
+    post,
+    path = "/combats/{id}/commands",
+    tag = "combats",
+    params(("id" = Uuid, Path, description = "The combat's id.")),
+    request_body = CommandEnvelope,
+    responses(
+        (status = 200, description = "The events it produced (the same ones again for a resent `command_id`).", body = Vec<LoggedEvent>),
+        (status = 403, description = "Not this device's to do, or the combat has as many events as it may keep.", body = ErrorBody),
+        (status = 404, description = "No such combat in the campaign.", body = ErrorBody),
+        (status = 422, description = "The rules refuse it, or the character has no slots or uses left for it.", body = ErrorBody),
+        (status = 502, description = "The character or monster service can't be reached.", body = ErrorBody),
+    )
+)]
 /// Runs a command and returns the events it produced. Resending a command
 /// returns its original events rather than applying it twice.
 async fn command(
@@ -174,6 +235,20 @@ async fn command(
     Ok(Json(seen(&claims, &state, events)))
 }
 
+/// Live: the server sends a `ServerMessage` snapshot, then every event in
+/// log order; the client sends `ClientMessage`s (commands, undos). Both are
+/// JSON text messages.
+#[utoipa::path(
+    get,
+    path = "/combats/{id}/ws",
+    tag = "combats",
+    params(("id" = Uuid, Path, description = "The combat's id.")),
+    responses(
+        (status = 101, description = "Upgraded to a WebSocket."),
+        (status = 403, description = "As many devices are watching the combat as may.", body = ErrorBody),
+        (status = 404, description = "No such combat in the campaign.", body = ErrorBody),
+    )
+)]
 async fn websocket(
     State(hub): State<AppState>,
     Authenticated(claims): Authenticated,

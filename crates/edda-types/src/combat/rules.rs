@@ -7,6 +7,7 @@ use super::{
 
 /// What a participant wants to happen. Turned into events by [`decide`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CombatCommand {
     /// Join the combat, at any point. If `initiative` is already set the
@@ -103,7 +104,9 @@ fn one() -> u16 {
     1
 }
 
+/// An effect for a command to put into play.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct NewEffect {
     /// Chosen by the client, like combatant ids.
     pub id: Uuid,
@@ -121,6 +124,7 @@ pub struct NewEffect {
     pub rounds: Option<u32>,
 }
 
+/// Why the rules refuse a command.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum CombatError {
     #[error("no combatant with id {0}")]
@@ -182,11 +186,13 @@ pub trait Dice {
     /// A roll of a die with `sides` sides.
     fn roll(&mut self, sides: u16) -> Option<u16>;
 
+    /// A d20 roll.
     fn d20(&mut self) -> Option<u8> {
         self.roll(20).and_then(|r| u8::try_from(r).ok())
     }
 }
 
+/// Dice that never roll: for predicting, where rolls wait for the server.
 pub struct NoDice;
 
 impl Dice for NoDice {

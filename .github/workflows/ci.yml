@@ -31,6 +31,10 @@ jobs:
       # The Claude Code hook keeping experiments off a real stack.
       - run: python3 -I .claude/hooks/guard.py --self-test
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # The docs build without broken links (Pages publishes them).
+      - run: cargo doc --workspace --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
 
   test:
     name: Tests and coverage

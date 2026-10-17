@@ -5,6 +5,7 @@ use axum::{
 use edda_client::ClientError;
 use edda_types::combat::CombatError;
 
+/// What a request can fail with, and the status it answers.
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("combat not found")]

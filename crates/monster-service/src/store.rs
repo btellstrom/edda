@@ -51,16 +51,20 @@ pub struct Imported {
     pub updated: usize,
 }
 
+/// Monsters, spells and conditions, shared and each campaign's own, in
+/// Postgres.
 #[derive(Clone)]
 pub struct MonsterStore {
     pool: PgPool,
 }
 
 impl MonsterStore {
+    /// A store in `pool`'s database.
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// The database.
     pub fn pool(&self) -> &PgPool {
         &self.pool
     }

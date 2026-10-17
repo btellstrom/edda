@@ -6,18 +6,23 @@ use crate::{ValidationError, resources::Pool};
 
 /// Everything about a character's spellcasting. Empty for non-casters.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct Spellcasting {
     pub spells: Vec<Spell>,
     /// Regular spell slots keyed by slot level (1-9). Recover on a long rest.
     #[serde(deserialize_with = "level_keys::deserialize")]
+    // JSON keys are strings: "1" to "9".
+    #[cfg_attr(feature = "openapi", schema(value_type = BTreeMap<String, Pool>))]
     pub slots: BTreeMap<u8, Pool>,
     /// Warlock Pact Magic slots. Recover on a short or long rest.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pact_magic: Option<PactMagic>,
 }
 
+/// A spell the character knows or has prepared.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Spell {
     pub name: String,
     /// 0 for cantrips.
@@ -42,7 +47,9 @@ fn yes() -> bool {
     true
 }
 
+/// Warlock Pact Magic: slots all of one level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PactMagic {
     /// All pact slots are this level (1-5).
     pub slot_level: u8,
@@ -51,15 +58,20 @@ pub struct PactMagic {
 }
 
 impl Spellcasting {
+    /// The highest level of a spell slot.
     pub const MAX_SPELL_LEVEL: u8 = 9;
+    /// The highest level of a pact slot.
     pub const MAX_PACT_LEVEL: u8 = 5;
 
+    /// The spell called `name` (any case), if the character has it.
     pub fn find_spell(&self, name: &str) -> Option<&Spell> {
         self.spells
             .iter()
             .find(|s| s.name.eq_ignore_ascii_case(name))
     }
 
+    /// Checks the spells' names and levels, and the slots' levels and
+    /// counts.
     pub fn validate(&self) -> Result<(), ValidationError> {
         for spell in &self.spells {
             if spell.name.trim().is_empty() {

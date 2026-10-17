@@ -1,3 +1,6 @@
+//! `character-service`: serves the character service, and the admin's
+//! commands (`delete-campaign`, `import-sqlite`).
+
 use std::env;
 
 #[tokio::main]

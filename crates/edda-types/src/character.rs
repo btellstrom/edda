@@ -6,6 +6,7 @@ use crate::{resources::Resource, spellcasting::Spellcasting};
 
 /// A stored character: server-assigned metadata plus the editable sheet.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Character {
     pub id: Uuid,
     /// The campaign it belongs to; only that campaign's devices can see it.
@@ -26,6 +27,7 @@ pub struct Character {
 
 /// Lightweight view used when listing characters.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CharacterSummary {
     pub id: Uuid,
     pub name: String,
@@ -57,6 +59,7 @@ impl From<&Character> for CharacterSummary {
 /// The editable contents of a character sheet. This is the request body for
 /// both creating and replacing a character.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct CharacterSheet {
     pub name: String,
@@ -104,6 +107,7 @@ impl Default for CharacterSheet {
 }
 
 impl CharacterSheet {
+    /// The highest total character level.
     pub const MAX_LEVEL: u8 = 20;
 
     /// Sum of all class levels (at least 1 for display purposes when empty).
@@ -112,11 +116,13 @@ impl CharacterSheet {
         u8::try_from(sum.clamp(1, u32::from(Self::MAX_LEVEL))).unwrap_or(Self::MAX_LEVEL)
     }
 
+    /// The proficiency bonus for the character's total level.
     pub fn proficiency_bonus(&self) -> i8 {
         // A level of 1 to 20 gives +2 to +6.
         2 + i8::try_from((self.total_level() - 1) / 4).unwrap_or(0)
     }
 
+    /// The bonus to a saving throw: the ability's modifier, plus proficiency if proficient.
     pub fn saving_throw(&self, ability: Ability) -> i8 {
         let base = self.ability_scores.modifier(ability);
         if self.saving_throw_proficiencies.contains(&ability) {
@@ -126,6 +132,7 @@ impl CharacterSheet {
         }
     }
 
+    /// The bonus to a skill check: its ability's modifier, plus proficiency if proficient.
     pub fn skill_bonus(&self, skill: Skill) -> i8 {
         let base = self.ability_scores.modifier(skill.ability());
         if self.skill_proficiencies.contains(&skill) {
@@ -135,10 +142,12 @@ impl CharacterSheet {
         }
     }
 
+    /// The spell save DC when casting with `ability`: 8 + proficiency + modifier.
     pub fn spell_save_dc(&self, ability: Ability) -> i8 {
         8 + self.proficiency_bonus() + self.ability_scores.modifier(ability)
     }
 
+    /// The spell attack bonus when casting with `ability`: proficiency + modifier.
     pub fn spell_attack_bonus(&self, ability: Ability) -> i8 {
         self.proficiency_bonus() + self.ability_scores.modifier(ability)
     }
@@ -188,6 +197,7 @@ impl CharacterSheet {
     }
 }
 
+/// Why a sheet isn't valid.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ValidationError {
     #[error("name must not be empty")]
@@ -216,7 +226,9 @@ pub enum ValidationError {
     Overspent(String),
 }
 
+/// Levels in one class (with its subclass, and the ability it casts with, if any).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct ClassLevel {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -227,7 +239,9 @@ pub struct ClassLevel {
     pub spellcasting_ability: Option<Ability>,
 }
 
+/// The six ability scores.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct AbilityScores {
     pub strength: u8,
@@ -252,9 +266,12 @@ impl Default for AbilityScores {
 }
 
 impl AbilityScores {
+    /// The lowest an ability score can be.
     pub const MIN: u8 = 1;
+    /// The highest an ability score can be.
     pub const MAX: u8 = 30;
 
+    /// One ability's score.
     pub fn get(&self, ability: Ability) -> u8 {
         match ability {
             Ability::Strength => self.strength,
@@ -266,17 +283,21 @@ impl AbilityScores {
         }
     }
 
+    /// One ability's modifier: (score - 10) / 2, rounded down.
     pub fn modifier(&self, ability: Ability) -> i8 {
         // Any score (0 to 255) gives -5 to +122.
         i8::try_from((i16::from(self.get(ability)) - 10).div_euclid(2)).unwrap_or(i8::MAX)
     }
 
+    /// Every ability with its score, in the usual order.
     pub fn iter(&self) -> impl Iterator<Item = (Ability, u8)> + '_ {
         Ability::ALL.into_iter().map(|a| (a, self.get(a)))
     }
 }
 
+/// One of the six abilities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Ability {
     Strength,
@@ -288,6 +309,7 @@ pub enum Ability {
 }
 
 impl Ability {
+    /// All six, in the usual order.
     pub const ALL: [Ability; 6] = [
         Ability::Strength,
         Ability::Dexterity,
@@ -298,7 +320,9 @@ impl Ability {
     ];
 }
 
+/// One of the eighteen skills.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Skill {
     Acrobatics,
@@ -322,6 +346,7 @@ pub enum Skill {
 }
 
 impl Skill {
+    /// The ability the skill is checked with.
     pub fn ability(self) -> Ability {
         use Ability::*;
         match self {
@@ -344,7 +369,9 @@ impl Skill {
     }
 }
 
+/// Current, maximum and temporary hit points.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct HitPoints {
     pub max: u16,
@@ -352,7 +379,9 @@ pub struct HitPoints {
     pub temporary: u16,
 }
 
+/// Something the character carries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Item {
     pub name: String,
     #[serde(default = "one")]

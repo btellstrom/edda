@@ -9,15 +9,25 @@ use edda_auth::{PublicKey, server::Authenticated};
 use edda_types::{Character, CharacterAction, CharacterSheet, CharacterSummary};
 use uuid::Uuid;
 
+use edda_server::openapi::ErrorBody;
+
 use crate::{AppState, error::ApiError};
 
+/// The routes.
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(edda_server::health))
         .route("/characters", get(list).post(create))
         .route("/characters/{id}", get(fetch).put(replace).delete(remove))
         .route("/characters/{id}/actions", post(apply_action))
         .route("/characters/{id}/owners", put(set_owners))
+}
+
+/// A `412`: the character as it is now, to re-apply a change to.
+#[derive(utoipa::ToSchema)]
+pub struct Stale {
+    pub error: String,
+    pub current: Character,
 }
 
 /// Strong ETag for a character: its version, quoted per RFC 9110.
@@ -55,6 +65,12 @@ fn expected_version(headers: &HeaderMap) -> Result<Option<u64>, ApiError> {
         })
 }
 
+#[utoipa::path(
+    get,
+    path = "/characters",
+    tag = "characters",
+    responses((status = 200, description = "The campaign's characters.", body = Vec<CharacterSummary>))
+)]
 async fn list(
     State(state): State<AppState>,
     Authenticated(claims): Authenticated,
@@ -65,6 +81,20 @@ async fn list(
     ))
 }
 
+#[utoipa::path(
+    post,
+    path = "/characters",
+    tag = "characters",
+    request_body = CharacterSheet,
+    responses(
+        (status = 201, description = "Created.", body = Character, headers(
+            ("Location" = String, description = "Where it is: `/characters/{id}`."),
+            ("ETag" = String, description = "Its version, quoted."),
+        )),
+        (status = 403, description = "The campaign has as many characters as it may keep.", body = ErrorBody),
+        (status = 422, description = "Not a valid sheet.", body = ErrorBody),
+    )
+)]
 async fn create(
     State(state): State<AppState>,
     Authenticated(claims): Authenticated,
@@ -84,6 +114,16 @@ async fn create(
     ))
 }
 
+#[utoipa::path(
+    get,
+    path = "/characters/{id}",
+    tag = "characters",
+    params(("id" = Uuid, Path, description = "The character's id.")),
+    responses(
+        (status = 200, description = "The character.", body = Character, headers(("ETag" = String, description = "The character's version, quoted: `\"3\"`."))),
+        (status = 404, description = "No such character in the campaign.", body = ErrorBody),
+    )
+)]
 async fn fetch(
     State(state): State<AppState>,
     Authenticated(claims): Authenticated,
@@ -92,6 +132,25 @@ async fn fetch(
     Ok(tagged(state.characters.get((&claims).into(), id).await?))
 }
 
+#[utoipa::path(
+    put,
+    path = "/characters/{id}",
+    tag = "characters",
+    params(
+        ("id" = Uuid, Path, description = "The character's id."),
+        ("If-Match" = String, Header, description = "The version the new sheet is based on, quoted (`\"3\"`), or `*` to overwrite whatever is there."),
+    ),
+    request_body = CharacterSheet,
+    responses(
+        (status = 200, description = "Replaced.", body = Character, headers(("ETag" = String, description = "The character's version, quoted: `\"3\"`."))),
+        (status = 400, description = "`If-Match` isn't one version or `*`.", body = ErrorBody),
+        (status = 403, description = "Not a character this device plays.", body = ErrorBody),
+        (status = 404, description = "No such character in the campaign.", body = ErrorBody),
+        (status = 412, description = "Changed since that version: re-apply the change to `current` and try again.", body = Stale),
+        (status = 422, description = "Not a valid sheet.", body = ErrorBody),
+        (status = 428, description = "No `If-Match`.", body = ErrorBody),
+    )
+)]
 async fn replace(
     State(state): State<AppState>,
     Authenticated(claims): Authenticated,
@@ -107,6 +166,17 @@ async fn replace(
     Ok(tagged(saved))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/characters/{id}",
+    tag = "characters",
+    params(("id" = Uuid, Path, description = "The character's id.")),
+    responses(
+        (status = 204, description = "Deleted."),
+        (status = 403, description = "Not a character this device plays.", body = ErrorBody),
+        (status = 404, description = "No such character in the campaign.", body = ErrorBody),
+    )
+)]
 async fn remove(
     State(state): State<AppState>,
     Authenticated(claims): Authenticated,
@@ -116,6 +186,23 @@ async fn remove(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+    post,
+    path = "/characters/{id}/actions",
+    tag = "characters",
+    params(
+        ("id" = Uuid, Path, description = "The character's id."),
+        ("Idempotency-Key" = Option<String>, Header, description = "Applies the action once per key: sent again, the character comes back unchanged."),
+    ),
+    request_body = CharacterAction,
+    responses(
+        (status = 200, description = "Applied.", body = Character, headers(("ETag" = String, description = "The character's version, quoted: `\"3\"`."))),
+        (status = 403, description = "Not a character this device plays.", body = ErrorBody),
+        (status = 404, description = "No such character in the campaign.", body = ErrorBody),
+        (status = 409, description = "No slots or uses left.", body = ErrorBody),
+        (status = 422, description = "Not an action this character can take.", body = ErrorBody),
+    )
+)]
 /// Applies an action; with an `Idempotency-Key` header, once per key.
 async fn apply_action(
     State(state): State<AppState>,
@@ -139,6 +226,19 @@ async fn apply_action(
     ))
 }
 
+#[utoipa::path(
+    put,
+    path = "/characters/{id}/owners",
+    tag = "characters",
+    params(("id" = Uuid, Path, description = "The character's id.")),
+    request_body(content = Vec<String>, description = "The device keys of the player devices that play it."),
+    responses(
+        (status = 200, description = "Set.", body = Character, headers(("ETag" = String, description = "The character's version, quoted: `\"3\"`."))),
+        (status = 400, description = "Not a device key.", body = ErrorBody),
+        (status = 403, description = "Not a DM device.", body = ErrorBody),
+        (status = 404, description = "No such character in the campaign.", body = ErrorBody),
+    )
+)]
 /// Sets which player devices play a character (DM devices only): a list of
 /// device keys, as `auth devices` shows them.
 async fn set_owners(

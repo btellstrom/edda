@@ -29,7 +29,9 @@ use uuid::Uuid;
 
 use crate::HitPoints;
 
+/// Where a combat stands: the result of applying its log, event by event.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CombatState {
     pub name: String,
     /// The campaign this combat belongs to.
@@ -45,7 +47,9 @@ pub struct CombatState {
     pub effects: Vec<Effect>,
 }
 
+/// Whether a combat is being set up, running, paused or over.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CombatStatus {
     /// Adding combatants and rolling initiative.
@@ -58,7 +62,9 @@ pub enum CombatStatus {
     Ended,
 }
 
+/// Anyone in a combat: a character, a monster, or anyone else the DM adds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Combatant {
     /// Chosen by the client that adds the combatant, so it can predict the
     /// outcome exactly. The server rejects duplicates.
@@ -87,6 +93,7 @@ pub struct Combatant {
 }
 
 impl Combatant {
+    /// A combatant at full hit points, with no initiative yet.
     pub fn new(name: impl Into<String>, max_hp: u16) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -143,6 +150,7 @@ impl Combatant {
         }
     }
 
+    /// Whether it's at 0 hit points.
     pub fn is_down(&self) -> bool {
         self.hit_points.current == 0
     }
@@ -159,6 +167,7 @@ impl Combatant {
 
 /// Anything in play with a duration or a target: spells, conditions, auras.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Effect {
     pub id: Uuid,
     pub name: String,
@@ -181,6 +190,7 @@ pub struct Effect {
 /// from the caster's turn; for an effect nobody cast, from the turn it was
 /// put down in).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Expiry {
     pub round: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -191,6 +201,7 @@ pub struct Expiry {
 /// outcomes (the rolled number, the resulting HP) so replaying the log never
 /// needs to re-roll or re-decide anything.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CombatEvent {
     Created {
@@ -286,6 +297,7 @@ pub enum CombatEvent {
 /// The slot a spell was cast with: a regular slot of some level, or a
 /// Pact Magic slot (whose level is fixed).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SpellSlot {
     Level(u8),
@@ -293,6 +305,7 @@ pub enum SpellSlot {
 }
 
 impl SpellSlot {
+    /// The slot's level, regular or pact.
     pub fn level(self) -> u8 {
         match self {
             SpellSlot::Level(level) | SpellSlot::Pact(level) => level,
@@ -300,7 +313,9 @@ impl SpellSlot {
     }
 }
 
+/// Why an effect ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EffectEndReason {
     Removed,
@@ -325,10 +340,12 @@ impl CombatState {
         state
     }
 
+    /// The combatant with `id`, if it's in the combat.
     pub fn combatant(&self, id: Uuid) -> Option<&Combatant> {
         self.combatants.iter().find(|c| c.id == id)
     }
 
+    /// The effect with `id`, if it's in play.
     pub fn effect(&self, id: Uuid) -> Option<&Effect> {
         self.effects.iter().find(|e| e.id == id)
     }

@@ -2,21 +2,43 @@
 //! request needs a token from the auth service, and only sees its own
 //! campaign's characters.
 
+/// Errors, as responses.
 pub mod error;
+/// The HTTP routes.
 pub mod routes;
 pub mod sqlite;
+/// Characters in Postgres.
 pub mod store;
 
 use std::sync::Arc;
 
 use axum::{Extension, Router};
 use edda_auth::server::TokenVerifier;
-use edda_server::Limits;
+use edda_server::{Limits, openapi::Conventions};
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 
 pub use store::CharacterStore;
 
+/// The service's OpenAPI description.
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(
+        edda_server::health,
+        routes::list,
+        routes::create,
+        routes::fetch,
+        routes::replace,
+        routes::remove,
+        routes::apply_action,
+        routes::set_owners,
+    ),
+    modifiers(&Conventions),
+    tags((name = "characters", description = "Character sheets, and what happens to them in play."))
+)]
+pub struct ApiDoc;
+
+/// What the handlers share.
 #[derive(Clone)]
 pub struct AppState {
     pub characters: CharacterStore,
@@ -30,6 +52,7 @@ pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
     Ok(pool)
 }
 
+/// Brings the database up to date.
 pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
     sqlx::migrate!().run(pool).await
 }

@@ -133,6 +133,7 @@ impl Limits {
         Ok(limits)
     }
 
+    /// Whether the limits are on (`LIMITS` isn't `off`).
     pub fn enabled(&self) -> bool {
         self.enabled
     }

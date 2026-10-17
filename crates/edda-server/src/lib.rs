@@ -1,8 +1,10 @@
 //! What every edda service shares: logging, opening its
 //! database, finding the auth service's key, serving (with the CORS setting
-//! and the limits), and error responses.
+//! and the limits), error responses, and the conventions of their OpenAPI
+//! descriptions.
 
 pub mod limits;
+pub mod openapi;
 #[cfg(feature = "testing")]
 pub mod testing;
 
@@ -21,6 +23,18 @@ use serde_json::json;
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing_subscriber::EnvFilter;
+
+/// `GET /health`: answers `ok` while the service runs.
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "health",
+    security(()),
+    responses((status = 200, description = "The service is running.", body = String, example = "ok"))
+)]
+pub async fn health() -> &'static str {
+    "ok"
+}
 
 /// Logs to stderr: `crate_name`'s own messages, this crate's (serving,
 /// internal errors) and each request, at info, unless `RUST_LOG` says

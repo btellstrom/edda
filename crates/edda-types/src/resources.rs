@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// A count of limited uses: spell slots, Action Surge, Ki points, etc.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct Pool {
     pub max: u16,
@@ -9,10 +10,12 @@ pub struct Pool {
 }
 
 impl Pool {
+    /// A pool of `max` uses, none spent.
     pub fn new(max: u16) -> Self {
         Self { max, used: 0 }
     }
 
+    /// How many uses are left.
     pub fn remaining(&self) -> u16 {
         self.max.saturating_sub(self.used)
     }
@@ -32,10 +35,12 @@ impl Pool {
         self.used = self.used.saturating_sub(amount);
     }
 
+    /// Regains every use.
     pub fn reset(&mut self) {
         self.used = 0;
     }
 
+    /// Whether no more are spent than there are.
     pub fn is_valid(&self) -> bool {
         self.used <= self.max
     }
@@ -43,6 +48,7 @@ impl Pool {
 
 /// When a resource comes back on its own.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Recharge {
     /// Recovers on a short or long rest (Action Surge, Ki, Channel Divinity).
@@ -54,7 +60,9 @@ pub enum Recharge {
     Manual,
 }
 
+/// A short or a long rest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RestKind {
     Short,
@@ -62,6 +70,7 @@ pub enum RestKind {
 }
 
 impl Recharge {
+    /// Whether a resource with this recharge comes back on `rest`.
     pub fn recovers_on(self, rest: RestKind) -> bool {
         match self {
             Recharge::ShortRest => true,
@@ -73,6 +82,7 @@ impl Recharge {
 
 /// A named, limited-use class feature or ability, e.g. Action Surge.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Resource {
     pub name: String,
     #[serde(flatten)]

@@ -17,13 +17,17 @@ pub trait RulesText:
     const KIND: &'static str;
     /// One of them, in words: `spell`.
     const ONE: &'static str;
+    /// What it's called.
     fn name(&self) -> &str;
+    /// Where it's from: "SRD 5.2", "Homebrew".
     fn source(&self) -> &str;
     /// The rules it's written for; `None` suits either.
     fn edition(&self) -> Option<Edition>;
+    /// Checks it can be kept.
     fn validate(&self) -> Result<(), RulesTextError>;
 }
 
+/// Why a spell or condition can't be kept.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum RulesTextError {
     #[error("name must not be empty")]
@@ -34,6 +38,7 @@ pub enum RulesTextError {
 
 /// A stored piece of rules text: server-assigned metadata plus the text.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(bound = "T: RulesText")]
 pub struct Entry<T: RulesText> {
     pub id: Uuid,
@@ -64,6 +69,7 @@ pub fn named<'a, T: RulesText>(entries: &'a [Entry<T>], name: &str) -> Option<&'
 /// A spell as the books describe it. Everything but the name has a
 /// default, so a homebrew spell needs only what it has.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct SpellText {
     pub name: String,
@@ -140,6 +146,7 @@ impl RulesText for SpellText {
 
 /// A condition, such as Prone, or any other named effect worth describing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct ConditionText {
     pub name: String,
@@ -184,7 +191,9 @@ impl RulesText for ConditionText {
     }
 }
 
+/// A stored spell.
 pub type SpellEntry = Entry<SpellText>;
+/// A stored condition.
 pub type ConditionEntry = Entry<ConditionText>;
 
 #[cfg(test)]

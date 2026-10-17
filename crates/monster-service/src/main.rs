@@ -1,3 +1,6 @@
+//! `monster-service`: serves the monster service, and the admin's
+//! commands (`import`, `delete-campaign`, `import-sqlite`).
+
 use std::{env, path::PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};

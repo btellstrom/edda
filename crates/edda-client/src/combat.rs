@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::{ClientError, send};
 
+/// The combat service's client: combats and planned encounters.
 #[derive(Debug, Clone)]
 pub struct CombatClient {
     base_url: String,
@@ -20,6 +21,7 @@ pub struct CombatClient {
 }
 
 impl CombatClient {
+    /// A client for the combat service at `base_url`, without a token.
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
@@ -99,10 +101,12 @@ impl CombatClient {
         send(self.http.get(self.url("/encounters"))).await
     }
 
+    /// One planned encounter.
     pub async fn encounter(&self, id: Uuid) -> Result<Encounter, ClientError> {
         send(self.http.get(self.url(&format!("/encounters/{id}")))).await
     }
 
+    /// Keeps a new plan.
     pub async fn create_encounter(&self, plan: &EncounterPlan) -> Result<Encounter, ClientError> {
         send(self.http.post(self.url("/encounters")).json(plan)).await
     }
@@ -121,6 +125,7 @@ impl CombatClient {
         .await
     }
 
+    /// Deletes a plan.
     pub async fn delete_encounter(&self, id: Uuid) -> Result<(), ClientError> {
         let response = self
             .http
@@ -144,6 +149,7 @@ impl CombatClient {
     }
 }
 
+/// Following a combat live, over its WebSocket.
 #[cfg(feature = "websocket")]
 pub mod live {
     use edda_types::combat::{ClientMessage, CommandEnvelope, ServerMessage};
@@ -168,8 +174,10 @@ pub mod live {
         receiver: MessageReceiver,
     }
 
+    /// The half of a [`CombatConnection`] that sends commands.
     pub struct CommandSender(SplitSink<Socket, Message>);
 
+    /// The half of a [`CombatConnection`] that receives what the server sends.
     pub struct MessageReceiver(SplitStream<Socket>);
 
     impl CombatConnection {
@@ -192,20 +200,25 @@ pub mod live {
             })
         }
 
+        /// Sends a command; its events come back like everyone else's.
         pub async fn send(&mut self, envelope: &CommandEnvelope) -> Result<(), ClientError> {
             self.sender.send(envelope).await
         }
 
+        /// The next message from the server; `None` once the connection has
+        /// closed.
         pub async fn recv(&mut self) -> Option<Result<ServerMessage, ClientError>> {
             self.receiver.recv().await
         }
 
+        /// Splits the connection, to send and receive from different tasks.
         pub fn split(self) -> (CommandSender, MessageReceiver) {
             (self.sender, self.receiver)
         }
     }
 
     impl CommandSender {
+        /// Sends a command; its events come back like everyone else's.
         pub async fn send(&mut self, envelope: &CommandEnvelope) -> Result<(), ClientError> {
             let message = ClientMessage::Command(envelope.clone());
             let text = serde_json::to_string(&message).expect("commands always serialize");
@@ -255,6 +268,7 @@ pub struct Replica {
     predicted: CombatState,
 }
 
+/// What a message from the server did to a [`Replica`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum Received {
     /// The state may have changed; re-render.
@@ -272,6 +286,7 @@ pub enum Received {
 }
 
 impl Replica {
+    /// A replica starting from `snapshot`, with nothing pending.
     pub fn new(snapshot: CombatSnapshot) -> Self {
         Self {
             predicted: snapshot.state.clone(),
@@ -292,6 +307,7 @@ impl Replica {
         &self.confirmed
     }
 
+    /// The last event the confirmed state includes.
     pub fn seq(&self) -> u64 {
         self.seq
     }
@@ -315,6 +331,8 @@ impl Replica {
         Ok(())
     }
 
+    /// Takes in a message from the server, replaying pending commands on top
+    /// of what it confirms.
     pub fn receive(&mut self, message: ServerMessage) -> Received {
         let outcome = match message {
             ServerMessage::Snapshot(snapshot) => {

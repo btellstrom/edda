@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::{ClientError, check, send};
 
+/// The auth service's client.
 #[derive(Debug, Clone)]
 pub struct AuthClient {
     base_url: String,
@@ -18,6 +19,7 @@ pub struct AuthClient {
 }
 
 impl AuthClient {
+    /// A client for the auth service at `base_url`, without a token.
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
@@ -107,10 +109,12 @@ impl AuthClient {
         send(self.http.post(self.url("/login")).json(&answer)).await
     }
 
+    /// The token's campaign.
     pub async fn campaign(&self) -> Result<Campaign, ClientError> {
         send(self.http.get(self.url("/campaign"))).await
     }
 
+    /// The campaign's devices, revoked ones too.
     pub async fn devices(&self) -> Result<Vec<Device>, ClientError> {
         send(self.http.get(self.url("/devices"))).await
     }
@@ -121,6 +125,7 @@ impl AuthClient {
         send(self.http.post(self.url("/devices")).json(cert)).await
     }
 
+    /// Revokes a device (DM devices only).
     pub async fn revoke(&self, key: PublicKey) -> Result<Device, ClientError> {
         let url = self.url(&format!("/devices/{key}"));
         let response = check(self.http.delete(url).send().await?).await?;

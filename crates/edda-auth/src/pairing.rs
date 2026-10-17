@@ -37,6 +37,7 @@ static WORDLIST: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
         .collect()
 });
 
+/// What can go wrong reading a pairing code or a sealed message.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum PairingError {
     #[error("a pairing code looks like 7-tavern-dragon")]
@@ -119,6 +120,8 @@ pub enum Side {
 }
 
 impl Side {
+    /// The side's name, `host` or `joiner`: in the relay's paths, and bound
+    /// into the keys.
     pub fn as_str(self) -> &'static str {
         match self {
             Side::Host => "host",
@@ -195,6 +198,7 @@ pub struct Channel {
 }
 
 impl Channel {
+    /// Encrypts `message` for the other side.
     pub fn seal(&mut self, message: &impl Serialize) -> Vec<u8> {
         let plain = serde_json::to_vec(message).expect("pairing messages serialize");
         let sealed = self
@@ -205,6 +209,8 @@ impl Channel {
         sealed
     }
 
+    /// Decrypts a message from the other side; fails if it was sealed with
+    /// another code.
     pub fn open<T: DeserializeOwned>(&mut self, sealed: &[u8]) -> Result<T, PairingError> {
         let plain = self
             .receive
@@ -223,6 +229,7 @@ fn nonce(counter: u64) -> chacha20poly1305::Nonce {
 
 /// The joiner's first encrypted message.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct JoinRequest {
     pub key: PublicKey,
     /// "Vex's laptop".
@@ -231,6 +238,7 @@ pub struct JoinRequest {
 
 /// The DM's answer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum JoinAnswer {
     Approved {

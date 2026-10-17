@@ -11,6 +11,7 @@ use reqwest::{RequestBuilder, Response, StatusCode, header};
 use serde::{Deserialize, de::DeserializeOwned};
 use uuid::Uuid;
 
+/// What can go wrong talking to a service.
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
     #[error("not found")]
@@ -42,6 +43,7 @@ pub enum ClientError {
     WebSocket(String),
 }
 
+/// The character service's client.
 #[derive(Debug, Clone)]
 pub struct Client {
     base_url: String,
@@ -53,6 +55,7 @@ impl Client {
     /// race with another writer before giving up.
     pub const MAX_RETRIES: usize = 5;
 
+    /// A client for the character service at `base_url`, without a token.
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
@@ -66,18 +69,22 @@ impl Client {
         self
     }
 
+    /// Where the service is.
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
 
+    /// The campaign's characters.
     pub async fn list(&self) -> Result<Vec<CharacterSummary>, ClientError> {
         send(self.http.get(self.url("/characters"))).await
     }
 
+    /// One character.
     pub async fn get(&self, id: Uuid) -> Result<Character, ClientError> {
         send(self.http.get(self.character_url(id))).await
     }
 
+    /// Creates a character from `sheet`.
     pub async fn create(&self, sheet: &CharacterSheet) -> Result<Character, ClientError> {
         send(self.http.post(self.url("/characters")).json(sheet)).await
     }
@@ -123,6 +130,7 @@ impl Client {
         Err(ClientError::Stale(Box::new(current)).into())
     }
 
+    /// Deletes a character.
     pub async fn delete(&self, id: Uuid) -> Result<(), ClientError> {
         let response = self.http.delete(self.character_url(id)).send().await?;
         check(response).await.map(drop)
@@ -135,6 +143,7 @@ impl Client {
         send(self.http.put(url).json(owners)).await
     }
 
+    /// Applies an action to a character.
     pub async fn act(&self, id: Uuid, action: &CharacterAction) -> Result<Character, ClientError> {
         let url = format!("{}/actions", self.character_url(id));
         send(self.http.post(url).json(action)).await

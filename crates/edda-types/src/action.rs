@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{CharacterSheet, Pool, resources::RestKind};
 
+/// A change made in play, applied atomically by the character service:
+/// `POST /characters/{id}/actions`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CharacterAction {
     /// Cast a known spell, expending the appropriate slot. Cantrips and
@@ -50,6 +53,7 @@ fn one() -> u16 {
     1
 }
 
+/// Why an action can't be applied.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ActionError {
     #[error("unknown spell: {0}")]
@@ -142,6 +146,8 @@ impl CharacterSheet {
         }
     }
 
+    /// Takes a rest: restores what recovers on it (and, on a long rest, all
+    /// hit points).
     pub fn rest(&mut self, kind: RestKind) {
         for resource in &mut self.resources {
             if resource.recharge.recovers_on(kind) {

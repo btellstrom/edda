@@ -6,7 +6,9 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
+/// Which rules a campaign plays by: the 2014 or the 2024 ones.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub enum Edition {
     #[serde(rename = "2014")]
     Rules2014,
@@ -26,6 +28,7 @@ impl fmt::Display for Edition {
     }
 }
 
+/// An edition other than 2014 or 2024.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("unknown edition \"{0}\"; use 2014 or 2024")]
 pub struct UnknownEdition(String);

@@ -31,6 +31,7 @@ pub struct TokenSigner {
 }
 
 impl TokenSigner {
+    /// Signs tokens with `key`.
     pub fn new(key: &DeviceKey) -> Self {
         Self {
             secret: AsymmetricSecretKey::from(&key.keypair_bytes()).expect("64-byte keypair"),
@@ -38,6 +39,7 @@ impl TokenSigner {
         }
     }
 
+    /// The key its tokens can be checked with.
     pub fn public_key(&self) -> PublicKey {
         self.public
     }
@@ -61,6 +63,7 @@ pub struct TokenVerifier {
 }
 
 impl TokenVerifier {
+    /// Accepts tokens signed with `key`.
     pub fn new(key: PublicKey) -> Self {
         Self {
             public: AsymmetricPublicKey::from(key.as_bytes()).expect("32-byte key"),
@@ -113,6 +116,7 @@ impl<S: Send + Sync> FromRequestParts<S> for Authenticated {
     }
 }
 
+/// A `401`, saying why.
 #[derive(Debug)]
 pub struct Unauthorized(pub &'static str);
 

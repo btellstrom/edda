@@ -4,6 +4,7 @@ use axum::{
 };
 use edda_types::{monster::MonsterError, rules_text::RulesTextError};
 
+/// What a request can fail with, and the status it answers.
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("not found")]

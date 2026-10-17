@@ -23,6 +23,7 @@ pub mod server;
 pub use cert::{DeviceCert, Role, SignedCert};
 pub use keys::{DeviceKey, Nonce, PublicKey, Purpose, Signature};
 
+/// What can go wrong with keys, signatures and tokens.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AuthError {
     #[error("not a valid public key")]

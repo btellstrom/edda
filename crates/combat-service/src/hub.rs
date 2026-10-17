@@ -48,6 +48,8 @@ const SUBSCRIBER_BUFFER: usize = 256;
 /// How long a combat with no connected clients stays in memory.
 const IDLE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
+/// Every combat this instance has in memory, and what they need: the
+/// store, the other services and the limits.
 pub struct Hub {
     store: Store,
     live: Mutex<HashMap<Uuid, Arc<LiveCombat>>>,
@@ -56,6 +58,7 @@ pub struct Hub {
     limits: Limits,
 }
 
+/// A combat in memory: its state, and the feed its watchers get.
 pub struct LiveCombat {
     id: Uuid,
     /// The campaign it belongs to; fixed at creation.
@@ -82,6 +85,7 @@ impl View {
     }
 }
 
+/// What running a command did.
 pub enum Outcome {
     Applied(Vec<LoggedEvent>),
     AlreadyApplied,
@@ -122,10 +126,12 @@ impl Hub {
         Ok(hub)
     }
 
+    /// Where combats are kept.
     pub fn store(&self) -> &Store {
         &self.store
     }
 
+    /// How much a campaign may keep.
     pub fn limits(&self) -> &Limits {
         &self.limits
     }
@@ -152,6 +158,7 @@ impl Hub {
             .map_err(ApiError::Forbidden)
     }
 
+    /// Starts an empty combat in `campaign`.
     pub async fn create(&self, campaign: &str, name: &str) -> Result<CombatSnapshot, ApiError> {
         self.room_for_a_combat(campaign).await?;
         let id = self.store.create(campaign, name, Vec::new()).await?;

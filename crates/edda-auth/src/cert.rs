@@ -4,7 +4,9 @@ use uuid::Uuid;
 
 use crate::{AuthError, DeviceKey, PublicKey, Purpose, Signature};
 
+/// What a device may do in its campaign.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
     /// Runs the campaign, and can add and remove devices.
@@ -16,19 +18,23 @@ pub enum Role {
 /// `issuer`: a DM device of that campaign, or for the very first DM device
 /// (set up with a one-time code) the device itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct DeviceCert {
     pub campaign: Uuid,
     pub device: PublicKey,
     pub role: Role,
     /// Whose device it is, for people: "Vex's laptop".
     pub name: String,
-    /// Whole seconds, so the signed encoding is a plain integer.
+    /// Whole seconds since 1970, so the signed encoding is a plain integer.
     #[serde(with = "chrono::serde::ts_seconds")]
+    #[cfg_attr(feature = "openapi", schema(value_type = i64))]
     pub issued_at: DateTime<Utc>,
     pub issuer: PublicKey,
 }
 
+/// A [`DeviceCert`] with its issuer's signature.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SignedCert {
     pub cert: DeviceCert,
     pub signature: Signature,
@@ -77,6 +83,8 @@ impl SignedCert {
         Ok(&self.cert)
     }
 
+    /// Whether the device signed its own certificate, as a campaign's first
+    /// DM device does.
     pub fn is_self_signed(&self) -> bool {
         self.cert.issuer == self.cert.device
     }

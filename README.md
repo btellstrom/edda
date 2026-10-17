@@ -88,7 +88,7 @@ pair each device with `edda auth invite`.
 | [Monsters, spells and conditions](docs/monsters-and-spells.md) | DMs: the SRD, and writing your own. |
 | [Hosting](docs/hosting.md) | Whoever runs the servers: HTTPS for players, limits, backups, running without containers. |
 | [Security](docs/security.md) | How devices, pairing and logging in work, and who may do what. |
-| [API](docs/api.md) | Building another frontend: the services' HTTP and WebSocket API. |
+| [API](docs/api.md) | Building another frontend: the services' HTTP and WebSocket API, described in full in [`openapi.json`](docs/openapi.json). |
 | [Development](docs/development.md) | Contributing: the code's layout, tests, the sandbox and CI. |
 
 ## How it fits together

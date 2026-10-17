@@ -1,3 +1,6 @@
+//! `auth-service`: serves the auth service, and the admin's commands
+//! (`new-campaign`, `setup-code`, `add-service`, `delete-campaign`).
+
 use std::env;
 
 use clap::{Parser, Subcommand};

@@ -14,6 +14,7 @@ use crate::{Ability, AbilityScores, Edition, Skill};
 
 /// A stored monster: server-assigned metadata plus the stat block.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Monster {
     pub id: Uuid,
     /// The campaign whose homebrew it is; `None` for the shared library,
@@ -29,6 +30,7 @@ pub struct Monster {
 
 /// For listing and completing names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MonsterSummary {
     pub id: Uuid,
     pub name: String,
@@ -70,6 +72,7 @@ impl From<&Monster> for MonsterSummary {
 /// A full stat block. Everything but the name has a default, so a file
 /// needs only what the monster actually has.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct MonsterSheet {
     pub name: String,
@@ -172,12 +175,14 @@ impl Default for MonsterSheet {
 
 /// A trait, action, reaction or legendary action.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Feature {
     pub name: String,
     #[serde(default)]
     pub description: String,
 }
 
+/// Why a stat block isn't valid.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum MonsterError {
     #[error("name must not be empty")]
@@ -233,6 +238,8 @@ fn clamp_hp(total: i32) -> u16 {
 }
 
 impl MonsterSheet {
+    /// Checks the stat block: a name, hit points, hit dice that can be read,
+    /// and ability scores from 1 to 30.
     pub fn validate(&self) -> Result<(), MonsterError> {
         if self.name.trim().is_empty() {
             return Err(MonsterError::EmptyName);
@@ -250,6 +257,7 @@ impl MonsterSheet {
         Ok(())
     }
 
+    /// Its hit dice, if it has any that can be read (`8d10+40`).
     pub fn hit_dice(&self) -> Option<HitDice> {
         HitDice::parse(&self.hit_dice)
     }
@@ -268,6 +276,8 @@ impl MonsterSheet {
         }
     }
 
+    /// What it adds to initiative: `initiative` if given, otherwise its
+    /// Dexterity modifier.
     pub fn initiative_modifier(&self) -> i8 {
         self.initiative
             .unwrap_or_else(|| self.ability_scores.modifier(Ability::Dexterity))

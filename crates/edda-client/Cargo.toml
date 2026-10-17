@@ -34,6 +34,7 @@ combat-service = { path = "../combat-service" }
 monster-service = { path = "../monster-service" }
 reqwest = { version = "0.13.5", features = ["json"] }
 tokio = { version = "1.53.3", features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+utoipa = "6.0.0"
 
 [lints]
 workspace = true

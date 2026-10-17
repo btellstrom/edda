@@ -18,7 +18,7 @@ CARGO     ?= cargo
 PROFILES   = $(if $(HTTPS),--profile https)
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite test check deny smoke clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite test check deny smoke doc openapi clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -78,10 +78,11 @@ migrate-sqlite: ## once, after upgrading: bring characters and monsters over fro
 test: ## run all tests, against a throwaway Postgres of their own
 	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked
 
-check: ## what CI checks: formatting, lints (warnings fail), the tests and the guard hook
+check: ## what CI checks: formatting, lints (warnings fail), the docs, the tests and the guard hook
 	python3 -I .claude/hooks/guard.py --self-test
 	$(CARGO) fmt --all --check
 	$(CARGO) clippy --workspace --all-targets --locked -- -D warnings
+	RUSTDOCFLAGS="-D warnings" $(CARGO) doc --workspace --no-deps --locked
 	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked
 
 deny: ## the dependencies' licences, advisories and sources (cargo install cargo-deny)
@@ -89,6 +90,12 @@ deny: ## the dependencies' licences, advisories and sources (cargo install cargo
 
 smoke: client ## end to end: the compose stack, seeded, driven by edda (needs make srd)
 	CONTAINER=$(CONTAINER) tools/smoke-test.sh
+
+doc: ## the Rust docs, opened in a browser (target/doc)
+	$(CARGO) doc --workspace --no-deps --locked --open
+
+openapi: ## write docs/openapi.json anew, after changing a route
+	UPDATE_OPENAPI=1 $(CARGO) test --locked -p edda-client --test openapi
 
 clean: ## remove build output and the server image
 	$(CARGO) clean

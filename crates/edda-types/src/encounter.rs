@@ -17,6 +17,7 @@ use crate::{Edition, monster::challenge_value};
 
 /// A stored plan: server-assigned metadata plus the plan itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct Encounter {
     pub id: Uuid,
     pub campaign: Uuid,
@@ -27,7 +28,10 @@ pub struct Encounter {
     pub updated_at: DateTime<Utc>,
 }
 
+/// A fight planned ahead: its monsters, who of the party it's for, and
+/// notes.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(default)]
 pub struct EncounterPlan {
     pub name: String,
@@ -39,6 +43,7 @@ pub struct EncounterPlan {
 
 /// Some number of one monster.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PlannedMonster {
     /// In the monster service.
     pub monster: Uuid,
@@ -53,6 +58,7 @@ pub struct PlannedMonster {
 }
 
 impl EncounterPlan {
+    /// How many monsters, all entries counted.
     pub fn monster_count(&self) -> u32 {
         self.monsters.iter().map(|m| u32::from(m.count)).sum()
     }

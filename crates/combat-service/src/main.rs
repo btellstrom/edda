@@ -1,3 +1,6 @@
+//! `combat-service`: serves the combat service, and the admin's commands
+//! (`public-key`, `delete-campaign`).
+
 use std::{env, path::Path, sync::Arc};
 
 use combat_service::services::ServicesConfig;

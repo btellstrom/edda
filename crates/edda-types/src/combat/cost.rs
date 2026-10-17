@@ -8,6 +8,8 @@ use uuid::Uuid;
 use super::{CombatCommand, CombatEvent, SpellSlot};
 use crate::CharacterAction;
 
+/// What a command spends on a character's sheet: a spell slot, or uses of
+/// a feature.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SheetCost {
     Slot(SpellSlot),

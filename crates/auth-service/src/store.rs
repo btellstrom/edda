@@ -25,16 +25,19 @@ pub struct IssuedChallenge {
     pub expires_at: DateTime<Utc>,
 }
 
+/// Campaigns, devices, setup codes and challenges, in Postgres.
 #[derive(Clone)]
 pub struct Store {
     pool: PgPool,
 }
 
 impl Store {
+    /// A store in `pool`'s database.
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// The database.
     pub fn pool(&self) -> &PgPool {
         &self.pool
     }
@@ -54,6 +57,7 @@ impl Store {
         Ok(DeviceKey::from_seed(seed))
     }
 
+    /// Creates a campaign.
     pub async fn create_campaign(
         &self,
         name: &str,
@@ -75,6 +79,7 @@ impl Store {
         Ok(campaign)
     }
 
+    /// A campaign by id.
     pub async fn campaign(&self, id: Uuid) -> Result<Campaign, ApiError> {
         let row: Option<(String, String)> =
             sqlx::query_as("SELECT name, edition FROM campaigns WHERE id = $1")
@@ -136,6 +141,7 @@ impl Store {
         Ok(code)
     }
 
+    /// The campaign a setup code is for, without using it up.
     pub async fn peek_setup_code(&self, code: &str) -> Result<Option<Uuid>, ApiError> {
         let row: Option<(Uuid,)> = sqlx::query_as(
             "SELECT campaign_id FROM setup_codes WHERE code_hash = $1 AND expires_at > now()",
@@ -161,6 +167,7 @@ impl Store {
         Ok(row.map(|(campaign,)| campaign))
     }
 
+    /// Adds a device with its certificate, within the campaign's limit.
     pub async fn add_device(
         &self,
         executor: impl PgExecutor<'_>,
@@ -192,6 +199,7 @@ impl Store {
         })
     }
 
+    /// The campaign's devices, revoked ones too.
     pub async fn devices(&self, campaign: Uuid) -> Result<Vec<Device>, ApiError> {
         let rows: Vec<DeviceRow> = sqlx::query_as(
             "SELECT cert, added_at, revoked_at FROM devices WHERE campaign_id = $1 ORDER BY added_at",
@@ -249,6 +257,7 @@ impl Store {
         })
     }
 
+    /// Lets a service log in to any campaign with `key`.
     pub async fn add_service(&self, name: &str, key: PublicKey) -> Result<(), ApiError> {
         sqlx::query(
             "INSERT INTO services (public_key, name, added_at) VALUES ($1, $2, now()) \
@@ -293,6 +302,7 @@ impl Store {
         Ok(None)
     }
 
+    /// A challenge for a device of the campaign to sign.
     pub async fn create_challenge(
         &self,
         campaign: Uuid,

@@ -11,6 +11,7 @@ use super::{CombatCommand, CombatEvent, CombatState, CombatStatus};
 /// the client knows its prediction was confirmed) and ignores repeats (so
 /// resending after a dropped connection is safe).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CommandEnvelope {
     pub command_id: Uuid,
     /// Free-text name of whoever issued it, for the log ("DM", "Travis").
@@ -20,6 +21,7 @@ pub struct CommandEnvelope {
 }
 
 impl CommandEnvelope {
+    /// An envelope for `command`, with a fresh id.
     pub fn new(command: CombatCommand) -> Self {
         Self {
             command_id: Uuid::new_v4(),
@@ -28,6 +30,8 @@ impl CommandEnvelope {
         }
     }
 
+    /// The same, saying who sends it (the server puts the device's name
+    /// there anyway).
     pub fn by(mut self, actor: impl Into<String>) -> Self {
         self.actor = Some(actor.into());
         self
@@ -36,6 +40,7 @@ impl CommandEnvelope {
 
 /// One entry in a combat's permanent log.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct LoggedEvent {
     /// Position in the log, starting at 1 with no gaps.
     pub seq: u64,
@@ -49,13 +54,16 @@ pub struct LoggedEvent {
 
 /// The current state of a combat as of log position `seq`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CombatSnapshot {
     pub id: Uuid,
     pub seq: u64,
     pub state: CombatState,
 }
 
+/// A combat in a list: `GET /combats`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct CombatSummary {
     pub id: Uuid,
     pub campaign: String,
@@ -69,6 +77,7 @@ pub struct CombatSummary {
 
 /// Sent by the server over a combat's WebSocket.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum ServerMessage {
     /// Sent on connect, and again if this client fell too far behind.
@@ -84,6 +93,7 @@ pub enum ServerMessage {
 
 /// Sent by a client over a combat's WebSocket.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum ClientMessage {
     Command(CommandEnvelope),

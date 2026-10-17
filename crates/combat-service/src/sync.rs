@@ -31,6 +31,8 @@ use crate::{error::ApiError, services::ServiceLogin, store::Store};
 /// How often combats whose write-back failed are retried.
 const RETRY_INTERVAL: Duration = Duration::from_secs(30);
 
+/// Keeps character sheets in step with combats: hit points, and slots and
+/// uses spent or given back.
 pub struct SheetSync {
     store: Store,
     login: Arc<ServiceLogin>,
@@ -61,6 +63,8 @@ enum SyncError {
 }
 
 impl SheetSync {
+    /// Writes to the character service at `character_service`, logged in
+    /// to with `login`.
     pub fn new(store: Store, login: Arc<ServiceLogin>, character_service: String) -> Self {
         Self {
             store,
@@ -136,6 +140,8 @@ impl SheetSync {
         }
     }
 
+    /// Retries failed write-backs every 30 seconds, for as long as the
+    /// service runs.
     pub async fn retry_forever(self: Arc<Self>) {
         let mut interval = tokio::time::interval(RETRY_INTERVAL);
         loop {

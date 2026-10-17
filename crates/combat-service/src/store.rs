@@ -15,6 +15,7 @@ use crate::error::ApiError;
 /// instances can push it to their connected clients.
 pub const CHANNEL: &str = "combat_events";
 
+/// A transaction on the combats' database.
 pub type Tx = Transaction<'static, Postgres>;
 
 type SummaryRow = (
@@ -44,26 +45,31 @@ pub struct Notice {
     pub seq: u64,
 }
 
+/// Which combats to list.
 #[derive(Debug, Default, Deserialize)]
 pub struct ListFilter {
     pub campaign: Option<String>,
     pub status: Option<CombatStatus>,
 }
 
+/// Combats, their logs and planned encounters, in Postgres.
 #[derive(Clone)]
 pub struct Store {
     pool: PgPool,
 }
 
 impl Store {
+    /// A store in `pool`'s database.
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// The database.
     pub fn pool(&self) -> &PgPool {
         &self.pool
     }
 
+    /// Starts a transaction.
     pub async fn begin(&self) -> Result<Tx, ApiError> {
         Ok(self.pool.begin().await?)
     }
@@ -217,6 +223,7 @@ impl Store {
         row.map(|(seq,)| to_seq(seq)).transpose()
     }
 
+    /// A combat's events after `after`, inside `tx`.
     pub async fn events_in(
         &self,
         tx: &mut Tx,

@@ -43,10 +43,12 @@ fn message(purpose: Purpose, value: &impl Serialize) -> Result<Vec<u8>, AuthErro
 pub struct DeviceKey(SigningKey);
 
 impl DeviceKey {
+    /// A new random key.
     pub fn generate() -> Self {
         Self::from_seed(rand::random())
     }
 
+    /// The key made from `seed`, as stored in `device.key`.
     pub fn from_seed(seed: [u8; 32]) -> Self {
         Self(SigningKey::from_bytes(&seed))
     }
@@ -89,10 +91,12 @@ impl DeviceKey {
         self.0.to_keypair_bytes()
     }
 
+    /// The key others check this device's signatures with.
     pub fn public(&self) -> PublicKey {
         PublicKey(self.0.verifying_key().to_bytes())
     }
 
+    /// Signs `value` for `purpose` (see the crate's docs for what is signed).
     pub fn sign(&self, purpose: Purpose, value: &impl Serialize) -> Result<Signature, AuthError> {
         Ok(Signature(self.0.sign(&message(purpose, value)?).to_bytes()))
     }
@@ -106,6 +110,7 @@ impl fmt::Debug for DeviceKey {
 
 /// An Ed25519 public key. Shown as unpadded base64url.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(value_type = String))]
 pub struct PublicKey(#[serde(with = "bytes")] [u8; 32]);
 
 impl PublicKey {
@@ -115,6 +120,7 @@ impl PublicKey {
         Ok(Self(bytes))
     }
 
+    /// The key's 32 bytes.
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
@@ -159,7 +165,9 @@ impl FromStr for PublicKey {
     }
 }
 
+/// An Ed25519 signature. Shown as unpadded base64url.
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(value_type = String))]
 pub struct Signature(#[serde(with = "bytes")] [u8; 64]);
 
 impl fmt::Debug for Signature {
@@ -168,11 +176,13 @@ impl fmt::Debug for Signature {
     }
 }
 
-/// 32 random bytes, for challenges.
+/// 32 random bytes, for challenges. Shown as unpadded base64url.
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema), schema(value_type = String))]
 pub struct Nonce(#[serde(with = "bytes")] pub [u8; 32]);
 
 impl Nonce {
+    /// A fresh random nonce.
     pub fn random() -> Self {
         Self(rand::random())
     }

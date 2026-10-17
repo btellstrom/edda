@@ -16,7 +16,7 @@ use edda_auth::{
     server::{Authenticated, TokenSigner},
 };
 
-use edda_server::Limits;
+use edda_server::{Limits, openapi::ErrorBody};
 
 use crate::{error::ApiError, store::Store};
 
@@ -24,6 +24,7 @@ const TOKEN_LIFETIME: Duration = Duration::minutes(15);
 const CHALLENGE_LIFETIME: Duration = Duration::minutes(1);
 const MAX_NAME_LENGTH: usize = 64;
 
+/// What the handlers share.
 pub struct AppState {
     pub store: Store,
     pub signer: TokenSigner,
@@ -32,6 +33,7 @@ pub struct AppState {
 
 type AppStateRef = Arc<AppState>;
 
+/// The routes, signing in limited by `limits`.
 pub fn router(limits: &Limits) -> Router<AppStateRef> {
     // What needs no token gets fewer tries.
     let sign_ins = Router::new()
@@ -40,7 +42,7 @@ pub fn router(limits: &Limits) -> Router<AppStateRef> {
         .route("/login/challenge", post(challenge))
         .route("/login", post(login));
     Router::new()
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(edda_server::health))
         .route("/public-key", get(public_key))
         .merge(limits.guard_sign_ins(sign_ins))
         .route("/campaign", get(campaign))
@@ -48,12 +50,27 @@ pub fn router(limits: &Limits) -> Router<AppStateRef> {
         .route("/devices/{key}", delete(revoke))
 }
 
+#[utoipa::path(
+    get,
+    path = "/public-key",
+    tag = "auth",
+    security(()),
+    responses((status = 200, description = "The key tokens are signed with.", body = ServerKey))
+)]
 async fn public_key(State(state): State<AppStateRef>) -> Json<ServerKey> {
     Json(ServerKey {
         key: state.signer.public_key(),
     })
 }
 
+#[utoipa::path(
+    post,
+    path = "/setup/lookup",
+    tag = "auth",
+    security(()),
+    request_body = SetupCode,
+    responses((status = 200, description = "The campaign it's for.", body = Campaign), (status = 401, description = "Not a valid setup code, or it has expired.", body = ErrorBody))
+)]
 /// Which campaign a setup code is for, without using it up: the DM's
 /// device needs the campaign id to sign its certificate.
 async fn lookup_setup_code(
@@ -68,6 +85,18 @@ async fn lookup_setup_code(
     Ok(Json(state.store.campaign(campaign).await?))
 }
 
+#[utoipa::path(
+    post,
+    path = "/setup",
+    tag = "auth",
+    security(()),
+    request_body = SetupRequest,
+    responses(
+        (status = 201, description = "The device is the campaign's DM.", body = Campaign),
+        (status = 400, description = "The certificate isn't a DM's, self-signed, for the code's campaign.", body = ErrorBody),
+        (status = 401, description = "Not a valid setup code, or it has expired.", body = ErrorBody),
+    )
+)]
 /// Registers a campaign's first (or, after recovery, a new) DM device.
 async fn setup(
     State(state): State<AppStateRef>,
@@ -99,6 +128,17 @@ async fn setup(
     ))
 }
 
+#[utoipa::path(
+    post,
+    path = "/login/challenge",
+    tag = "auth",
+    security(()),
+    request_body = ChallengeRequest,
+    responses(
+        (status = 200, description = "What to sign; valid for a minute, once.", body = Challenge),
+        (status = 401, description = "Not a device of that campaign.", body = ErrorBody),
+    )
+)]
 async fn challenge(
     State(state): State<AppStateRef>,
     Json(request): Json<ChallengeRequest>,
@@ -125,6 +165,17 @@ async fn challenge(
     Ok(Json(challenge))
 }
 
+#[utoipa::path(
+    post,
+    path = "/login",
+    tag = "auth",
+    security(()),
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "A token, valid for 15 minutes.", body = Session),
+        (status = 401, description = "Not a valid signature of a current challenge.", body = ErrorBody),
+    )
+)]
 async fn login(
     State(state): State<AppStateRef>,
     Json(request): Json<LoginRequest>,
@@ -164,6 +215,12 @@ async fn login(
     Ok(Json(Session { token, claims }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/campaign",
+    tag = "auth",
+    responses((status = 200, description = "The token's campaign.", body = Campaign))
+)]
 async fn campaign(
     State(state): State<AppStateRef>,
     Authenticated(claims): Authenticated,
@@ -171,6 +228,12 @@ async fn campaign(
     Ok(Json(state.store.campaign(claims.campaign).await?))
 }
 
+#[utoipa::path(
+    get,
+    path = "/devices",
+    tag = "devices",
+    responses((status = 200, description = "Every device of the campaign, revoked ones too, with its certificate.", body = Vec<Device>))
+)]
 async fn devices(
     State(state): State<AppStateRef>,
     Authenticated(claims): Authenticated,
@@ -178,6 +241,18 @@ async fn devices(
     Ok(Json(state.store.devices(claims.campaign).await?))
 }
 
+#[utoipa::path(
+    post,
+    path = "/devices",
+    tag = "devices",
+    request_body(content = SignedCert, description = "A certificate for the device, signed by this DM device."),
+    responses(
+        (status = 201, description = "Added.", body = Device),
+        (status = 400, description = "Not signed by this device, or not for this campaign.", body = ErrorBody),
+        (status = 403, description = "Not a DM device, or the campaign has as many devices as it may.", body = ErrorBody),
+        (status = 409, description = "The key is in the campaign already.", body = ErrorBody),
+    )
+)]
 /// A DM device vouches for a new device with a certificate it signed.
 async fn add_device(
     State(state): State<AppStateRef>,
@@ -208,6 +283,19 @@ async fn add_device(
     Ok((StatusCode::CREATED, Json(device)))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/devices/{key}",
+    tag = "devices",
+    params(("key" = String, Path, description = "The device's key.")),
+    responses(
+        (status = 200, description = "Revoked: it can't log in any more.", body = Device),
+        (status = 400, description = "Not a device key.", body = ErrorBody),
+        (status = 403, description = "Not a DM device.", body = ErrorBody),
+        (status = 404, description = "No such device in the campaign.", body = ErrorBody),
+        (status = 422, description = "The campaign's last DM device.", body = ErrorBody),
+    )
+)]
 async fn revoke(
     State(state): State<AppStateRef>,
     Authenticated(claims): Authenticated,

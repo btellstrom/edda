@@ -3,8 +3,10 @@
 //! Postgres database.
 
 pub mod encounters;
+/// Errors, as responses.
 pub mod error;
 pub mod hub;
+/// The `/combats` routes and the WebSocket.
 pub mod routes;
 pub mod services;
 pub mod store;
@@ -14,10 +16,40 @@ use std::sync::Arc;
 
 use axum::{Extension, Router};
 use edda_auth::server::TokenVerifier;
-use edda_server::Limits;
+use edda_server::{Limits, openapi::Conventions};
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 
+/// The service's OpenAPI description.
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(
+        edda_server::health,
+        routes::list,
+        routes::create,
+        routes::snapshot,
+        routes::log,
+        routes::command,
+        routes::websocket,
+        encounters::list,
+        encounters::create,
+        encounters::fetch,
+        encounters::replace,
+        encounters::remove,
+    ),
+    components(schemas(
+        edda_types::combat::ClientMessage,
+        edda_types::combat::ServerMessage,
+    )),
+    modifiers(&Conventions),
+    tags(
+        (name = "combats", description = "Live, event-sourced combats."),
+        (name = "encounters", description = "Planned encounters: the DM's only."),
+    )
+)]
+pub struct ApiDoc;
+
+/// Where the other services are, and the limits.
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     /// The other services to use, as this service itself. `None` uses

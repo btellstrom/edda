@@ -1,3 +1,7 @@
+//! `edda`: the command line for everyone at the table. It edits
+//! character sheets, and opens full-screen views for fights and for
+//! planning them. See docs/using-edda.md.
+
 mod auth;
 mod cli;
 mod complete;
