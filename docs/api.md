@@ -27,6 +27,9 @@ can't: how versions, combats and undo work.
 - **Who may do what** is checked by the services; see [Using
   edda](using-edda.md#who-may-do-what).
 
+Every service also answers `GET /health` (running) and `GET /ready` (and
+reaching its database), without a token.
+
 | Service | Default address |
 | --- | --- |
 | Characters | `http://127.0.0.1:3000` |

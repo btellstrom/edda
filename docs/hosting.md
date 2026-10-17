@@ -41,6 +41,12 @@ auth auth-service new-campaign "Vox Machina" --edition 2024`, and so on.
 **Updating** is `git pull` and `make up`: the services update their
 databases themselves on start.
 
+**Is it up?** Every service answers `GET /health` with `ok` while it runs,
+and `GET /ready` with `ready` while it can also reach its database (`503`
+while it can't): point a load balancer's or Kubernetes' checks at
+`/ready`. A service asked to stop (Ctrl-C, or SIGTERM as compose and
+Kubernetes send) finishes the requests in progress first.
+
 **A campaign's id** is shown by `edda auth status` on any of its devices.
 Deleting a campaign removes it from every service: its devices (which can
 no longer log in), characters, combats, plans and its own monsters.

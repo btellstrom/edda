@@ -3194,6 +3194,51 @@
         ]
       }
     },
+    "/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "`GET /ready`: see [`readiness`].",
+        "operationId": "health.ready",
+        "responses": {
+          "200": {
+            "description": "The service can reach its database.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "ready"
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this address; `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "It can't, for now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/setup": {
       "post": {
         "tags": [

@@ -37,6 +37,50 @@ pub async fn health() -> &'static str {
     "ok"
 }
 
+/// How long `/ready` waits for the database before saying it isn't.
+const READY_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// `GET /ready`, for whatever runs the service (Kubernetes, compose): `200`
+/// while it can reach its database, `503` while it can't, so it gets no
+/// requests until it can again. `/health` only says it's running.
+pub fn readiness(pool: PgPool) -> Router {
+    Router::new()
+        .route("/ready", axum::routing::get(ready))
+        .with_state(pool)
+}
+
+/// `GET /ready`: see [`readiness`].
+#[utoipa::path(
+    get,
+    path = "/ready",
+    tag = "health",
+    security(()),
+    responses(
+        (status = 200, description = "The service can reach its database.", body = String, example = "ready"),
+        (status = 503, description = "It can't, for now.", body = openapi::ErrorBody),
+    )
+)]
+pub async fn ready(axum::extract::State(pool): axum::extract::State<PgPool>) -> Response {
+    let checked = tokio::time::timeout(READY_TIMEOUT, sqlx::query("SELECT 1").execute(&pool)).await;
+    match checked {
+        Ok(Ok(_)) => "ready".into_response(),
+        Ok(Err(e)) => {
+            tracing::warn!(error = %e, "not ready: the database refuses");
+            error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                &"the database can't be reached",
+            )
+        }
+        Err(_) => {
+            tracing::warn!("not ready: the database doesn't answer");
+            error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                &"the database can't be reached",
+            )
+        }
+    }
+}
+
 /// Logs to stderr: `crate_name`'s own messages, this crate's (serving,
 /// internal errors) and each request, at info, unless `RUST_LOG` says
 /// otherwise.
@@ -105,11 +149,39 @@ pub async fn serve(
     // Each request knows its client's address, for the limits.
     let app = app.into_make_service_with_connect_info::<std::net::SocketAddr>();
     axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
+        .with_graceful_shutdown(stopping())
         .await?;
+    tracing::info!("{name} stopped");
     Ok(())
+}
+
+/// Resolves when the service is asked to stop: Ctrl-C, or SIGTERM, which
+/// is how Kubernetes and compose ask. Requests in progress then finish;
+/// open WebSockets close, and their clients reconnect elsewhere.
+async fn stopping() {
+    let interrupted = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let terminated = async {
+        use tokio::signal::unix::{SignalKind, signal};
+        match signal(SignalKind::terminate()) {
+            Ok(mut terminate) => {
+                terminate.recv().await;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "can't listen for SIGTERM");
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    #[cfg(not(unix))]
+    let terminated = std::future::pending::<()>();
+    tokio::select! {
+        () = interrupted => {}
+        () = terminated => {}
+    }
+    tracing::info!("stopping");
 }
 
 /// What an error response says: the error itself, unless it's internal
@@ -174,7 +246,25 @@ fn cors_for(setting: &str) -> Result<CorsLayer, String> {
 
 #[cfg(test)]
 mod tests {
+    use axum::{body::Body, http::Request};
+    use sqlx::postgres::PgPoolOptions;
+    use tower::ServiceExt;
+
     use super::*;
+
+    #[tokio::test]
+    async fn it_is_not_ready_while_its_database_cant_be_reached() {
+        // Nothing listens on port 1.
+        let pool = PgPoolOptions::new()
+            .acquire_timeout(Duration::from_millis(200))
+            .connect_lazy("postgres://postgres@127.0.0.1:1/nothing")
+            .unwrap();
+        let res = readiness(pool)
+            .oneshot(Request::get("/ready").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
 
     #[test]
     fn origins_are_a_list_or_any() {

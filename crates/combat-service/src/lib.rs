@@ -25,6 +25,7 @@ use tower_http::trace::TraceLayer;
 #[openapi(
     paths(
         edda_server::health,
+        edda_server::ready,
         routes::list,
         routes::create,
         routes::snapshot,
@@ -79,6 +80,7 @@ pub async fn app(
     verifier: TokenVerifier,
     config: Config,
 ) -> Result<Router, sqlx::Error> {
+    let ready = edda_server::readiness(pool.clone());
     let store = store::Store::new(pool);
     let (mut sheet_sync, mut monsters) = (None, None);
     if let Some(config) = config.services {
@@ -96,5 +98,6 @@ pub async fn app(
         .merge(encounters::router())
         .with_state(hub)
         .layer(Extension(Arc::new(verifier)))
+        .merge(ready)
         .layer(TraceLayer::new_for_http()))
 }

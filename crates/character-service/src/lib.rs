@@ -24,6 +24,7 @@ pub use store::CharacterStore;
 #[openapi(
     paths(
         edda_server::health,
+        edda_server::ready,
         routes::list,
         routes::create,
         routes::fetch,
@@ -59,6 +60,7 @@ pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
 /// The service, accepting tokens that `verifier` vouches for, within
 /// `limits` (how many characters a campaign may keep).
 pub fn app(pool: PgPool, verifier: TokenVerifier, limits: Limits) -> Router {
+    let ready = edda_server::readiness(pool.clone());
     let state = AppState {
         characters: CharacterStore::new(pool),
         limits: Arc::new(limits),
@@ -67,5 +69,6 @@ pub fn app(pool: PgPool, verifier: TokenVerifier, limits: Limits) -> Router {
         .merge(routes::router())
         .with_state(state)
         .layer(Extension(Arc::new(verifier)))
+        .merge(ready)
         .layer(TraceLayer::new_for_http())
 }

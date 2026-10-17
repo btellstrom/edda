@@ -26,6 +26,7 @@ pub use store::MonsterStore;
 #[openapi(
     paths(
         edda_server::health,
+        edda_server::ready,
         routes::list,
         routes::create,
         routes::fetch,
@@ -67,10 +68,12 @@ pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
 /// `limits` (how many monsters, spells and conditions of its own a campaign
 /// may keep).
 pub fn app(pool: PgPool, verifier: TokenVerifier, limits: Limits) -> Router {
+    let ready = edda_server::readiness(pool.clone());
     Router::new()
         .merge(routes::router())
         .with_state(MonsterStore::new(pool))
         .layer(Extension(Arc::new(verifier)))
         .layer(Extension(Arc::new(limits)))
+        .merge(ready)
         .layer(TraceLayer::new_for_http())
 }

@@ -713,3 +713,17 @@ async fn a_campaign_keeps_only_as_many_characters_as_its_limit() {
     .await;
     assert_eq!(status, StatusCode::CREATED);
 }
+
+#[tokio::test]
+async fn it_is_ready_while_it_can_reach_its_database() {
+    let app = test_app().await;
+    let res = app
+        .router
+        .clone()
+        .oneshot(Request::get("/ready").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(&bytes[..], b"ready");
+}

@@ -24,6 +24,7 @@ pub use store::Store;
 #[openapi(
     paths(
         edda_server::health,
+        edda_server::ready,
         routes::public_key,
         routes::lookup_setup_code,
         routes::setup,
@@ -59,6 +60,7 @@ pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
 /// The service, within `limits` (its campaigns' devices, and how often
 /// clients may try to sign in).
 pub async fn app(pool: PgPool, limits: Limits) -> Result<Router, error::ApiError> {
+    let ready = edda_server::readiness(pool.clone());
     let store = Store::new(pool);
     let signer = TokenSigner::new(&store.token_key().await?);
     let verifier = Arc::new(TokenVerifier::new(signer.public_key()));
@@ -71,5 +73,6 @@ pub async fn app(pool: PgPool, limits: Limits) -> Result<Router, error::ApiError
             limits,
         }))
         .layer(Extension(verifier))
+        .merge(ready)
         .layer(TraceLayer::new_for_http()))
 }
