@@ -23,6 +23,7 @@ async fn server() -> Client {
             role: Principal::Dm,
             name: "DM".into(),
             edition: edda_types::Edition::default(),
+            settings: edda_auth::protocol::CampaignSettings::default(),
             expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
         })
         .unwrap();

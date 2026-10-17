@@ -20,7 +20,63 @@ pub struct Claims {
     /// The rules the campaign plays by, so services can apply them.
     #[serde(default)]
     pub edition: Edition,
+    /// What the campaign may keep and do, as whoever runs the services set.
+    #[serde(default, skip_serializing_if = "CampaignSettings::is_default")]
+    pub settings: CampaignSettings,
     pub expires_at: DateTime<Utc>,
+}
+
+/// What a campaign may keep and do, set by whoever runs the services
+/// through the admin API (a hosting's plans, say), and carried in its
+/// tokens so every service applies them. By default, the services' own.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct CampaignSettings {
+    /// Nothing may be changed, only looked at (until a bill is paid, say).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub read_only: bool,
+    /// Limits of its own, in place of the services'.
+    #[serde(default, skip_serializing_if = "Quotas::is_default")]
+    pub quotas: Quotas,
+}
+
+impl CampaignSettings {
+    /// Whether these are the defaults: the services' own limits, and
+    /// changes allowed.
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// How much a campaign may keep: each one set replaces the services' limit
+/// of that name (see the hosting docs' limits).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+#[serde(default)]
+pub struct Quotas {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub characters: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monsters: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rules_texts: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub combats: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plans: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub devices: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub events_per_combat: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connections_per_combat: Option<u32>,
+}
+
+impl Quotas {
+    /// Whether none is set.
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 /// Who a token is for: a DM device, a player's, or a service.
@@ -136,6 +192,8 @@ pub struct AuthExport {
     pub campaign: Campaign,
     pub created_at: DateTime<Utc>,
     pub devices: Vec<Device>,
+    #[serde(default, skip_serializing_if = "CampaignSettings::is_default")]
+    pub settings: CampaignSettings,
 }
 
 /// `POST /setup/lookup`, and the admin API's

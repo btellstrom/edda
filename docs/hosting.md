@@ -91,9 +91,17 @@ service serves it there; each request must bear the token
 | --- | --- | --- | --- |
 | auth | `POST` | `/admin/campaigns` `{"name", "edition"}` | `201` `{"campaign", "setup_code"}` |
 | auth | `POST` | `/admin/campaigns/{id}/setup-code` | `{"code"}`: a new code for a DM device |
+| auth | `GET`, `PUT` | `/admin/campaigns/{id}/settings` | what the campaign may keep and do (below) |
 | every one | `DELETE` | `/admin/campaigns/{id}` | `{"deleted": n}`: its part of the campaign; safe to repeat |
 | every one | `GET` | `/admin/campaigns/{id}/export` | its part of the campaign, as it is |
 | every one | `PUT` | `/admin/campaigns/{id}/import` | `201` `{"imported": n}`, or `409` if the campaign has some there already |
+
+**A campaign's settings** are `{"read_only": true}` to let its devices
+look but change nothing (until a bill is paid, say), and `"quotas"`, its
+own [limits](#limits) in place of the services' (`{"quotas":
+{"characters": 20, "devices": 8}}`; those left out stay as they are).
+They travel in the campaign's tokens, so every service applies them from
+its devices' next login, within 15 minutes.
 
 In Rust, `edda_client::admin::AdminClient` calls it, and `Services` acts
 on all four at once: `export_campaign` gathers a whole campaign into one

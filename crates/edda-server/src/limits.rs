@@ -30,6 +30,7 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Response},
 };
+use edda_auth::protocol::Quotas;
 use serde_json::json;
 
 /// What a service allows; see the module's description.
@@ -148,6 +149,29 @@ impl Limits {
             ));
         }
         Ok(())
+    }
+
+    /// These, with a campaign's own `quotas` in place of the ones they set.
+    #[must_use]
+    pub fn with(&self, quotas: &Quotas) -> Limits {
+        let mut limits = self.clone();
+        let own = |mine: &mut u32, theirs: Option<u32>| {
+            if let Some(max) = theirs {
+                *mine = max;
+            }
+        };
+        own(&mut limits.characters, quotas.characters);
+        own(&mut limits.monsters, quotas.monsters);
+        own(&mut limits.rules_texts, quotas.rules_texts);
+        own(&mut limits.combats, quotas.combats);
+        own(&mut limits.plans, quotas.plans);
+        own(&mut limits.devices, quotas.devices);
+        own(&mut limits.events_per_combat, quotas.events_per_combat);
+        own(
+            &mut limits.connections_per_combat,
+            quotas.connections_per_combat,
+        );
+        limits
     }
 
     /// `router` with the limits on every request: how many a client may
@@ -320,6 +344,23 @@ mod tests {
             response.status(),
             response.headers().get(header::RETRY_AFTER).cloned(),
         )
+    }
+
+    #[test]
+    fn a_campaigns_own_quotas_replace_only_what_they_set() {
+        let quotas = Quotas {
+            characters: Some(5),
+            devices: Some(3),
+            ..Quotas::default()
+        };
+        let mine = Limits::on().with(&quotas);
+        assert_eq!((mine.characters, mine.devices), (5, 3));
+        assert_eq!(
+            mine.monsters,
+            Limits::on().monsters,
+            "the rest as they were"
+        );
+        assert_eq!(Limits::on().with(&Quotas::default()).characters, 200);
     }
 
     #[tokio::test]

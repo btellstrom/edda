@@ -73,6 +73,7 @@ async fn create_text<T: RulesText>(
 ) -> Result<impl IntoResponse, ApiError> {
     dm_only(&claims)?;
     let kept = store.count_own_texts::<T>(claims.campaign).await?;
+    let limits = limits.with(&claims.settings.quotas);
     limits
         .room_for(kept, 1, limits.rules_texts, T::KIND)
         .map_err(ApiError::Limit)?;
@@ -171,6 +172,7 @@ async fn create(
 ) -> Result<impl IntoResponse, ApiError> {
     dm_only(&claims)?;
     let kept = store.count_own(claims.campaign).await?;
+    let limits = limits.with(&claims.settings.quotas);
     limits
         .room_for(kept, 1, limits.monsters, "monsters")
         .map_err(ApiError::Limit)?;

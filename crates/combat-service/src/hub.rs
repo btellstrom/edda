@@ -20,7 +20,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use edda_auth::protocol::{Claims, Principal};
+use edda_auth::{
+    protocol::{Claims, Principal, Quotas},
+    server::READ_ONLY,
+};
 use edda_server::Limits;
 use edda_types::{
     combat::{
@@ -91,6 +94,21 @@ pub enum Outcome {
     AlreadyApplied,
 }
 
+/// Fails unless a combat that has logged `seq` events may log `more`
+/// within `limits`.
+fn room_for_events(limits: &Limits, seq: u64, more: usize) -> Result<(), ApiError> {
+    let seq = i64::try_from(seq).unwrap_or(i64::MAX);
+    let more = u32::try_from(more).unwrap_or(u32::MAX);
+    limits
+        .room_for(
+            seq,
+            more,
+            limits.events_per_combat,
+            "events in a combat; start a new one",
+        )
+        .map_err(ApiError::Forbidden)
+}
+
 struct ServerDice;
 
 impl Dice for ServerDice {
@@ -136,31 +154,23 @@ impl Hub {
         &self.limits
     }
 
-    /// Fails unless `campaign` may start another combat.
-    async fn room_for_a_combat(&self, campaign: &str) -> Result<(), ApiError> {
+    /// Fails unless `campaign` may start another combat within `limits`.
+    async fn room_for_a_combat(&self, campaign: &str, limits: &Limits) -> Result<(), ApiError> {
         let kept = self.store.count(campaign).await?;
-        self.limits
-            .room_for(kept, 1, self.limits.combats, "combats")
+        limits
+            .room_for(kept, 1, limits.combats, "combats")
             .map_err(ApiError::Forbidden)
     }
 
-    /// Fails unless a combat that has logged `seq` events may log `more`.
-    fn room_for_events(&self, seq: u64, more: usize) -> Result<(), ApiError> {
-        let seq = i64::try_from(seq).unwrap_or(i64::MAX);
-        let more = u32::try_from(more).unwrap_or(u32::MAX);
-        self.limits
-            .room_for(
-                seq,
-                more,
-                self.limits.events_per_combat,
-                "events in a combat; start a new one",
-            )
-            .map_err(ApiError::Forbidden)
-    }
-
-    /// Starts an empty combat in `campaign`.
-    pub async fn create(&self, campaign: &str, name: &str) -> Result<CombatSnapshot, ApiError> {
-        self.room_for_a_combat(campaign).await?;
+    /// Starts an empty combat in `campaign`, within its `quotas`.
+    pub async fn create(
+        &self,
+        campaign: &str,
+        name: &str,
+        quotas: &Quotas,
+    ) -> Result<CombatSnapshot, ApiError> {
+        self.room_for_a_combat(campaign, &self.limits.with(quotas))
+            .await?;
         let id = self.store.create(campaign, name, Vec::new()).await?;
         self.combat(id).await?.snapshot(&self.store).await
     }
@@ -173,8 +183,11 @@ impl Hub {
         campaign: Uuid,
         encounter: Uuid,
         name: Option<&str>,
+        quotas: &Quotas,
     ) -> Result<CombatSnapshot, ApiError> {
-        self.room_for_a_combat(&campaign.to_string()).await?;
+        let limits = self.limits.with(quotas);
+        self.room_for_a_combat(&campaign.to_string(), &limits)
+            .await?;
         let plan = encounters::plan(self, campaign, encounter).await?;
         let name = name.filter(|n| !n.trim().is_empty()).unwrap_or(&plan.name);
         let mut state = CombatState::default();
@@ -198,7 +211,7 @@ impl Hub {
                 setup.push(event);
             }
         }
-        self.room_for_events(1, setup.len())?;
+        room_for_events(&limits, 1, setup.len())?;
         let id = self
             .store
             .create(&campaign.to_string(), name, setup)
@@ -272,9 +285,15 @@ impl Hub {
         envelope: CommandEnvelope,
         claims: &Claims,
     ) -> Result<Outcome, ApiError> {
+        // Commands over a WebSocket aren't requests of their own, so the
+        // token check didn't see them.
+        if claims.settings.read_only {
+            return Err(ApiError::Forbidden(READ_ONLY.into()));
+        }
         let combat = self.combat(id).await?;
         let command_id = envelope.command_id;
         let actor_key = claims.key.to_string();
+        let limits = self.limits.with(&claims.settings.quotas);
         // Checked before anything is spent, and again under the combat's
         // lock against the latest state.
         let played = match claims.role {
@@ -300,7 +319,7 @@ impl Hub {
                 &actor_key,
                 played.as_ref(),
                 stat_block.as_ref(),
-                |seq, more| self.room_for_events(seq, more),
+                |seq, more| room_for_events(&limits, seq, more),
             )
             .await;
         if let (Err(_), Some((sync, campaign, character, cost))) = (&outcome, &spent) {

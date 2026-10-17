@@ -20,8 +20,8 @@ can't: how versions, combats and undo work.
   [Security](security.md#logging-in)), and only sees the token's
   campaign: another campaign's things are `404`.
 - **Errors** are `{"error": "..."}` with `400` (malformed request), `401`
-  (no or invalid token), `403` (not yours to change, or a
-  [limit](hosting.md#limits) reached), `404` (not found), `409`
+  (no or invalid token), `403` (not yours to change, a
+  [limit](hosting.md#limits) reached, or the campaign is read-only), `404` (not found), `409`
   (conflict, such as no slots left), `412`/`428` (versions, below), `422`
   (invalid) or `429` (too many requests; see `Retry-After`).
 - **Who may do what** is checked by the services; see [Using

@@ -3801,6 +3801,20 @@
           }
         }
       },
+      "CampaignSettings": {
+        "type": "object",
+        "description": "What a campaign may keep and do, set by whoever runs the services\nthrough the admin API (a hosting's plans, say), and carried in its\ntokens so every service applies them. By default, the services' own.",
+        "properties": {
+          "quotas": {
+            "$ref": "#/components/schemas/Quotas",
+            "description": "Limits of its own, in place of the services'."
+          },
+          "read_only": {
+            "type": "boolean",
+            "description": "Nothing may be changed, only looked at (until a bill is paid, say)."
+          }
+        }
+      },
       "Challenge": {
         "type": "object",
         "description": "`POST /login/challenge`: what to sign to log in, valid for a minute.",
@@ -4271,6 +4285,10 @@
           },
           "role": {
             "$ref": "#/components/schemas/Principal"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/CampaignSettings",
+            "description": "What the campaign may keep and do, as whoever runs the services set."
           }
         }
       },
@@ -6565,6 +6583,84 @@
       "PublicKey": {
         "type": "string",
         "description": "An Ed25519 public key. Shown as unpadded base64url."
+      },
+      "Quotas": {
+        "type": "object",
+        "description": "How much a campaign may keep: each one set replaces the services' limit\nof that name (see the hosting docs' limits).",
+        "properties": {
+          "characters": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "combats": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "connections_per_combat": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "devices": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "events_per_combat": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "monsters": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "plans": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "rules_texts": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          }
+        }
       },
       "Recharge": {
         "type": "string",

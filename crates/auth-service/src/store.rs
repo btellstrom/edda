@@ -4,7 +4,7 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Duration, Utc};
 use edda_auth::{
     DeviceKey, Nonce, PublicKey, Role, SignedCert,
-    protocol::{AuthExport, Campaign, Challenge, Device, Principal},
+    protocol::{AuthExport, Campaign, CampaignSettings, Challenge, Device, Principal},
 };
 use edda_types::Edition;
 use sha2::{Digest, Sha256};
@@ -216,6 +216,7 @@ impl Store {
             campaign,
             created_at,
             devices: self.devices(id).await?,
+            settings: self.settings(id).await?,
         }))
     }
 
@@ -268,8 +269,33 @@ impl Store {
             .execute(&mut *tx)
             .await?;
         }
+        if !export.settings.is_default() {
+            put_settings(&mut *tx, campaign.id, &export.settings).await?;
+        }
         tx.commit().await?;
         Ok(u64::try_from(export.devices.len()).unwrap_or(u64::MAX))
+    }
+
+    /// What was set for the campaign: by default, the services' own
+    /// limits, and changes allowed.
+    pub async fn settings(&self, campaign: Uuid) -> Result<CampaignSettings, ApiError> {
+        let row: Option<(Json<CampaignSettings>,)> =
+            sqlx::query_as("SELECT settings FROM campaign_settings WHERE campaign_id = $1")
+                .bind(campaign)
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(row.map(|(Json(settings),)| settings).unwrap_or_default())
+    }
+
+    /// Sets what the campaign may keep and do; its devices' tokens say so
+    /// from their next login.
+    pub async fn set_settings(
+        &self,
+        campaign: Uuid,
+        settings: &CampaignSettings,
+    ) -> Result<(), ApiError> {
+        self.campaign(campaign).await?;
+        put_settings(&self.pool, campaign, settings).await
     }
 
     /// The campaign's devices, revoked ones too.
@@ -440,4 +466,20 @@ fn role_str(role: Role) -> &'static str {
         Role::Dm => "dm",
         Role::Player => "player",
     }
+}
+
+async fn put_settings(
+    executor: impl PgExecutor<'_>,
+    campaign: Uuid,
+    settings: &CampaignSettings,
+) -> Result<(), ApiError> {
+    sqlx::query(
+        "INSERT INTO campaign_settings (campaign_id, settings) VALUES ($1, $2) \
+         ON CONFLICT (campaign_id) DO UPDATE SET settings = EXCLUDED.settings",
+    )
+    .bind(campaign)
+    .bind(Json(settings))
+    .execute(executor)
+    .await?;
+    Ok(())
 }

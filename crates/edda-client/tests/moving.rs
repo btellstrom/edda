@@ -168,6 +168,15 @@ async fn a_campaign_moves_whole_from_one_server_to_another() {
         .await
         .unwrap();
 
+    let plan = edda_auth::protocol::CampaignSettings {
+        quotas: edda_auth::protocol::Quotas {
+            characters: Some(5),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    old.admin.auth.settings(campaign, &plan).await.unwrap();
+
     let bundle = old.admin.export_campaign(campaign).await.unwrap();
     new.admin.import_campaign(&bundle).await.unwrap();
     old.admin.delete_campaign(campaign).await.unwrap();
@@ -177,6 +186,7 @@ async fn a_campaign_moves_whole_from_one_server_to_another() {
     ));
 
     // Everything as it was, for the same device, trusting the same key.
+    assert_eq!(new.admin.auth.get_settings(campaign).await.unwrap(), plan);
     let token = new.login(campaign, &dm_key, token_key.public()).await;
     let characters = Client::new(&new.characters).with_token(&token);
     assert_eq!(characters.get(grog.id).await.unwrap(), grog);

@@ -1,6 +1,7 @@
 //! The auth service's admin API (see [`edda_server::admin`]): creating a
-//! campaign with its DM's setup code, a new setup code, exporting and
-//! importing a campaign with its devices, and deleting one.
+//! campaign with its DM's setup code, a new setup code, what a campaign
+//! may keep and do, exporting and importing a campaign with its devices,
+//! and deleting one.
 
 use axum::{
     Json, Router,
@@ -9,7 +10,7 @@ use axum::{
     routing::{delete, get, post, put},
 };
 use chrono::Duration;
-use edda_auth::protocol::{AuthExport, CreatedCampaign, NewCampaign, SetupCode};
+use edda_auth::protocol::{AuthExport, CampaignSettings, CreatedCampaign, NewCampaign, SetupCode};
 use edda_types::admin::{Deleted, Imported};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -28,6 +29,10 @@ pub fn router(pool: PgPool) -> Router {
         .route("/admin/campaigns", post(create))
         .route("/admin/campaigns/{id}", delete(remove))
         .route("/admin/campaigns/{id}/setup-code", post(setup_code))
+        .route(
+            "/admin/campaigns/{id}/settings",
+            get(settings).put(set_settings),
+        )
         .route("/admin/campaigns/{id}/export", get(export))
         .route("/admin/campaigns/{id}/import", put(import))
         .with_state(Store::new(pool))
@@ -104,4 +109,25 @@ async fn import(
     }
     let imported = store.import_campaign(&export).await?;
     Ok((StatusCode::CREATED, Json(Imported { imported })))
+}
+
+/// What the campaign may keep and do.
+async fn settings(
+    State(store): State<Store>,
+    Path(campaign): Path<Uuid>,
+) -> Result<Json<CampaignSettings>, ApiError> {
+    store.campaign(campaign).await?;
+    Ok(Json(store.settings(campaign).await?))
+}
+
+/// Sets what the campaign may keep and do (read-only, or limits of its
+/// own); its devices' tokens carry it from their next login, within 15
+/// minutes.
+async fn set_settings(
+    State(store): State<Store>,
+    Path(campaign): Path<Uuid>,
+    Json(settings): Json<CampaignSettings>,
+) -> Result<Json<CampaignSettings>, ApiError> {
+    store.set_settings(campaign, &settings).await?;
+    Ok(Json(settings))
 }

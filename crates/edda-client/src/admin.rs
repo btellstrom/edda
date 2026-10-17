@@ -3,7 +3,7 @@
 //! campaigns and their DMs' setup codes, exporting a whole campaign to keep
 //! or move elsewhere and importing it there, and deleting campaigns.
 
-use edda_auth::protocol::{AuthExport, CreatedCampaign, NewCampaign, SetupCode};
+use edda_auth::protocol::{AuthExport, CampaignSettings, CreatedCampaign, NewCampaign, SetupCode};
 use edda_types::{
     Edition,
     admin::{CharactersExport, CombatExport, Deleted, Imported, MonstersExport},
@@ -53,6 +53,24 @@ impl AdminClient {
         let url = self.url(&format!("/admin/campaigns/{campaign}/setup-code"));
         let code: SetupCode = send(self.http.post(url)).await?;
         Ok(code.code)
+    }
+
+    /// The auth service's: what the campaign may keep and do.
+    pub async fn get_settings(&self, campaign: Uuid) -> Result<CampaignSettings, ClientError> {
+        let url = self.url(&format!("/admin/campaigns/{campaign}/settings"));
+        send(self.http.get(url)).await
+    }
+
+    /// The auth service's: sets what the campaign may keep and do (say,
+    /// read-only until a bill is paid, or a plan's limits). Its devices'
+    /// tokens carry it from their next login, within 15 minutes.
+    pub async fn settings(
+        &self,
+        campaign: Uuid,
+        settings: &CampaignSettings,
+    ) -> Result<CampaignSettings, ClientError> {
+        let url = self.url(&format!("/admin/campaigns/{campaign}/settings"));
+        send(self.http.put(url).json(settings)).await
     }
 
     /// Any service's: deletes its part of a campaign, and says how many of

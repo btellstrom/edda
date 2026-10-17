@@ -71,6 +71,7 @@ impl App {
                 role,
                 name: "Test".into(),
                 edition,
+                settings: edda_auth::protocol::CampaignSettings::default(),
                 expires_at: Utc::now() + chrono::Duration::minutes(5),
             })
             .unwrap();

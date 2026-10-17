@@ -83,11 +83,17 @@ async fn create(
     }
     let snapshot = match (body.encounter, body.name) {
         (Some(encounter), name) => {
-            hub.create_from_plan(claims.campaign, encounter, name.as_deref())
-                .await?
+            hub.create_from_plan(
+                claims.campaign,
+                encounter,
+                name.as_deref(),
+                &claims.settings.quotas,
+            )
+            .await?
         }
         (None, Some(name)) if !name.trim().is_empty() => {
-            hub.create(&claims.campaign.to_string(), &name).await?
+            hub.create(&claims.campaign.to_string(), &name, &claims.settings.quotas)
+                .await?
         }
         (None, _) => return Err(ApiError::BadRequest("name must not be empty".into())),
     };
@@ -259,7 +265,7 @@ async fn websocket(
     // Resolve the combat first so an unknown id is a plain 404.
     let combat = hub.combat_in(id, claims.campaign).await?;
     let watching = i64::try_from(combat.watchers()).unwrap_or(i64::MAX);
-    let limits = hub.limits();
+    let limits = hub.limits().with(&claims.settings.quotas);
     limits
         .room_for(
             watching,

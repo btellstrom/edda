@@ -92,11 +92,12 @@ impl TokenVerifier {
 }
 
 /// The verified claims of the request's bearer token. Requires the
-/// [`TokenVerifier`] as an `Extension<Arc<TokenVerifier>>` layer.
+/// [`TokenVerifier`] as an `Extension<Arc<TokenVerifier>>` layer. A
+/// read-only campaign's token is refused for anything but reading.
 pub struct Authenticated(pub Claims);
 
 impl<S: Send + Sync> FromRequestParts<S> for Authenticated {
-    type Rejection = Unauthorized;
+    type Rejection = Refused;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
         let verifier = parts
@@ -108,28 +109,46 @@ impl<S: Send + Sync> FromRequestParts<S> for Authenticated {
             .get(header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.strip_prefix("Bearer "))
-            .ok_or(Unauthorized("a bearer token is required"))?;
+            .ok_or(Refused::Unauthorized("a bearer token is required"))?;
         let claims = verifier
             .verify(token.trim())
-            .map_err(|_| Unauthorized("invalid or expired token"))?;
+            .map_err(|_| Refused::Unauthorized("invalid or expired token"))?;
         // Whose the request is, in the request's log span.
         tracing::Span::current().record("campaign", tracing::field::display(claims.campaign));
+        if claims.settings.read_only && !parts.method.is_safe() {
+            return Err(Refused::ReadOnly);
+        }
         Ok(Authenticated(claims))
     }
 }
 
-/// A `401`, saying why.
-#[derive(Debug)]
-pub struct Unauthorized(pub &'static str);
+/// Why a request's token isn't enough.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Refused {
+    /// A `401`: no token, or not a valid one.
+    Unauthorized(&'static str),
+    /// A `403`: the campaign is read-only, and this would change it.
+    ReadOnly,
+}
 
-impl IntoResponse for Unauthorized {
+/// What a read-only campaign's devices are told when they try to change it.
+pub const READ_ONLY: &str = "this campaign is read-only for now; nothing in it can be changed";
+
+impl IntoResponse for Refused {
     fn into_response(self) -> Response {
-        (
-            StatusCode::UNAUTHORIZED,
-            [(header::WWW_AUTHENTICATE, "Bearer")],
-            Json(serde_json::json!({ "error": self.0 })),
-        )
-            .into_response()
+        match self {
+            Refused::Unauthorized(why) => (
+                StatusCode::UNAUTHORIZED,
+                [(header::WWW_AUTHENTICATE, "Bearer")],
+                Json(serde_json::json!({ "error": why })),
+            )
+                .into_response(),
+            Refused::ReadOnly => (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({ "error": READ_ONLY })),
+            )
+                .into_response(),
+        }
     }
 }
 
@@ -148,6 +167,7 @@ mod tests {
             role: Principal::Player,
             name: "Vex's laptop".into(),
             edition: edda_types::Edition::default(),
+            settings: crate::protocol::CampaignSettings::default(),
             expires_at: Utc::now() + lifetime,
         }
     }

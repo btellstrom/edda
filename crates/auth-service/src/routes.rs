@@ -203,12 +203,14 @@ async fn login(
         .await?
         .ok_or_else(rejected)?;
     let edition = state.store.campaign(issued.campaign).await?.edition;
+    let settings = state.store.settings(issued.campaign).await?;
     let claims = Claims {
         key: issued.key,
         campaign: issued.campaign,
         role,
         name,
         edition,
+        settings,
         expires_at: Utc::now() + TOKEN_LIFETIME,
     };
     let token = state.signer.issue(&claims)?;
@@ -275,9 +277,9 @@ async fn add_device(
     let devices = state.store.devices(claims.campaign).await?;
     let active = devices.iter().filter(|d| d.revoked_at.is_none()).count();
     let active = i64::try_from(active).unwrap_or(i64::MAX);
-    state
-        .limits
-        .room_for(active, 1, state.limits.devices, "devices")
+    let limits = state.limits.with(&claims.settings.quotas);
+    limits
+        .room_for(active, 1, limits.devices, "devices")
         .map_err(ApiError::Forbidden)?;
     let device = state.store.add_device(state.store.pool(), &signed).await?;
     Ok((StatusCode::CREATED, Json(device)))

@@ -101,9 +101,9 @@ async fn create(
     Json(sheet): Json<CharacterSheet>,
 ) -> Result<impl IntoResponse, ApiError> {
     let kept = state.characters.count(claims.campaign).await?;
-    state
-        .limits
-        .room_for(kept, 1, state.limits.characters, "characters")
+    let limits = state.limits.with(&claims.settings.quotas);
+    limits
+        .room_for(kept, 1, limits.characters, "characters")
         .map_err(ApiError::Forbidden)?;
     let character = state.characters.create((&claims).into(), sheet).await?;
     let location = format!("/characters/{}", character.id);

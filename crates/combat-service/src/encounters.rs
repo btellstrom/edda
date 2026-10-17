@@ -164,7 +164,7 @@ async fn create(
         .bind(claims.campaign.to_string())
         .fetch_one(pool(&hub))
         .await?;
-    let limits = hub.limits();
+    let limits = hub.limits().with(&claims.settings.quotas);
     limits
         .room_for(kept, 1, limits.plans, "planned encounters")
         .map_err(ApiError::Forbidden)?;
