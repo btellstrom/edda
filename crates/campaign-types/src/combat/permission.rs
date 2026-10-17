@@ -7,6 +7,9 @@
 //!   and use their features;
 //! - cast spells and put down effects that name only their own combatants,
 //!   and end effects that involve only them;
+//! - concentrate on a spell or effect of their own on anyone (Bless on the
+//!   party, Hunter's Mark on a goblin), and end it: it only marks whom it's
+//!   on, and ends with their concentration;
 //! - end their own turn;
 //! - undo their own commands.
 //!
@@ -41,14 +44,25 @@ pub fn player_may(
         | CombatCommand::Heal { combatant, .. }
         | CombatCommand::SetTemporaryHitPoints { combatant, .. }
         | CombatCommand::UseFeature { combatant, .. } => mine(&mut std::iter::once(combatant)),
+        // Whom a concentration spell or effect of one's own is on is only
+        // marked.
+        CombatCommand::CastSpell {
+            caster,
+            concentration: Some(_),
+            ..
+        } => mine(&mut std::iter::once(caster)),
         CombatCommand::CastSpell {
             caster, targets, ..
         } => mine(&mut std::iter::once(caster).chain(targets)),
-        CombatCommand::AddEffect { effect } => {
-            mine(&mut effect.source.iter().chain(&effect.targets))
-        }
+        CombatCommand::AddEffect { effect } => match effect.source {
+            Some(source) if effect.concentration => mine(&mut std::iter::once(&source)),
+            _ => mine(&mut effect.source.iter().chain(&effect.targets)),
+        },
         CombatCommand::RemoveEffect { effect } => match state.effect(*effect) {
-            Some(effect) => mine(&mut effect.source.iter().chain(&effect.targets)),
+            Some(effect) => match effect.source {
+                Some(source) if effect.concentration => mine(&mut std::iter::once(&source)),
+                _ => mine(&mut effect.source.iter().chain(&effect.targets)),
+            },
             None => Ok(()),
         },
         CombatCommand::NextTurn => match state.current_turn.and_then(|id| state.combatant(id)) {
@@ -132,6 +146,57 @@ mod tests {
         assert_eq!(vex_may(&state, effect(None, vec![vex])), Ok(()));
         assert!(vex_may(&state, effect(Some(vex), vec![goblin])).is_err());
         assert!(vex_may(&state, effect(Some(grog), vec![vex])).is_err());
+    }
+
+    #[test]
+    fn players_concentrate_on_anyone_but_only_for_themselves() {
+        let (mut state, [vex, grog, goblin]) = fight();
+        let concentrate = |source, targets| CombatCommand::AddEffect {
+            effect: NewEffect {
+                id: Uuid::new_v4(),
+                name: "Hunter's Mark".into(),
+                source,
+                targets,
+                concentration: true,
+                rounds: None,
+            },
+        };
+        assert_eq!(
+            vex_may(&state, concentrate(Some(vex), vec![goblin])),
+            Ok(())
+        );
+        assert!(vex_may(&state, concentrate(Some(grog), vec![goblin])).is_err());
+        assert!(vex_may(&state, concentrate(None, vec![goblin])).is_err());
+        let bless = |concentration| CombatCommand::CastSpell {
+            caster: vex,
+            spell: "Bless".into(),
+            slot: None,
+            targets: vec![vex, grog],
+            concentration,
+        };
+        assert_eq!(vex_may(&state, bless(Some(Uuid::new_v4()))), Ok(()));
+        assert_eq!(
+            vex_may(&state, bless(None)),
+            Err(CombatError::NotYours("Grog".into()))
+        );
+
+        // Ending it is hers too; ending Grog's isn't.
+        let mark = |id, source| CombatEvent::EffectAdded {
+            effect: crate::combat::Effect {
+                id,
+                name: "Mark".into(),
+                source: Some(source),
+                targets: vec![goblin],
+                concentration: true,
+                expires: None,
+            },
+        };
+        let (hers, his) = (Uuid::new_v4(), Uuid::new_v4());
+        state.apply(&mark(hers, vex));
+        state.apply(&mark(his, grog));
+        let drop = |effect| CombatCommand::RemoveEffect { effect };
+        assert_eq!(vex_may(&state, drop(hers)), Ok(()));
+        assert!(vex_may(&state, drop(his)).is_err());
     }
 
     #[test]

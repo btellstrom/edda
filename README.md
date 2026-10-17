@@ -791,7 +791,10 @@ else, the DM or that character's player enters on their own screen. So:
   a DM's changes any. Every device sees every character.
 - **Fights.** A player damages, heals and gives temporary hit points only
   to their own combatants, uses only their features, and casts spells and
-  puts down effects that name only themselves. They end their own turn and
+  puts down effects that name only themselves. The exception is their own
+  concentration: Bless on the party or Hunter's Mark on a goblin may name
+  anyone, since it only marks whom it's on and ends with their
+  concentration (they may end it too). They end their own turn and
   undo their own commands. Everything else (starting a combat, who's in
   it, initiative, pausing and ending) is the DM's. The combat service
   checks this, asking the character service whose characters are whose,

@@ -542,6 +542,9 @@ fn a_player_is_told_before_sending_what_only_others_may_do() {
         w.parse("add pike").plan,
         Err("only the DM can do that".into())
     );
+    // Her own concentration may be on anyone; a plain effect may not.
+    assert!(w.parse("cast hunter's mark 3").plan.is_ok());
+    assert!(w.parse("effect prone 3").plan.is_err());
     let other = World {
         player: Some("travis".into()),
         ..world()
