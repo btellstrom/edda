@@ -306,9 +306,6 @@ fn show_names(ctx: &Context) -> Vec<(String, String)> {
     for condition in ctx.conditions {
         add(&condition.text.name, "condition".into());
     }
-    for name in CONDITIONS {
-        add(name, "condition".into());
-    }
     for spell in ctx.spells {
         add(&spell.text.name, crate::display::spell_kind(&spell.text));
     }
@@ -320,12 +317,14 @@ fn show_names(ctx: &Context) -> Vec<(String, String)> {
     names
 }
 
-/// The conditions, then the effects in play (in case one goes on someone
-/// else too), with what they are.
+/// The conditions (the campaign's rules', from the monster service), then
+/// the effects in play (in case one goes on someone else too), with what
+/// they are.
 fn effect_names(ctx: &Context) -> Vec<(String, String)> {
-    let mut names: Vec<(String, String)> = CONDITIONS
+    let mut names: Vec<(String, String)> = ctx
+        .conditions
         .iter()
-        .map(|c| (c.to_string(), "condition".to_string()))
+        .map(|c| (c.text.name.clone(), "condition".to_string()))
         .collect();
     for effect in &ctx.state.effects {
         if !names
@@ -337,25 +336,6 @@ fn effect_names(ctx: &Context) -> Vec<(String, String)> {
     }
     names
 }
-
-/// The conditions of the rules (the same in both editions).
-pub(super) const CONDITIONS: &[&str] = &[
-    "Blinded",
-    "Charmed",
-    "Deafened",
-    "Exhaustion",
-    "Frightened",
-    "Grappled",
-    "Incapacitated",
-    "Invisible",
-    "Paralyzed",
-    "Petrified",
-    "Poisoned",
-    "Prone",
-    "Restrained",
-    "Stunned",
-    "Unconscious",
-];
 
 /// Combatants with their numbers whose name or number starts with `typed`.
 fn combatants<'c>(

@@ -4,7 +4,7 @@ use campaign_types::{
 };
 use chrono::Utc;
 
-use super::{suggest::CONDITIONS, *};
+use super::*;
 
 struct World {
     state: CombatState,
@@ -492,7 +492,7 @@ fn effects_complete_their_name_and_every_target_including_the_first() {
     // there became part of the effect's name.
     let mut w = world();
     assert_eq!(w.lines("effect pr"), ["effect Prone "]);
-    assert_eq!(suggest("effect ", &w.ctx()).len(), CONDITIONS.len());
+    assert_eq!(suggest("effect ", &w.ctx()).len(), w.conditions.len());
     assert_eq!(
         w.lines("effect Prone "),
         [
