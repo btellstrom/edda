@@ -21,11 +21,16 @@ export POSTGRES_PORT=15432 CHARACTERS_PORT=13000 COMBAT_PORT=13001 AUTH_PORT=130
 compose() { "$CONTAINER" compose "$@"; }
 
 work=$(mktemp -d)
+dangling() { "$CONTAINER" images --quiet --filter dangling=true | sort -u; }
+dangling > "$work/before"
 cleanup() {
     status=$?
     if [ "$status" -ne 0 ]; then compose logs --tail 50 || true; fi
     compose down --volumes --remove-orphans >/dev/null 2>&1 || true
     "$CONTAINER" rmi "$IMAGE" >/dev/null 2>&1 || true
+    # The build's leftover layers, and only those: the build stage alone
+    # is well over a gigabyte.
+    dangling | comm -13 "$work/before" - | xargs -r "$CONTAINER" rmi >/dev/null 2>&1 || true
     rm -rf "$work"
     exit "$status"
 }

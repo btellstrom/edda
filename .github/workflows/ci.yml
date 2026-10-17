@@ -28,6 +28,8 @@ jobs:
       - run: rustup show active-toolchain
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
+      # The Claude Code hook keeping experiments off a real stack.
+      - run: python3 -I .claude/hooks/guard.py --self-test
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   test:

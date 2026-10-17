@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used)] // tests panic on failure, which is the point
 
 //! A real auth service for end-to-end tests, and campaigns with logged-in
-//! devices. Needs Postgres (see README); `TEST_POSTGRES_URL` points at the
-//! server, and each service gets its own test database on it.
+//! devices. Needs a throwaway Postgres at `TEST_POSTGRES_URL` (`make test`
+//! starts one); each service gets its own test database on it.
 
 #![allow(dead_code)] // each test file uses a different part
 
@@ -13,10 +13,35 @@ use campaign_auth::{
 use campaign_client::auth::AuthClient;
 use uuid::Uuid;
 
-pub fn database_url(name: &str) -> String {
-    let server = std::env::var("TEST_POSTGRES_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432".to_string());
-    format!("{}/{name}", server.trim_end_matches('/'))
+/// The test database `name` on the throwaway Postgres at
+/// `TEST_POSTGRES_URL`. There's deliberately no default: test data must
+/// never land in a real stack's Postgres, so one holding a real stack's
+/// databases is refused too.
+pub async fn database_url(name: &str) -> String {
+    let server = std::env::var("TEST_POSTGRES_URL").expect(
+        "set TEST_POSTGRES_URL to a throwaway Postgres (`make test` starts one and sets it)",
+    );
+    let server = server.trim_end_matches('/').to_string();
+    static CHECKED: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
+    CHECKED.get_or_init(|| refuse_a_real_stack(&server)).await;
+    format!("{server}/{name}")
+}
+
+async fn refuse_a_real_stack(server: &str) {
+    use sqlx::Connection;
+    let mut connection = sqlx::PgConnection::connect(&format!("{server}/postgres"))
+        .await
+        .expect("TEST_POSTGRES_URL can't be reached");
+    let real: Vec<(String,)> =
+        sqlx::query_as("SELECT datname FROM pg_database WHERE datname IN ('auth', 'combats')")
+            .fetch_all(&mut connection)
+            .await
+            .unwrap();
+    assert!(
+        real.is_empty(),
+        "TEST_POSTGRES_URL is a real stack's Postgres (it holds {real:?}); \
+         tests only run against a throwaway one"
+    );
 }
 
 pub async fn serve(app: axum::Router) -> String {
@@ -35,7 +60,7 @@ pub struct Auth {
 
 impl Auth {
     pub async fn start() -> Self {
-        let pool = auth_service::connect(&database_url("auth_test"))
+        let pool = auth_service::connect(&database_url("auth_test").await)
             .await
             .expect("Postgres must be running for these tests (see README)");
         let store = auth_service::Store::new(pool.clone());

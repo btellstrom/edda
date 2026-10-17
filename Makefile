@@ -57,13 +57,14 @@ delete-campaign: ## delete a campaign and everything in it: make delete-campaign
 	$(COMPOSE) exec combat combat-service delete-campaign $(ID)
 	$(COMPOSE) exec monsters monster-service delete-campaign $(ID)
 
-test: ## run all tests (needs Postgres: make up, or compose up -d postgres)
-	$(CARGO) test --workspace
+test: ## run all tests, against a throwaway Postgres of their own
+	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked
 
-check: ## what CI checks: formatting, lints (warnings fail) and the tests
+check: ## what CI checks: formatting, lints (warnings fail), the tests and the guard hook
+	python3 -I .claude/hooks/guard.py --self-test
 	$(CARGO) fmt --all --check
 	$(CARGO) clippy --workspace --all-targets --locked -- -D warnings
-	$(CARGO) test --workspace --locked
+	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked
 
 deny: ## the dependencies' licences, advisories and sources (cargo install cargo-deny)
 	cargo deny check

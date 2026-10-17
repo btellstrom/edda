@@ -513,17 +513,39 @@ everything except `manual` features, plus all spell slots and current HP.
 ## Testing and quality checks
 
 ```sh
-make check    # formatting, lints (warnings fail) and every test: what CI runs
+make test     # every test, against a throwaway Postgres of their own
+make check    # formatting, lints (warnings fail), the tests and the guard hook: what CI runs
 make deny     # dependencies: licences, security advisories, yanked crates (cargo install cargo-deny)
 make smoke    # end to end: the compose stack, seeded, driven by campaign-edit (needs make srd)
 cargo test -p campaign-types -- --ignored   # the SRD data from make srd loads and is valid
+
+tools/sandbox.sh up                    # a whole stack of your own to try things in
+tools/sandbox.sh run list              # campaign-edit, in it
+tools/sandbox.sh tmux fight fight --new Test   # a full screen, in a detached tmux session
+tools/sandbox.sh down                  # stop it and delete everything in it
 ```
 
-The auth and combat tests need the Postgres above; they use (and create) the
-databases `auth_test` and `combat_test` on it. Point `TEST_POSTGRES_URL` at
-another server if needed. The smoke test runs the stack as its own compose
-project (ports 13000–13003 and 15432, its own volumes, deleted afterwards),
-so a running stack is left alone.
+**Nothing touches a real stack.** Tests, experiments and checks never
+reach the stack `make up` runs, its databases, or this machine's
+`campaign-edit` config:
+
+- *Tests.* The auth and combat tests need Postgres, and only ever a
+  throwaway one: `make test` (`tools/with-test-postgres.sh`) starts one on
+  a port of its own and deletes it afterwards. There's no default:
+  `cargo test` without `TEST_POSTGRES_URL` stops, and a server holding a
+  real stack's `auth` or `combats` database is refused.
+- *Trying things.* `tools/sandbox.sh` runs a complete stack (its own
+  Postgres container, ports 23000–23003 and 25432, data in
+  `target/sandbox`) with a campaign, the example characters and the SRD,
+  and always runs this checkout's `campaign-edit` with the sandbox's config
+  and servers.
+- *The smoke test* runs the stack as its own compose project: its own
+  image, volumes and ports (13000–13003 and 15432), all deleted afterwards.
+- *Claude Code.* `.claude/settings.json` installs a hook,
+  `.claude/hooks/guard.py`, that blocks shell commands which would reach
+  the real stack: `campaign-edit` outside the sandbox, its containers and
+  ports, compose without an isolated project, `make up`/`down`/`install`,
+  and the like. `make check` and CI run its self-test.
 
 The Rust version is pinned in `rust-toolchain.toml` (the Dockerfile's), and
 the lints in the workspace `Cargo.toml` and `clippy.toml`: no `unsafe`, no

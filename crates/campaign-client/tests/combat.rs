@@ -33,7 +33,7 @@ impl Server {
     }
 
     async fn start_with(auth: &Auth, config: combat_service::Config) -> Self {
-        let pool = combat_service::connect(&database_url("combat_test"))
+        let pool = combat_service::connect(&database_url("combat_test").await)
             .await
             .expect("Postgres must be running for these tests (see README)");
         let verifier = TokenVerifier::new(auth.key);
@@ -897,7 +897,7 @@ async fn deleting_a_campaign_deletes_its_combats_even_from_memory() {
 
     // As `combat-service delete-campaign` does, from another process.
     let store = combat_service::store::Store::new(
-        combat_service::connect(&database_url("combat_test"))
+        combat_service::connect(&database_url("combat_test").await)
             .await
             .unwrap(),
     );
@@ -972,7 +972,7 @@ async fn encounter_plans_are_kept_per_campaign_and_go_with_it() {
     ));
 
     let store = combat_service::store::Store::new(
-        combat_service::connect(&database_url("combat_test"))
+        combat_service::connect(&database_url("combat_test").await)
             .await
             .unwrap(),
     );
