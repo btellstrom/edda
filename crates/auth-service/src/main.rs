@@ -96,7 +96,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let app = auth_service::app(pool).await?;
+    let app = auth_service::app(pool)
+        .await?
+        .layer(campaign_server::cors()?);
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(%bind, "auth service listening");
     axum::serve(listener, app)

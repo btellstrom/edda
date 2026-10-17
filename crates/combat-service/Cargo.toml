@@ -8,6 +8,7 @@ license.workspace = true
 axum = { version = "0.8.9", features = ["ws"] }
 campaign-auth = { version = "0.1.0", path = "../campaign-auth", features = ["server"] }
 campaign-client = { version = "0.1.0", path = "../campaign-client", default-features = false }
+campaign-server = { version = "0.1.0", path = "../campaign-server" }
 campaign-types = { version = "0.1.0", path = "../campaign-types" }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "clock"] }
 futures-util = { version = "0.3.34", default-features = false }
@@ -17,7 +18,7 @@ serde_json = "1.0.154"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "migrate", "macros", "chrono", "uuid", "json"] }
 thiserror = "2.0.21"
 tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
-tower-http = { version = "0.7.1", features = ["cors", "trace"] }
+tower-http = { version = "0.7.1", features = ["trace"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 uuid = { version = "1.28.0", features = ["v4", "v5", "serde"] }

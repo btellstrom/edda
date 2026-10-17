@@ -12,7 +12,7 @@ use std::sync::Arc;
 use axum::{Extension, Router};
 use campaign_auth::server::{TokenSigner, TokenVerifier};
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 
 pub use store::Store;
 
@@ -40,6 +40,5 @@ pub async fn app(pool: PgPool) -> Result<Router, error::ApiError> {
         .merge(pairing::router())
         .with_state(Arc::new(routes::AppState { store, signer }))
         .layer(Extension(verifier))
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http()))
 }

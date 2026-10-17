@@ -3,7 +3,10 @@
 #
 #   make server client    build both
 #   make up               start the servers
+#   make up HTTPS=1 CAMPAIGN_HOST=dnd.example.com
+#                         ...behind HTTPS, for players' devices on the network
 #   make install          put campaign-edit on your PATH
+#   make backup           back up the servers' data
 #
 # Docker instead of podman: make CONTAINER=docker ...
 
@@ -11,9 +14,11 @@ CONTAINER ?= podman
 COMPOSE   ?= $(CONTAINER) compose
 IMAGE     ?= localhost/campaign-manager
 CARGO     ?= cargo
+# HTTPS=1: the proxy too (compose's `https` profile).
+PROFILES   = $(if $(HTTPS),--profile https)
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign test check deny smoke clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore test check deny smoke clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -33,11 +38,11 @@ install: ## install campaign-edit into ~/.cargo/bin
 srd: ## download the SRD monsters, spells and conditions into data/ (loaded by make up)
 	tools/fetch-srd.sh
 
-up: server ## build and start the servers
-	IMAGE=$(IMAGE) $(COMPOSE) up -d
+up: server ## build and start the servers (HTTPS=1 CAMPAIGN_HOST=<name>: behind HTTPS too)
+	IMAGE=$(IMAGE) $(COMPOSE) $(PROFILES) up -d
 
 down: ## stop the servers (data stays in their volumes)
-	$(COMPOSE) down
+	$(COMPOSE) --profile https down
 
 logs: ## follow the servers' logs
 	$(COMPOSE) logs -f
@@ -56,6 +61,13 @@ delete-campaign: ## delete a campaign and everything in it: make delete-campaign
 	$(COMPOSE) exec characters character-service delete-campaign $(ID)
 	$(COMPOSE) exec combat combat-service delete-campaign $(ID)
 	$(COMPOSE) exec monsters monster-service delete-campaign $(ID)
+
+backup: ## back up the servers' data into backups/<date> (they keep running)
+	CONTAINER=$(CONTAINER) tools/backup.sh
+
+restore: ## put a backup back: make restore FROM=backups/<date> (replaces all data)
+	@test -n "$(FROM)" || { echo 'usage: make restore FROM=backups/<date>' >&2; exit 2; }
+	CONTAINER=$(CONTAINER) tools/restore.sh "$(FROM)"
 
 test: ## run all tests, against a throwaway Postgres of their own
 	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked

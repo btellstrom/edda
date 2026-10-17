@@ -74,7 +74,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!(%bind_addr, ?config, "combat service listening");
 
-    let app = combat_service::app(pool, TokenVerifier::new(auth_key), config).await?;
+    let app = combat_service::app(pool, TokenVerifier::new(auth_key), config)
+        .await?
+        .layer(campaign_server::cors()?);
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;

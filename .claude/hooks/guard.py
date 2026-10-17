@@ -43,9 +43,18 @@ COMPOSE = "compose without an isolated project name acts on the real stack"
 IMAGE = "builds or changes the real stack's image (localhost/campaign-manager)"
 PRUNE = "prunes containers, images or volumes, which may be the user's"
 DELETE = "deletes containers, images or volumes that may be the user's"
+SERVICE = (
+    "runs a service binary with its defaults, which point at the real stack's "
+    "database and ports; set DATABASE_URL (and AUTH_SERVICE_URL to serve) in "
+    "the command, or use tools/sandbox.sh"
+)
+BACKUP = "backs up or restores the real stack's data (the smoke test checks the scripts)"
+SERVICES = {"auth-service", "character-service", "combat-service", "monster-service"}
 
 # Make targets that act on the real stack, or install over campaign-edit.
-REAL_STACK_TARGETS = {"up", "down", "logs", "campaign", "delete-campaign", "server", "install"}
+REAL_STACK_TARGETS = {
+    "up", "down", "logs", "campaign", "delete-campaign", "server", "install", "backup", "restore",
+}
 # Compose projects of their own: the smoke test's and the sandbox's.
 ISOLATED_PROJECTS = ("campaign-manager-smoke", "campaign-manager-sandbox")
 
@@ -430,8 +439,9 @@ def remember(argv, variables):
 
 
 def commands(text, variables=None, depth=0):
-    """Every command `text` runs, as its program and arguments, including
-    those in the code it runs in turn. `variables` are those set so far."""
+    """Every command `text` runs, as its program and arguments with the
+    variables set by then, including those in the code it runs in turn.
+    `variables` are those set so far."""
     variables = {} if variables is None else variables
     script = Script(text)
     nested = list(script.nested)
@@ -441,7 +451,7 @@ def commands(text, variables=None, depth=0):
         remember(argv, variables)
         argv = program(argv, nested)
         if argv:
-            found.append(argv)
+            found.append((argv, dict(variables)))
             runs(argv, nested)
     if depth < 8:
         for code in nested:
@@ -518,10 +528,28 @@ def container_problem(args):
     return None
 
 
-def command_problem(argv):
+def service_problem(name, args, variables):
+    """Running a service binary: fine if the command says where its data
+    and the auth service are, rather than leaving the defaults (the real
+    stack's)."""
+    if args and args[0] in ("public-key", "--help", "-h", "help", "--version", "-V"):
+        return None
+    if "DATABASE_URL" not in variables:
+        return SERVICE
+    serves = not args or args[0] == "serve" or args[0].startswith("-")
+    if serves and name != "auth-service" and "AUTH_SERVICE_URL" not in variables:
+        return SERVICE
+    return None
+
+
+def command_problem(argv, variables):
     name, args = os.path.basename(argv[0]), argv[1:]
     if name == "campaign-edit":
         return CAMPAIGN_EDIT
+    if name in SERVICES:
+        return service_problem(name, args, variables)
+    if name in ("backup.sh", "restore.sh"):
+        return BACKUP
     if name in ("make", "gmake") and REAL_STACK_TARGETS.intersection(make_targets(args)):
         return MAKE
     if name in ("docker-compose", "podman-compose"):
@@ -532,8 +560,8 @@ def command_problem(argv):
 
 
 def problem(command):
-    for argv in commands(command):
-        reason = command_problem(argv)
+    for argv, variables in commands(command):
+        reason = command_problem(argv, variables)
         if reason:
             return reason
     text = Script(command).visible_text()
@@ -585,6 +613,13 @@ SELF_TEST = {
     "make -s delete-campaign ID=1 YES=1": True,
     "make -C . install": True,
     "make install": True,
+    "make backup": True,
+    "make restore FROM=backups/x": True,
+    "tools/restore.sh backups/x": True,
+    "target/debug/character-service backup /tmp/x.db": True,
+    "target/debug/combat-service delete-campaign 1": True,
+    "DATABASE_URL=sqlite:///tmp/c.db target/debug/character-service": True,
+    "target/debug/monster-service": True,
     "podman compose up -d": True,
     "podman compose logs seed-monsters": True,
     "docker-compose down": True,
@@ -596,6 +631,11 @@ SELF_TEST = {
     "ls ~/.config/campaign-manager": True,
     # Allowed.
     "tools/sandbox.sh run list": False,
+    "DATABASE_URL=sqlite:///tmp/m.db target/debug/monster-service import x.json": False,
+    "export DATABASE_URL=sqlite:///tmp/c.db; target/debug/character-service backup /tmp/b.db": False,
+    "DATABASE_URL=sqlite:///tmp/c.db AUTH_SERVICE_URL=http://127.0.0.1:1 character-service": False,
+    "target/debug/combat-service public-key": False,
+    "target/debug/monster-service --help": False,
     "E=target/debug/campaign-edit; ls -la $E && stat ${E}": False,
     "CMD=ls; $CMD target/debug": False,
     "tools/sandbox.sh tmux fight fight --new Test": False,

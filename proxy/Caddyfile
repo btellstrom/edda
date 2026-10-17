@@ -1,0 +1,24 @@
+# HTTPS in front of the four services, on one address: CAMPAIGN_HOST. A
+# real domain gets a certificate from Let's Encrypt by itself; localhost or
+# an IP address gets one from Caddy's own authority, whose root each
+# client must trust once (see the README). Live fights' WebSockets pass
+# through too.
+{$CAMPAIGN_HOST} {
+	@characters path /characters /characters/*
+	@combat path /combats /combats/* /encounters /encounters/*
+	@monsters path /monsters /monsters/* /spells /spells/* /conditions /conditions/*
+
+	handle @characters {
+		reverse_proxy characters:3000
+	}
+	handle @combat {
+		reverse_proxy combat:3001
+	}
+	handle @monsters {
+		reverse_proxy monsters:3003
+	}
+	# Logging in, devices and pairing.
+	handle {
+		reverse_proxy auth:3002
+	}
+}

@@ -10,3 +10,4 @@
 # Your own characters to `campaign-edit import`.
 /data/characters/
 __pycache__/
+/backups

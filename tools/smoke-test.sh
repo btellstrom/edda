@@ -3,7 +3,9 @@
 # whole compose stack as a separate project (its own image, volumes and
 # ports, so a running stack is left alone), seeds it, and drives
 # campaign-edit through setting up a campaign, importing characters and
-# looking things up. Deletes all of it afterwards, pass or fail.
+# looking things up, directly and through the HTTPS proxy. Then backs it
+# up, loses a character and restores it. Deletes all of it afterwards,
+# pass or fail.
 #
 #   tools/smoke-test.sh            (CONTAINER=docker for Docker)
 #
@@ -18,6 +20,8 @@ EDIT=${CAMPAIGN_EDIT:-"$here/target/release/campaign-edit"}
 export COMPOSE_PROJECT_NAME=campaign-manager-smoke
 export IMAGE=localhost/campaign-manager-smoke
 export POSTGRES_PORT=15432 CHARACTERS_PORT=13000 COMBAT_PORT=13001 AUTH_PORT=13002 MONSTERS_PORT=13003
+# The HTTPS proxy too, with a certificate from its own authority.
+export COMPOSE_PROFILES=https CAMPAIGN_HOST=localhost HTTPS_PORT=18443 HTTP_PORT=18080
 compose() { "$CONTAINER" compose "$@"; }
 
 work=$(mktemp -d)
@@ -90,5 +94,53 @@ step "Monsters, spells and conditions"
 expect "Goblin Warrior" "$("$EDIT" monster list goblin)"
 expect "Level 3 Evocation" "$("$EDIT" spell show fireball)"
 expect "Speed 0" "$("$EDIT" condition show grappled)"
+
+step "Browsers on other sites get no access"
+preflight=$(curl -si -X OPTIONS -H "Origin: https://elsewhere.example" \
+    -H "Access-Control-Request-Method: GET" "http://127.0.0.1:$CHARACTERS_PORT/characters")
+case "$preflight" in
+    *[Aa]ccess-[Cc]ontrol-[Aa]llow-[Oo]rigin*) printf 'CORS lets other sites in:\n%s\n' "$preflight" >&2; exit 1 ;;
+esac
+
+step "Through the HTTPS proxy"
+tries=0
+until compose exec -T proxy test -f /data/caddy/pki/authorities/local/root.crt 2>/dev/null; do
+    tries=$((tries + 1))
+    if [ "$tries" -gt 60 ]; then echo "the proxy made no certificate authority" >&2; exit 1; fi
+    sleep 1
+done
+compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > "$work/root.crt"
+https="https://localhost:$HTTPS_PORT"
+through_proxy() {
+    SSL_CERT_FILE="$work/root.crt" CAMPAIGN_SERVER=$https CAMPAIGN_COMBAT_SERVER=$https \
+        CAMPAIGN_AUTH_SERVER=$https CAMPAIGN_MONSTER_SERVER=$https "$EDIT" "$@"
+}
+tries=0
+until curl -fsS --cacert "$work/root.crt" "$https/health" >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [ "$tries" -gt 60 ]; then echo "nothing answers at $https" >&2; exit 1; fi
+    sleep 1
+done
+expect "Vex" "$(through_proxy list)"
+expect "Goblin Warrior" "$(through_proxy monster list goblin)"
+expect "Level 3 Evocation" "$(through_proxy spell show fireball)"
+
+step "Backing up and restoring"
+tools/backup.sh "$work/backup"
+"$EDIT" vex delete --yes
+case "$("$EDIT" list)" in *Vex*) echo "Vex wasn't deleted" >&2; exit 1 ;; esac
+tools/restore.sh "$work/backup"
+for port in $AUTH_PORT $CHARACTERS_PORT $MONSTERS_PORT $COMBAT_PORT; do
+    tries=0
+    until curl -fsS "http://127.0.0.1:$port/health" >/dev/null 2>&1; do
+        tries=$((tries + 1))
+        if [ "$tries" -gt 60 ]; then echo "nothing answers on port $port after restoring" >&2; exit 1; fi
+        sleep 1
+    done
+done
+expect "Vex" "$("$EDIT" list)"
+expect "Hunter's Mark" "$("$EDIT" vex show)"
+expect "Goblin Warrior" "$("$EDIT" monster list goblin)"
+expect "Smoke DM" "$("$EDIT" auth devices)"
 
 printf '\nSmoke test passed.\n'

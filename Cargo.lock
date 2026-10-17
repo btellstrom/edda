@@ -132,6 +132,7 @@ dependencies = [
  "axum",
  "base64 0.23.1",
  "campaign-auth",
+ "campaign-server",
  "campaign-types",
  "chrono",
  "clap",
@@ -387,6 +388,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "campaign-server"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "sqlx",
+ "tower-http 0.7.1",
+]
+
+[[package]]
 name = "campaign-types"
 version = "0.1.0"
 dependencies = [
@@ -461,6 +471,7 @@ dependencies = [
  "axum",
  "campaign-auth",
  "campaign-client",
+ "campaign-server",
  "campaign-types",
  "chrono",
  "http-body-util",
@@ -587,6 +598,7 @@ dependencies = [
  "axum",
  "campaign-auth",
  "campaign-client",
+ "campaign-server",
  "campaign-types",
  "chrono",
  "futures-util",
@@ -1991,6 +2003,7 @@ dependencies = [
  "axum",
  "campaign-auth",
  "campaign-client",
+ "campaign-server",
  "campaign-types",
  "chrono",
  "clap",
@@ -3704,7 +3717,11 @@ checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite 0.30.0",
 ]
 
@@ -3881,6 +3898,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.10.3",
+ "rustls",
+ "rustls-pki-types",
  "sha1 0.11.0",
  "thiserror 2.0.21",
 ]

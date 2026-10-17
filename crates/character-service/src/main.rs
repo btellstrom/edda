@@ -29,6 +29,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Deleted {deleted} character(s) of campaign {campaign}");
         return Ok(());
     }
+    // `character-service backup <PATH>` writes a copy of the database to
+    // PATH, while the service runs (tools/backup.sh).
+    if let [command, path] = args.as_slice()
+        && command == "backup"
+    {
+        let pool = character_service::connect(&database_url).await?;
+        campaign_server::backup(&pool, std::path::Path::new(path)).await?;
+        return Ok(());
+    }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_string());
 
     let verifier = campaign_auth::server::TokenVerifier::new(auth_key().await?);
@@ -36,7 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!(%bind_addr, %database_url, "character service listening");
 
-    axum::serve(listener, character_service::app(pool, verifier))
+    let app = character_service::app(pool, verifier).layer(campaign_server::cors()?);
+    axum::serve(listener, app)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })

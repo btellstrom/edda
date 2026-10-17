@@ -17,7 +17,7 @@ use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 
 pub use store::MonsterStore;
 
@@ -39,8 +39,5 @@ pub fn app(pool: SqlitePool, verifier: TokenVerifier) -> Router {
         .merge(routes::router())
         .with_state(MonsterStore::new(pool))
         .layer(Extension(Arc::new(verifier)))
-        // Permissive CORS so browser frontends served from other origins can
-        // talk to the API during development. Tighten before deploying.
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
 }

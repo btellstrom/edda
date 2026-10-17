@@ -3,8 +3,9 @@
 # The clients (campaign-edit) run natively.
 #
 # Published on localhost only; change the host side of `ports` (or set the
-# *_PORT variables) to move them, or drop `127.0.0.1:` to let other
-# machines in.
+# *_PORT variables) to move them. To let players' devices in, put HTTPS in
+# front with the `https` profile (the proxy below) rather than opening the
+# services themselves.
 
 x-app: &app
   build:
@@ -141,8 +142,33 @@ services:
       auth:
         condition: service_started
 
+  # HTTPS in front of everything, on one address (proxy/Caddyfile), for
+  # players' devices on the network: `make up HTTPS=1 CAMPAIGN_HOST=...`.
+  # Unprivileged ports by default (rootless Podman can't bind 443); point
+  # your router's 443 at HTTPS_PORT for a real domain.
+  proxy:
+    image: docker.io/library/caddy:2.10-alpine
+    profiles: ["https"]
+    environment:
+      CAMPAIGN_HOST: ${CAMPAIGN_HOST:-localhost}
+    ports:
+      - "${HTTPS_PORT:-8443}:443"
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - proxy-data:/data
+      - proxy-config:/config
+    depends_on:
+      - auth
+      - characters
+      - combat
+      - monsters
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   characters-data:
   combat-data:
   monsters-data:
+  proxy-data:
+  proxy-config:

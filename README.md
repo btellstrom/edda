@@ -66,8 +66,57 @@ another Postgres already has 5432:
 POSTGRES_PORT=5433 podman compose up -d
 ```
 
-To let other machines connect, remove the `127.0.0.1:` from the `ports`
-in `compose.yaml` (plain HTTP: trusted networks only).
+#### Players' devices: HTTPS
+
+To let players' devices in, put the stack behind HTTPS rather than
+opening the services themselves: the `https` profile adds a proxy
+(Caddy, configured in `proxy/Caddyfile`) that serves all four services,
+WebSockets included, on one address.
+
+```sh
+make up HTTPS=1 CAMPAIGN_HOST=dnd.example.com    # a domain pointing at this machine
+make up HTTPS=1 CAMPAIGN_HOST=192.168.1.20       # or its address on your network
+```
+
+It listens on 8443 (and 8080, which redirects), since rootless Podman
+can't take 443; set `HTTPS_PORT`/`HTTP_PORT` to change that.
+
+- **A domain** gets a certificate from Let's Encrypt automatically: point
+  the domain at the machine, and the router's port 443 at `HTTPS_PORT`.
+- **A local address** (or `localhost`) gets a certificate from Caddy's
+  own authority, which each device must trust once. Fetch its root with
+  `podman compose cp proxy:/data/caddy/pki/authorities/local/root.crt .`
+  and add it to the system's certificates (Arch: `trust anchor root.crt`;
+  Debian: copy it to `/usr/local/share/ca-certificates/` as a `.crt` and
+  run `update-ca-certificates`), or for campaign-edit alone set
+  `SSL_CERT_FILE=root.crt`.
+
+Then point campaign-edit at it, one address for all four:
+
+```sh
+export CAMPAIGN_SERVER=https://dnd.example.com:8443 CAMPAIGN_COMBAT_SERVER=https://dnd.example.com:8443 \
+       CAMPAIGN_AUTH_SERVER=https://dnd.example.com:8443 CAMPAIGN_MONSTER_SERVER=https://dnd.example.com:8443
+```
+
+**Browsers.** The services answer web pages from other sites only if
+`CORS_ORIGINS` lists them (comma-separated origins such as
+`https://dnd.example.com`, or `*` while developing). Unset, none may:
+campaign-edit doesn't need it, and neither does a page served through the
+proxy.
+
+#### Backups
+
+```sh
+make backup                           # into backups/<date and time>; the servers keep running
+make restore FROM=backups/<date>      # replaces all data with the backup's
+```
+
+A backup holds the auth and combat databases (`pg_dump`), the characters
+and monsters (consistent SQLite copies, made by the services themselves),
+and the combat service's key. Restoring stops the four services, puts it
+all back and starts them again. Copy `backups/` somewhere else: a backup
+on the same disk is lost with it. The smoke test backs up, loses a
+character and restores it.
 
 ### Servers natively
 

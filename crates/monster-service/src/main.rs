@@ -41,6 +41,9 @@ enum Command {
     /// Delete a campaign's own monsters (`make delete-campaign` deletes
     /// the rest of the campaign too).
     DeleteCampaign { campaign: Uuid },
+    /// Write a copy of the database to a new file, while the service runs
+    /// (tools/backup.sh).
+    Backup { to: PathBuf },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -111,6 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Deleted {deleted} monster(s) of campaign {campaign}");
             Ok(())
         }
+        Some(Command::Backup { to }) => Ok(campaign_server::backup(&pool, &to).await?),
     }
 }
 
@@ -138,7 +142,8 @@ async fn serve(pool: sqlx::SqlitePool, bind: &str) -> Result<(), Box<dyn std::er
     let verifier = campaign_auth::server::TokenVerifier::new(auth_key().await?);
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(%bind, "monster service listening");
-    axum::serve(listener, monster_service::app(pool, verifier))
+    let app = monster_service::app(pool, verifier).layer(campaign_server::cors()?);
+    axum::serve(listener, app)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })

@@ -15,7 +15,7 @@ use std::sync::Arc;
 use axum::{Extension, Router};
 use campaign_auth::server::TokenVerifier;
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
@@ -69,8 +69,5 @@ pub async fn app(
         .merge(encounters::router())
         .with_state(hub)
         .layer(Extension(Arc::new(verifier)))
-        // Permissive CORS so browser frontends served from other origins can
-        // talk to the API during development. Tighten before deploying.
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http()))
 }
