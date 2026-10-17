@@ -2,6 +2,7 @@
 //! updates over WebSocket. Any number of instances can run against the same
 //! Postgres database.
 
+pub mod encounters;
 pub mod error;
 pub mod hub;
 pub mod routes;
@@ -57,6 +58,7 @@ pub async fn app(
     let hub = hub::Hub::start(store, hp_sync).await?;
     Ok(Router::new()
         .merge(routes::router())
+        .merge(encounters::router())
         .with_state(hub)
         .layer(Extension(Arc::new(verifier)))
         // Permissive CORS so browser frontends served from other origins can

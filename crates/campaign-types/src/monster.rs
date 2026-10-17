@@ -38,6 +38,10 @@ pub struct MonsterSummary {
     pub hit_points: u16,
     /// What its hit dice can come to at most, which it joins a fight with.
     pub max_hit_points: u16,
+    /// Experience points, from its challenge rating if the stat block
+    /// doesn't say.
+    #[serde(default)]
+    pub xp: u32,
     pub armor_class: u8,
     pub source: String,
     /// In the shared library rather than the campaign's own.
@@ -55,6 +59,7 @@ impl From<&Monster> for MonsterSummary {
             challenge: s.challenge.clone(),
             hit_points: s.hit_points,
             max_hit_points: s.max_hit_points(),
+            xp: s.experience_points(),
             armor_class: s.armor_class,
             source: s.source.clone(),
             shared: m.campaign.is_none(),
@@ -253,6 +258,14 @@ impl MonsterSheet {
     /// printed number if it has no hit dice.
     pub fn max_hit_points(&self) -> u16 {
         self.hit_dice().map_or(self.hit_points, HitDice::max)
+    }
+
+    /// Its experience points, from its challenge rating if not given.
+    pub fn experience_points(&self) -> u32 {
+        match self.xp {
+            0 => crate::encounter::xp_for_challenge(&self.challenge),
+            xp => xp,
+        }
     }
 
     pub fn initiative_modifier(&self) -> i8 {

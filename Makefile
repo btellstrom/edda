@@ -49,7 +49,7 @@ campaign: ## create a campaign: make campaign NAME="Vox Machina" EDITION=2024
 delete-campaign: ## delete a campaign and everything in it: make delete-campaign ID=<campaign id>
 	@test -n "$(ID)" || { echo 'usage: make delete-campaign ID=<campaign id>  (campaign-edit auth status shows it)' >&2; exit 2; }
 	@if [ -z "$(YES)" ]; then \
-		printf 'Delete campaign %s with all its characters, combats, monsters and devices? This cannot be undone. [y/N] ' "$(ID)"; \
+		printf 'Delete campaign %s with all its characters, combats, plans, monsters and devices? This cannot be undone. [y/N] ' "$(ID)"; \
 		read answer; [ "$$answer" = y ] || [ "$$answer" = Y ] || { echo 'Not deleted.'; exit 1; }; \
 	fi
 	$(COMPOSE) exec auth auth-service delete-campaign $(ID)

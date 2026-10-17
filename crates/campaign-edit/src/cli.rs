@@ -94,6 +94,9 @@ pub enum TopCommand {
     /// Run a combat on a full-screen view: initiative order, the acting
     /// character's sheet, the log, and a command line with completion.
     Fight(FightArgs),
+    /// Plan encounters ahead of time: monsters from the campaign's, how
+    /// hard they'd be for the party, and a fight started from one.
+    Plan(PlanArgs),
     /// A character name or ID, followed by a character command.
     #[command(external_subcommand)]
     Character(Vec<String>),
@@ -141,7 +144,31 @@ pub struct FightArgs {
     /// Start a new combat with this name instead.
     #[arg(long, value_name = "NAME", conflicts_with = "combat")]
     pub new: Option<String>,
+    /// Start a new combat from a planned encounter (see `plan`), with its
+    /// monsters in it.
+    #[arg(
+        long,
+        value_name = "PLAN",
+        conflicts_with_all = ["combat", "new"],
+        add = ArgValueCompleter::new(complete::encounters)
+    )]
+    pub plan: Option<String>,
     /// Combat service URL.
+    #[arg(
+        long,
+        env = "CAMPAIGN_COMBAT_SERVER",
+        default_value = COMBAT_SERVER
+    )]
+    pub combat_server: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PlanArgs {
+    /// The plan to open, by name (a new one if there's none by that name).
+    /// Defaults to the most recently changed one.
+    #[arg(add = ArgValueCompleter::new(complete::encounters))]
+    pub plan: Option<String>,
+    /// Combat service URL (it keeps the plans).
     #[arg(
         long,
         env = "CAMPAIGN_COMBAT_SERVER",

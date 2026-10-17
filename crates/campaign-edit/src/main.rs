@@ -8,6 +8,7 @@ mod fight;
 mod identity;
 mod monsters;
 mod parse;
+mod plan;
 
 use std::process::ExitCode;
 
@@ -42,6 +43,25 @@ async fn run(cli: Cli) -> Result<()> {
     if let TopCommand::Fight(args) = cli.command {
         return fight::run(args, &cli.server, &cli.monster_server).await;
     }
+    if let TopCommand::Plan(args) = cli.command {
+        let chosen = plan::run(
+            args.plan.as_deref(),
+            &cli.server,
+            &args.combat_server,
+            &cli.monster_server,
+        )
+        .await?;
+        let Some(encounter) = chosen else {
+            return Ok(());
+        };
+        let args = cli::FightArgs {
+            combat: None,
+            new: None,
+            plan: Some(encounter.to_string()),
+            combat_server: args.combat_server,
+        };
+        return fight::run(args, &cli.server, &cli.monster_server).await;
+    }
     if let TopCommand::Monster(command) = cli.command {
         let (_, session) = identity::Identity::locate()?.login().await?;
         let client = campaign_client::monsters::MonsterClient::new(&cli.monster_server)
@@ -51,7 +71,10 @@ async fn run(cli: Cli) -> Result<()> {
     let (_, session) = identity::Identity::locate()?.login().await?;
     let client = Client::new(&cli.server).with_token(&session.token);
     match cli.command {
-        TopCommand::Auth(_) | TopCommand::Fight(_) | TopCommand::Monster(_) => {
+        TopCommand::Auth(_)
+        | TopCommand::Fight(_)
+        | TopCommand::Plan(_)
+        | TopCommand::Monster(_) => {
             unreachable!("handled above")
         }
         TopCommand::List => println!("{}", display::list(&client.list().await?)),

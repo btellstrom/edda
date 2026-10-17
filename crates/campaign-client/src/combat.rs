@@ -5,6 +5,7 @@ use campaign_types::combat::{
     CombatError, CombatSnapshot, CombatState, CombatStatus, CombatSummary, CommandEnvelope,
     LoggedEvent, NoDice, ServerMessage, decide,
 };
+use campaign_types::encounter::{Encounter, EncounterPlan};
 use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -80,6 +81,42 @@ impl CombatClient {
     ) -> Result<Vec<LoggedEvent>, ClientError> {
         let url = self.url(&format!("/combats/{id}/commands"));
         send(self.http.post(url).json(envelope)).await
+    }
+
+    /// The campaign's planned encounters, by name.
+    pub async fn encounters(&self) -> Result<Vec<Encounter>, ClientError> {
+        send(self.http.get(self.url("/encounters"))).await
+    }
+
+    pub async fn encounter(&self, id: Uuid) -> Result<Encounter, ClientError> {
+        send(self.http.get(self.url(&format!("/encounters/{id}")))).await
+    }
+
+    pub async fn create_encounter(&self, plan: &EncounterPlan) -> Result<Encounter, ClientError> {
+        send(self.http.post(self.url("/encounters")).json(plan)).await
+    }
+
+    /// Replaces a plan; the last save wins.
+    pub async fn replace_encounter(
+        &self,
+        id: Uuid,
+        plan: &EncounterPlan,
+    ) -> Result<Encounter, ClientError> {
+        send(
+            self.http
+                .put(self.url(&format!("/encounters/{id}")))
+                .json(plan),
+        )
+        .await
+    }
+
+    pub async fn delete_encounter(&self, id: Uuid) -> Result<(), ClientError> {
+        let response = self
+            .http
+            .delete(self.url(&format!("/encounters/{id}")))
+            .send()
+            .await?;
+        crate::check(response).await.map(drop)
     }
 
     /// Opens a live connection. The first message is always a snapshot.

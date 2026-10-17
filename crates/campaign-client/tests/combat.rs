@@ -829,3 +829,70 @@ async fn deleting_a_campaign_deletes_its_combats_even_from_memory() {
     assert!(not_found(api.command(doomed, &hit).await.map(|_| ())));
     other_api.snapshot(kept).await.unwrap();
 }
+
+#[tokio::test]
+async fn encounter_plans_are_kept_per_campaign_and_go_with_it() {
+    use campaign_types::encounter::{EncounterPlan, PlannedMonster};
+
+    let (auth, party, server) = setup().await;
+    let api = server.client(&party.dm);
+    let patrol = EncounterPlan {
+        name: "Goblin patrol".into(),
+        monsters: vec![PlannedMonster {
+            monster: Uuid::new_v4(),
+            name: "Goblin".into(),
+            count: 4,
+            xp: 50,
+            roll: false,
+        }],
+        ..Default::default()
+    };
+    let created = api.create_encounter(&patrol).await.unwrap();
+    assert_eq!(created.plan, patrol);
+    let mut bigger = patrol.clone();
+    bigger.monsters[0].count = 6;
+    let saved = api.replace_encounter(created.id, &bigger).await.unwrap();
+    assert_eq!((saved.version, saved.plan.monster_count()), (2, 6));
+    assert_eq!(api.encounters().await.unwrap().len(), 1);
+
+    let mut nameless = patrol.clone();
+    nameless.name = " ".into();
+    assert!(matches!(
+        api.create_encounter(&nameless).await,
+        Err(campaign_client::ClientError::Rejected(_))
+    ));
+
+    let player = server.client(&party.player(&auth, "Vex").await);
+    assert!(
+        matches!(
+            player.encounters().await,
+            Err(campaign_client::ClientError::Forbidden(_))
+        ),
+        "players mustn't see what's planned"
+    );
+    assert!(matches!(
+        player.encounter(created.id).await,
+        Err(campaign_client::ClientError::Forbidden(_))
+    ));
+
+    let rival = server.client(&auth.campaign().await.dm);
+    assert!(rival.encounters().await.unwrap().is_empty());
+    assert!(matches!(
+        rival.encounter(created.id).await,
+        Err(campaign_client::ClientError::NotFound)
+    ));
+
+    let store = combat_service::store::Store::new(
+        combat_service::connect(&database_url("combat_test"))
+            .await
+            .unwrap(),
+    );
+    store
+        .delete_campaign(&party.id().to_string())
+        .await
+        .unwrap();
+    assert!(
+        api.encounters().await.unwrap().is_empty(),
+        "deleted with the campaign"
+    );
+}

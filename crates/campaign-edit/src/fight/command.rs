@@ -1187,6 +1187,7 @@ mod tests {
             challenge: "1/4".into(),
             hit_points: 7,
             max_hit_points,
+            xp: 50,
             armor_class: 15,
             source: if shared { "SRD 5.2" } else { "Homebrew" }.into(),
             shared,

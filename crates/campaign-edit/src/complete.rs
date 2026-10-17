@@ -97,6 +97,20 @@ pub fn combats(current: &OsStr) -> Vec<CompletionCandidate> {
     })
 }
 
+/// Planned encounters, for `plan` and `fight --plan`.
+pub fn encounters(current: &OsStr) -> Vec<CompletionCandidate> {
+    let encounters = from_servers(|token| async move {
+        let client = CombatClient::new(server("CAMPAIGN_COMBAT_SERVER", cli::COMBAT_SERVER));
+        client.with_token(&token).encounters().await.ok()
+    });
+    matching(current, encounters.into_iter().flatten(), |e| {
+        (
+            e.plan.name.clone(),
+            format!("{} monsters", e.plan.monster_count()),
+        )
+    })
+}
+
 /// This device's campaigns, for `auth use` and `auth forget` (no server
 /// needed).
 pub fn campaigns(current: &OsStr) -> Vec<CompletionCandidate> {

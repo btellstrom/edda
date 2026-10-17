@@ -50,7 +50,7 @@ podman compose down              # stop; data stays in volumes (down -v deletes 
 ```
 
 Deleting a campaign removes it from every service: its devices (which
-can no longer log in), characters, combats and its own monsters. `campaign-edit auth
+can no longer log in), characters, combats, planned encounters and its own monsters. `campaign-edit auth
 status` shows its id. Without make, run `delete-campaign <ID>` with each
 of `auth-service`, `character-service` and `combat-service`; each deletes
 its own part and can be re-run safely.
@@ -199,6 +199,7 @@ whole edited document can't be re-applied safely.
 
 ```sh
 campaign-edit fight --new "Goblin ambush"   # start a combat
+campaign-edit fight --plan "goblin ambush"  # start one from a plan, monsters and all
 campaign-edit fight                         # the latest one still running
 campaign-edit fight goblin                  # one by name or ID prefix
 export CAMPAIGN_COMBAT_SERVER=http://127.0.0.1:3001   # the default
@@ -253,6 +254,39 @@ a feature's use and logs it. If the server refuses one of these, or you
 `undo` it, the screen gives the slot or use back. Changes show at once and are confirmed by the
 server; if the connection drops the screen keeps working, queues what you
 do and sends it once it has reconnected.
+
+### Planning encounters
+
+```sh
+campaign-edit plan                     # the plan changed last
+campaign-edit plan "Goblin ambush"     # that one, or a new one by that name
+```
+
+A screen for putting fights together ahead of time. It shows the open
+plan's monsters, how hard they'd be for the party, the campaign's plans, and
+the stat block of the monster you're typing. Plans are kept in the campaign
+(by the combat service), so every DM device sees them, and they can be used
+again and again:
+
+```
+add 4 goblin · add bugbear roll   add monsters (roll: their HP is rolled when the fight starts)
+remove 2 · remove 1 2 · count 1 6  take out entry 2, two of entry 1; set entry 1 to six
+party grog · party all             leave Grog out (again: back in); balance it for everyone
+notes They wait in the trees.      notes for the plan
+fight                              start a fresh combat from the plan (it's kept)
+new <name> · open <plan> · rename <name> · delete <plan> · quit
+```
+
+Difficulty follows the campaign's edition. Under the **2014** rules the
+monsters' XP is multiplied for how many there are (×1 for one, up to ×4 for
+fifteen or more, one step up for a party under three and down for six or
+more) and compared with the party's Easy, Medium, Hard and Deadly
+thresholds. Under **2024**'s it's their plain XP against the party's Low,
+Moderate and High budgets. Each character counts at their level; a monster
+without `xp` in its stat block gets its challenge rating's.
+
+A fight from a plan holds only its monsters, numbered as `add` numbers them;
+characters join in the fight screen as usual.
 
 ## Monsters
 
@@ -441,9 +475,15 @@ in `campaign-types::combat`, so clients run exactly the same code.
 | `GET` | `/combats/{id}/log?after=N` | | the complete log (or the part after `seq` N) |
 | `POST` | `/combats/{id}/commands` | command envelope | the events it produced |
 | `GET` | `/combats/{id}/ws` | | WebSocket: live events, and commands in |
+| `GET` | `/encounters` | | the campaign's planned encounters, by name |
+| `POST` | `/encounters` | plan | `201`, the stored plan |
+| `GET` | `/encounters/{id}` | | a plan |
+| `PUT` | `/encounters/{id}` | plan | replaced (the last save wins) |
+| `DELETE` | `/encounters/{id}` | | `204` |
 
 Every route but `/health` needs a token, sent as `Authorization: Bearer`
-(on the WebSocket handshake too), and only sees the token's campaign. A
+(on the WebSocket handshake too), and only sees the token's campaign. The
+`/encounters` routes are for DM devices only; a player's token gets `403`. A
 command envelope carries a client-chosen `command_id` (events are tagged
 with it, and resending it is a no-op), and the command. The log's `actor`
 is always the sending device's name from its token, whatever the client

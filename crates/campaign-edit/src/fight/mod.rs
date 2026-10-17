@@ -22,6 +22,7 @@ use campaign_types::{
         CombatCommand, CombatEvent, CombatStatus, CombatSummary, Combatant, CommandEnvelope,
         LoggedEvent, ServerMessage, SpellSlot,
     },
+    encounter::EncounterPlan,
     monster::{Monster, MonsterSummary},
 };
 use chrono::Utc;
@@ -37,19 +38,36 @@ use crate::{
 use command::{Context, Parsed, Step, Suggestion};
 
 /// Logged in, with the token renewed shortly before it expires (tokens last
-/// a quarter of an hour; a fight lasts longer).
-struct Login {
+/// a quarter of an hour; a fight lasts longer). The planner uses it too.
+pub(crate) struct Login {
     identity: Identity,
     /// The campaign the screen was opened in, even if another is chosen
     /// meanwhile (say, in another terminal).
-    profile: Profile,
-    session: Session,
+    pub(crate) profile: Profile,
+    pub(crate) session: Session,
     characters_url: String,
     combat_url: String,
     monsters_url: String,
 }
 
 impl Login {
+    pub(crate) async fn new(
+        characters_url: &str,
+        combat_url: &str,
+        monsters_url: &str,
+    ) -> Result<Self> {
+        let identity = Identity::locate()?;
+        let (profile, session) = identity.login().await?;
+        Ok(Self {
+            identity,
+            profile,
+            session,
+            characters_url: characters_url.to_string(),
+            combat_url: combat_url.to_string(),
+            monsters_url: monsters_url.to_string(),
+        })
+    }
+
     async fn token(&mut self) -> Result<String> {
         if self.session.claims.expires_at < Utc::now() + chrono::Duration::minutes(2) {
             self.session = self.identity.login_to(&self.profile).await?;
@@ -57,15 +75,15 @@ impl Login {
         Ok(self.session.token.clone())
     }
 
-    async fn characters(&mut self) -> Result<Client> {
+    pub(crate) async fn characters(&mut self) -> Result<Client> {
         Ok(Client::new(&self.characters_url).with_token(&self.token().await?))
     }
 
-    async fn combats(&mut self) -> Result<CombatClient> {
+    pub(crate) async fn combats(&mut self) -> Result<CombatClient> {
         Ok(CombatClient::new(&self.combat_url).with_token(&self.token().await?))
     }
 
-    async fn monsters(&mut self) -> Result<MonsterClient> {
+    pub(crate) async fn monsters(&mut self) -> Result<MonsterClient> {
         Ok(MonsterClient::new(&self.monsters_url).with_token(&self.token().await?))
     }
 }
@@ -110,20 +128,23 @@ pub struct App {
 }
 
 pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> Result<()> {
-    let identity = Identity::locate()?;
-    let (profile, session) = identity.login().await?;
-    let mut login = Login {
-        identity,
-        profile,
-        session,
-        characters_url: characters_url.to_string(),
-        combat_url: args.combat_server.clone(),
-        monsters_url: monsters_url.to_string(),
-    };
+    let mut login = Login::new(characters_url, &args.combat_server, monsters_url).await?;
     let combats = login.combats().await?;
-    let combat = match &args.new {
-        Some(name) => combats.create(name).await?.id,
-        None => choose(&combats.list(None).await?, args.combat.as_deref())?,
+    let plan = match &args.plan {
+        Some(wanted) => {
+            let encounters = combats.encounters().await?;
+            let found =
+                crate::plan::command::find_plan(&encounters, wanted, false).ok_or_else(|| {
+                    anyhow!("no plan matches \"{wanted}\" (see `campaign-edit plan`)")
+                })?;
+            Some(found.plan.clone())
+        }
+        None => None,
+    };
+    let combat = match (&args.new, &plan) {
+        (Some(name), _) => combats.create(name).await?.id,
+        (None, Some(plan)) => combats.create(&plan.name).await?.id,
+        (None, None) => choose(&combats.list(None).await?, args.combat.as_deref())?,
     };
     let log = combats.log(combat, 0).await?;
     let roster = login.characters().await?.list().await?;
@@ -155,6 +176,9 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
         retries: 0,
     };
     app.refresh_sheets().await;
+    if let Some(plan) = plan {
+        app.load(&plan).await;
+    }
 
     let mut terminal = ratatui::init();
     let mut keys = EventStream::new();
@@ -353,6 +377,31 @@ impl App {
         }
         self.status = Some((parsed.sentence, false));
         true
+    }
+
+    /// Puts a plan's monsters in the fight.
+    async fn load(&mut self, plan: &EncounterPlan) {
+        let mut missing = Vec::new();
+        for entry in &plan.monsters {
+            if self
+                .summon(entry.monster, entry.count, entry.roll)
+                .await
+                .is_err()
+            {
+                missing.push(entry.name.clone());
+            }
+        }
+        self.status = Some(if missing.is_empty() {
+            (format!("{} is set up from its plan", plan.name), false)
+        } else {
+            (
+                format!(
+                    "couldn't add {} (deleted from the monsters?)",
+                    missing.join(", ")
+                ),
+                true,
+            )
+        });
     }
 
     /// Adds `count` of a monster, numbered on from any already in the fight,

@@ -198,6 +198,7 @@ mod tests {
             challenge: "1/4".into(),
             hit_points: 7,
             max_hit_points: 12,
+            xp: 50,
             armor_class: 15,
             source: "SRD 5.2".into(),
             shared,
