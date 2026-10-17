@@ -395,3 +395,102 @@ fn role_name(role: Role) -> &'static str {
         Role::Player => "player",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use campaign_auth::{DeviceKey, SignedCert};
+    use chrono::Utc;
+
+    use super::*;
+
+    fn device(cert: SignedCert, revoked: bool) -> Device {
+        Device {
+            cert,
+            added_at: Utc::now(),
+            revoked_at: revoked.then(Utc::now),
+        }
+    }
+
+    /// The DM's laptop (set up with a code), a player it approved, one it
+    /// revoked, one vouched for by nobody in the campaign, and one whose
+    /// certificate was changed after signing.
+    fn campaign() -> (Vec<Device>, PublicKey) {
+        let campaign = Uuid::new_v4();
+        let dm = DeviceKey::generate();
+        let issue = |by: &DeviceKey, key: PublicKey, role, name: &str| {
+            DeviceCert::issue(by, campaign, key, role, name).unwrap()
+        };
+        let mut forged = issue(&dm, DeviceKey::generate().public(), Role::Player, "Scanlan");
+        forged.cert.role = Role::Dm;
+        let stranger = DeviceKey::generate();
+        let devices = vec![
+            device(issue(&dm, dm.public(), Role::Dm, "DM laptop"), false),
+            device(
+                issue(
+                    &dm,
+                    DeviceKey::generate().public(),
+                    Role::Player,
+                    "Laura's phone",
+                ),
+                false,
+            ),
+            device(
+                issue(
+                    &dm,
+                    DeviceKey::generate().public(),
+                    Role::Player,
+                    "Old tablet",
+                ),
+                true,
+            ),
+            device(
+                issue(
+                    &stranger,
+                    DeviceKey::generate().public(),
+                    Role::Player,
+                    "Mystery",
+                ),
+                false,
+            ),
+            device(forged, false),
+        ];
+        (devices, dm.public())
+    }
+
+    #[test]
+    fn the_device_table_checks_every_certificate_here() {
+        let (devices, me) = campaign();
+        let table = device_table(&devices, me);
+        let row = |name: &str| {
+            table
+                .lines()
+                .find(|l| l.contains(name))
+                .unwrap_or_else(|| panic!("no {name} in:\n{table}"))
+        };
+        assert!(row("DM laptop").starts_with('*'), "this device");
+        assert!(
+            row("DM laptop").contains("DM ") && row("DM laptop").ends_with("set up with a code")
+        );
+        assert!(row("Laura's phone").ends_with("approved by DM laptop"));
+        assert!(row("Old tablet").contains("revoked"));
+        assert!(row("Mystery").ends_with("UNKNOWN ISSUER"));
+        assert!(row("Scanlan").ends_with("INVALID SIGNATURE"));
+    }
+
+    #[test]
+    fn devices_are_found_by_name_or_key_but_not_once_revoked() {
+        let (devices, me) = campaign();
+        assert_eq!(
+            find_device(&devices, "laura's PHONE").unwrap().name,
+            "Laura's phone"
+        );
+        let prefix = &me.to_string()[..6];
+        assert_eq!(find_device(&devices, prefix).unwrap().name, "DM laptop");
+        assert!(find_device(&devices, "Old tablet").is_err(), "revoked");
+        assert!(find_device(&devices, "Nobody").is_err());
+        // A prefix several share is refused rather than guessed (every key
+        // starts with nothing).
+        let refused = find_device(&devices, "").unwrap_err().to_string();
+        assert!(refused.contains("several"), "{refused}");
+    }
+}

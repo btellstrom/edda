@@ -48,9 +48,9 @@ impl From<&Claims> for Scope {
 impl Scope {
     /// A stored character as it stands under the campaign's rules: sheets
     /// saved before their slots followed the classes show the right ones.
-    fn view(&self, mut character: Character) -> Result<Character, ApiError> {
+    fn view(&self, mut character: Character) -> Character {
         character.sheet.derive_slots(self.edition);
-        Ok(character)
+        character
     }
 
     /// Whether the asker may change `character`: a DM device or a service
@@ -88,7 +88,7 @@ impl CharacterStore {
         .fetch_all(&self.pool)
         .await?;
         rows.into_iter()
-            .map(|row| scope.view(from_row(row)?))
+            .map(|row| Ok(scope.view(from_row(row)?)))
             .collect()
     }
 
@@ -112,7 +112,7 @@ impl CharacterStore {
         .bind(scope.campaign)
         .fetch_optional(&self.pool)
         .await?;
-        scope.view(row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?)
+        Ok(scope.view(row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?))
     }
 
     pub async fn create(
@@ -257,7 +257,7 @@ impl CharacterStore {
         .bind(scope.campaign)
         .fetch_optional(&self.pool)
         .await?;
-        scope.view(row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?)
+        Ok(scope.view(row.map(from_row).transpose()?.ok_or(ApiError::NotFound)?))
     }
 
     /// Deletes every character of a campaign; returns how many there were.

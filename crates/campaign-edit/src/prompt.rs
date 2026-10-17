@@ -20,6 +20,72 @@ pub struct Suggestion {
     pub detail: String,
 }
 
+/// A line split up for completing it: the words finished so far, and the
+/// one being typed.
+pub struct Typed<'l> {
+    pub done: Vec<&'l str>,
+    /// The word being typed, or "" after a space.
+    pub partial: &'l str,
+}
+
+impl<'l> Typed<'l> {
+    pub fn new(line: &'l str) -> Self {
+        let words: Vec<&str> = line.split_whitespace().collect();
+        let typing = !line.is_empty() && !line.ends_with(char::is_whitespace);
+        let (done, partial) = match (typing, words.split_last()) {
+            (true, Some((last, done))) => (done.to_vec(), *last),
+            _ => (words, ""),
+        };
+        Self { done, partial }
+    }
+
+    /// Whether what's being typed could be the start of `word` (a lower
+    /// case one: an action, a keyword).
+    pub fn could_be(&self, word: &str) -> bool {
+        word.starts_with(&self.partial.to_lowercase())
+    }
+
+    /// The line with `word` in place of the one being typed.
+    pub fn complete(&self, word: &str) -> String {
+        if self.done.is_empty() {
+            format!("{word} ")
+        } else {
+            format!("{} {word} ", self.done.join(" "))
+        }
+    }
+
+    /// `word` (shown as `label`), if what's being typed could be its start.
+    pub fn keyword(&self, word: &str, label: &str, detail: &str) -> Option<Suggestion> {
+        self.could_be(word).then(|| Suggestion {
+            line: self.complete(word),
+            label: label.into(),
+            detail: detail.into(),
+        })
+    }
+
+    /// Names (with their details) that may span several words, coming after
+    /// the first `start` finished words: offered while what's typed from
+    /// there could still be the start of one, and not once it's all typed.
+    pub fn names_from(&self, start: usize, names: Vec<(String, String)>) -> Vec<Suggestion> {
+        let mut typed: Vec<&str> = self.done.get(start..).unwrap_or_default().to_vec();
+        if !self.partial.is_empty() {
+            typed.push(self.partial);
+        }
+        let typed = typed.join(" ").to_lowercase();
+        let head = self.done[..start.min(self.done.len())].join(" ");
+        names
+            .into_iter()
+            .filter(|(name, _)| name.to_lowercase().starts_with(&typed))
+            .filter(|(name, _)| !(self.partial.is_empty() && name.eq_ignore_ascii_case(&typed)))
+            .map(|(name, detail)| Suggestion {
+                line: format!("{head} {name} "),
+                label: name,
+                detail,
+            })
+            .collect()
+    }
+}
+
 /// The line being typed, and which of its suggestions is highlighted.
 #[derive(Default)]
 pub struct Prompt {
@@ -189,6 +255,44 @@ mod tests {
         assert_eq!(prompt.selected, 0);
         press(&mut prompt, KeyCode::Up, &suggestions);
         assert_eq!(prompt.selected, 0);
+    }
+
+    #[test]
+    fn a_line_splits_into_what_is_done_and_what_is_being_typed() {
+        let typed = Typed::new("cast hunter");
+        assert_eq!(
+            (typed.done.as_slice(), typed.partial),
+            (&["cast"][..], "hunter")
+        );
+        assert_eq!(Typed::new("cast hunter ").partial, "", "after a space");
+        assert_eq!(typed.complete("Healing"), "cast Healing ");
+        assert!(typed.keyword("for", "for <rounds>", "").is_none());
+        assert!(
+            Typed::new("effect blessed f")
+                .keyword("for", "for", "")
+                .is_some()
+        );
+        let spells = || {
+            vec![
+                ("Hunter's Mark".to_string(), String::new()),
+                ("Healing Word".to_string(), String::new()),
+            ]
+        };
+        let lines = |line: &str, start| -> Vec<String> {
+            Typed::new(line)
+                .names_from(start, spells())
+                .into_iter()
+                .map(|s| s.line)
+                .collect()
+        };
+        assert_eq!(lines("cast hunter", 1), ["cast Hunter's Mark "]);
+        // Names span words: "hunter's m" is still Hunter's Mark.
+        assert_eq!(lines("cast hunter's m", 1), ["cast Hunter's Mark "]);
+        assert_eq!(lines("cast ", 1).len(), 2);
+        // Once a whole name is typed, it's not offered again.
+        assert!(lines("cast hunter's mark ", 1).is_empty());
+        // After a number and an action.
+        assert_eq!(lines("2 cast he", 2), ["2 cast Healing Word "]);
     }
 
     #[test]

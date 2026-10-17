@@ -221,16 +221,16 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
         C::Class(c) => {
             // The classes decide the spell slots; show what they come to.
             let saved = modify(client, id, |s| edit::class(s, &c)).await?;
-            updated(saved.clone());
+            updated(&saved);
             if display::slots_line(&saved.sheet).is_some() {
                 print_slots(&saved);
             }
         }
-        C::Skill(c) => updated(modify(client, id, |s| edit::skills(s, &c)).await?),
-        C::Save(c) => updated(modify(client, id, |s| edit::saves(s, &c)).await?),
-        C::Item(c) => updated(modify(client, id, |s| edit::item(s, &c)).await?),
-        C::Spell(c) => updated(modify(client, id, |s| edit::spell(s, &c)).await?),
-        C::Resource(c) => updated(modify(client, id, |s| edit::resource(s, &c)).await?),
+        C::Skill(c) => updated(&modify(client, id, |s| edit::skills(s, &c)).await?),
+        C::Save(c) => updated(&modify(client, id, |s| edit::saves(s, &c)).await?),
+        C::Item(c) => updated(&modify(client, id, |s| edit::item(s, &c)).await?),
+        C::Spell(c) => updated(&modify(client, id, |s| edit::spell(s, &c)).await?),
+        C::Resource(c) => updated(&modify(client, id, |s| edit::resource(s, &c)).await?),
 
         C::Slots(SlotsCommand::Use { level }) => {
             print_slots(&act(client, id, CharacterAction::ExpendSpellSlot { level }).await?)
@@ -304,7 +304,7 @@ async fn act(client: &Client, id: Uuid, action: CharacterAction) -> Result<Chara
     Ok(client.act(id, &action).await?)
 }
 
-fn updated(saved: Character) {
+fn updated(saved: &Character) {
     println!("Updated {} (v{})", saved.sheet.name, saved.version);
 }
 

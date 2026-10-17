@@ -610,7 +610,10 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
         vec![
             (
                 "CR".into(),
-                vec![strong(m.challenge.clone()), dim(format!(" ({} XP)", m.xp))],
+                vec![
+                    strong(m.challenge.clone()),
+                    dim(format!(" ({} XP)", m.experience_points())),
+                ],
             ),
             (
                 "Proficiency".into(),
@@ -888,6 +891,61 @@ mod tests {
                 "{section:?} isn't found"
             );
         }
+    }
+
+    fn goblin() -> campaign_types::monster::MonsterSheet {
+        serde_json::from_value(serde_json::json!({
+            "name": "Goblin Boss", "size": "Small", "type": "fey (goblinoid)",
+            "alignment": "chaotic neutral", "armor_class": 17, "hit_points": 21,
+            "hit_dice": "6d6", "speed": "30 ft.", "challenge": "1", "source": "SRD 5.2",
+            "ability_scores": { "strength": 10, "dexterity": 15, "constitution": 10,
+                                "intelligence": 10, "wisdom": 8, "charisma": 10 },
+            "traits": [{ "name": "Nimble Escape", "description": "Disengages or hides as a bonus action." }],
+            "actions": [{ "name": "Multiattack", "description": "Two scimitar attacks." },
+                        { "name": "Scimitar", "description": "Hit: 5 (1d6 + 2) Slashing damage." }],
+            "reactions": [{ "name": "Redirect Attack", "description": "Swaps places with a goblin." }]
+        }))
+        .expect("a valid stat block")
+    }
+
+    fn text(lines: &[Line<'static>]) -> String {
+        lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|s| s.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn a_stat_block_shows_what_a_fight_needs() {
+        let full = text(&monster(&goblin(), 60, Detail::Full));
+        for wanted in [
+            "Goblin Boss",
+            "Small fey (goblinoid), chaotic neutral  ·  SRD 5.2",
+            "AC 17   HP 21 (6d6, max 36)   Speed 30 ft.   Initiative +2",
+            "DEX 15 (+2)",
+            "WIS  8 (-1)",
+            // Worked out from the challenge rating, which is all it gives.
+            "CR 1 (200 XP)",
+            "── Traits",
+            "• Nimble Escape. Disengages or hides as a bonus action.",
+            "── Actions",
+            "• Scimitar. Hit: 5 (1d6 + 2) Slashing damage.",
+            "── Reactions",
+        ] {
+            assert!(full.contains(wanted), "no {wanted:?} in:\n{full}");
+        }
+        assert!(!full.contains("Bonus actions"), "no empty sections");
+        // In a panel: no name (the title has it), and wrapped to fit.
+        let panel = text(&monster(&goblin(), 40, Detail::Panel));
+        assert!(!panel.starts_with("Goblin Boss"));
+        assert!(panel.lines().all(|l| l.chars().count() <= 40), "{panel}");
+        assert!(panel.contains("  • Scimitar. Hit: 5 (1d6 + 2) Slashing\n    damage."));
     }
 
     #[test]

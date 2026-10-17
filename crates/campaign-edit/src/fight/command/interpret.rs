@@ -223,7 +223,7 @@ fn amount_verb(verb: Verb, actor: Option<&Combatant>, args: &[&str], ctx: &Conte
         [targets @ .., last] => (targets, Some(*last)),
     };
     let targets = targets(target_words, ctx);
-    let amount_value = amount.map(|a| a.parse::<u32>());
+    let amount_value = amount.map(str::parse::<u32>);
     let shown_targets = match &targets {
         Ok(ts) if !ts.is_empty() => names(ts),
         _ => "?".into(),

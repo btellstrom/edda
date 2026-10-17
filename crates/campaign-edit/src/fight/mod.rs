@@ -107,19 +107,31 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
     // The fight works without monsters, so their service being away
     // isn't fatal.
     let monster_client = login.monsters().await?;
-    let (bestiary, monster_problem) = match monster_client.list(None).await {
-        Ok(bestiary) => (bestiary, None),
-        Err(e) => (Vec::new(), Some(format!("no monsters to add: {e}"))),
+    // Nor are the descriptions (and the conditions to suggest), but each
+    // missing is said.
+    let mut problems = Vec::new();
+    let mut or_say = |what: &str, e: campaign_client::ClientError| {
+        problems.push(format!("no {what}: {e}"));
     };
-    // Nor are the descriptions.
+    let bestiary = monster_client.list(None).await.unwrap_or_else(|e| {
+        or_say("monsters to add", e);
+        Vec::new()
+    });
     let spells = monster_client
         .texts::<SpellText>(None)
         .await
-        .unwrap_or_default();
+        .unwrap_or_else(|e| {
+            or_say("spell descriptions", e);
+            Vec::new()
+        });
     let conditions = monster_client
         .texts::<ConditionText>(None)
         .await
-        .unwrap_or_default();
+        .unwrap_or_else(|e| {
+            or_say("conditions", e);
+            Vec::new()
+        });
+    let monster_problem = (!problems.is_empty()).then(|| problems.join("; "));
 
     let (incoming, mut received) = mpsc::unbounded_channel();
     let (sender, snapshot) = connect(&mut login, combat, &incoming).await?;

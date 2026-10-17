@@ -57,11 +57,10 @@ impl IntoResponse for ApiError {
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
-            ApiError::Sheet(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            ApiError::Sheet(_) | ApiError::Combat(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::SheetUnavailable(_) | ApiError::MonstersUnavailable(_) => {
                 StatusCode::BAD_GATEWAY
             }
-            ApiError::Combat(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         campaign_server::error_response(status, &self)

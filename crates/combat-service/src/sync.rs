@@ -126,7 +126,7 @@ impl SheetSync {
     pub async fn run(self: Arc<Self>, combat: Uuid) {
         loop {
             match self.sync_once(combat).await {
-                Ok(true) => continue,
+                Ok(true) => {}
                 Ok(false) => break,
                 Err(e) => {
                     tracing::warn!(%combat, error = %e, "hit point write-back failed; will retry");

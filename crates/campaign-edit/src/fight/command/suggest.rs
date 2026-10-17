@@ -3,92 +3,74 @@
 use campaign_types::{CharacterSheet, Spell, combat::Combatant};
 
 use super::{Context, VERBS, Verb, names::longest_name, verb};
-use crate::{prompt::Suggestion, session::monster_named};
+use crate::{
+    prompt::{Suggestion, Typed},
+    session::monster_named,
+};
 
 /// What could come next on `line`: actions, combatants (completed to their
 /// number), spells, features, effects or characters, depending on where the
 /// cursor is.
 pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
-    let typed = Typed::new(line, ctx);
-    if typed.done.len() <= typed.verb_at {
-        return typed.actions();
+    let line = Line::new(line, ctx);
+    if line.typed.done.len() <= line.verb_at {
+        return line.actions();
     }
-    let Some(verb) = verb(typed.done[typed.verb_at]) else {
+    let Some(verb) = verb(line.typed.done[line.verb_at]) else {
         return Vec::new();
     };
     match verb {
-        Verb::Damage | Verb::Heal | Verb::Temp | Verb::Remove => typed.targets(),
-        Verb::Init if typed.args().is_empty() => typed.targets(),
-        Verb::Effect => typed.effect(),
-        Verb::Cast => typed.cast(),
-        Verb::Use => typed.use_feature(),
-        Verb::Show => typed.show(),
-        Verb::Drop => typed.named(drop_names(ctx)),
-        Verb::Add => typed.add(),
+        Verb::Damage | Verb::Heal | Verb::Temp | Verb::Remove => line.targets(),
+        Verb::Init if line.args().is_empty() => line.targets(),
+        Verb::Effect => line.effect(),
+        Verb::Cast => line.cast(),
+        Verb::Use => line.use_feature(),
+        Verb::Show => line.show(),
+        Verb::Drop => line.named(drop_names(ctx)),
+        Verb::Add => line.add(),
         _ => Vec::new(),
     }
 }
 
-/// A line split up for completing it.
-struct Typed<'l, 'c> {
+/// A line split up for completing it, and what it's completed against.
+struct Line<'l, 'c> {
     ctx: &'l Context<'c>,
-    /// The words finished so far.
-    done: Vec<&'l str>,
-    /// The word being typed, or "" after a space.
-    partial: &'l str,
+    typed: Typed<'l>,
     /// Where the action word is: after an optional leading number.
     verb_at: usize,
 }
 
-impl<'l, 'c> Typed<'l, 'c> {
+impl<'l, 'c> Line<'l, 'c> {
     fn new(line: &'l str, ctx: &'l Context<'c>) -> Self {
-        let words: Vec<&str> = line.split_whitespace().collect();
-        let typing = !line.is_empty() && !line.ends_with(char::is_whitespace);
-        let (done, partial) = match (typing, words.split_last()) {
-            (true, Some((last, done))) => (done.to_vec(), *last),
-            _ => (words, ""),
-        };
-        let verb_at = match done.first() {
+        let typed = Typed::new(line);
+        let verb_at = match typed.done.first() {
             Some(w) if w.parse::<usize>().is_ok() => 1,
             _ => 0,
         };
         Self {
             ctx,
-            done,
-            partial,
+            typed,
             verb_at,
         }
     }
 
     /// The words after the action.
     fn args(&self) -> &[&'l str] {
-        &self.done[self.verb_at + 1..]
+        &self.typed.done[self.verb_at + 1..]
     }
 
-    /// The line with `word` in place of the one being typed.
     fn complete(&self, word: &str) -> String {
-        if self.done.is_empty() {
-            format!("{word} ")
-        } else {
-            format!("{} {word} ", self.done.join(" "))
-        }
-    }
-
-    /// `word` (shown as `label`), if what's being typed could be its start.
-    fn keyword(&self, word: &str, label: &str, detail: &str) -> Option<Suggestion> {
-        word.starts_with(&self.partial.to_lowercase())
-            .then(|| Suggestion {
-                line: self.complete(word),
-                label: label.into(),
-                detail: detail.into(),
-            })
+        self.typed.complete(word)
     }
 
     /// Who acts: the line's leading number, or whoever has the turn.
     fn actor_sheet(&self) -> Option<&'l CharacterSheet> {
         let ctx = self.ctx;
         let actor = match self.verb_at {
-            1 => self.done[0].parse().ok().and_then(|n| ctx.numbered(n)),
+            1 => self.typed.done[0]
+                .parse()
+                .ok()
+                .and_then(|n| ctx.numbered(n)),
             _ => ctx.state.current_turn.and_then(|id| ctx.by_id(id)),
         };
         actor.and_then(|a| ctx.sheet(a))
@@ -98,27 +80,29 @@ impl<'l, 'c> Typed<'l, 'c> {
     fn actions(&self) -> Vec<Suggestion> {
         let mut out: Vec<Suggestion> = VERBS
             .iter()
-            .filter(|(_, name, ..)| name.starts_with(&self.partial.to_lowercase()))
+            .filter(|(_, name, ..)| self.typed.could_be(name))
             .map(|(_, name, args, about)| Suggestion {
                 line: self.complete(name),
                 label: format!("{name} {args}").trim_end().to_string(),
                 detail: about.to_string(),
             })
             .collect();
-        if self.done.is_empty() && !self.partial.is_empty() {
+        if self.typed.done.is_empty() && !self.typed.partial.is_empty() {
             // Starting with someone's name picks who acts.
-            out.extend(combatants(self.ctx, self.partial).map(|(n, c)| Suggestion {
-                line: format!("{n} "),
-                label: format!("{n} {}", c.name),
-                detail: "acts".into(),
-            }));
+            out.extend(
+                combatants(self.ctx, self.typed.partial).map(|(n, c)| Suggestion {
+                    line: format!("{n} "),
+                    label: format!("{n} {}", c.name),
+                    detail: "acts".into(),
+                }),
+            );
         }
         out
     }
 
     /// Combatants, completed to their number.
     fn targets(&self) -> Vec<Suggestion> {
-        combatants(self.ctx, self.partial)
+        combatants(self.ctx, self.typed.partial)
             .map(|(n, c)| Suggestion {
                 line: self.complete(&n.to_string()),
                 label: format!("{n} {}", c.name),
@@ -127,31 +111,14 @@ impl<'l, 'c> Typed<'l, 'c> {
             .collect()
     }
 
-    /// Names that may span several words: offered while what's typed after
-    /// the action could still be the start of one.
+    /// Names that may span several words, right after the action.
     fn named(&self, names: Vec<(String, String)>) -> Vec<Suggestion> {
         self.named_after(0, names)
     }
 
-    /// Names, as [`Self::named`], that come `skip` words after the action
-    /// (after a count).
+    /// Names that come `skip` words after the action (after a count).
     fn named_after(&self, skip: usize, names: Vec<(String, String)>) -> Vec<Suggestion> {
-        let mut typed: Vec<&str> = self.args()[skip..].to_vec();
-        if !self.partial.is_empty() {
-            typed.push(self.partial);
-        }
-        let typed = typed.join(" ").to_lowercase();
-        let head = self.done[..=self.verb_at + skip].join(" ");
-        names
-            .into_iter()
-            .filter(|(name, _)| name.to_lowercase().starts_with(&typed))
-            .filter(|(name, _)| !(self.partial.is_empty() && name.eq_ignore_ascii_case(&typed)))
-            .map(|(name, detail)| Suggestion {
-                line: format!("{head} {name} "),
-                label: name,
-                detail,
-            })
-            .collect()
+        self.typed.names_from(self.verb_at + 1 + skip, names)
     }
 
     /// First the effect's name, then whom it's on. Once there's a name,
@@ -170,7 +137,7 @@ impl<'l, 'c> Typed<'l, 'c> {
         if !args.iter().any(|w| w.parse::<usize>().is_ok()) {
             out.extend(self.named(effect_names(self.ctx)));
         }
-        out.extend(self.keyword(
+        out.extend(self.typed.keyword(
             "for",
             "for <rounds>",
             "how long it lasts; leave out for until removed",
@@ -185,7 +152,7 @@ impl<'l, 'c> Typed<'l, 'c> {
         };
         let spells = &sheet.spellcasting.spells;
         match longest_name(self.args(), spells.iter().map(|s| s.name.as_str())) {
-            Some(_) if !self.partial.eq_ignore_ascii_case("at") => self.targets(),
+            Some(_) if !self.typed.partial.eq_ignore_ascii_case("at") => self.targets(),
             Some(_) => Vec::new(),
             None => self.named(
                 spells
@@ -236,6 +203,7 @@ impl<'l, 'c> Typed<'l, 'c> {
         let skip = usize::from(counted);
         if monster_named(ctx.bestiary, &args[skip..].join(" ")).is_some() {
             return self
+                .typed
                 .keyword(
                     "roll",
                     "roll",

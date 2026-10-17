@@ -219,3 +219,166 @@ pub fn describe(event: &CombatEvent, names: &Names) -> String {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use campaign_types::combat::{Combatant, Concealer, Effect, Expiry};
+    use chrono::Utc;
+
+    use super::*;
+
+    fn logged(seq: u64, command: Option<Uuid>, event: CombatEvent) -> LoggedEvent {
+        LoggedEvent {
+            seq,
+            command_id: command,
+            actor: None,
+            at: Utc::now(),
+            event,
+        }
+    }
+
+    fn hp(current: u16, max: u16) -> HitPoints {
+        HitPoints {
+            max,
+            current,
+            temporary: 0,
+        }
+    }
+
+    /// Vex (a character) and a goblin, as the DM's log would read them, or
+    /// a player's, with the goblin concealed.
+    fn fight(as_player: bool) -> Vec<String> {
+        let mut vex = Combatant::new("Vex", 30);
+        vex.character_id = Some(Uuid::new_v4());
+        let goblin = Combatant::new("Goblin", 12);
+        let (marked, cast) = (Uuid::new_v4(), Uuid::new_v4());
+        let events = [
+            CombatEvent::CombatantAdded {
+                combatant: vex.clone(),
+            },
+            CombatEvent::CombatantAdded {
+                combatant: goblin.clone(),
+            },
+            CombatEvent::InitiativeRolled {
+                combatant: vex.id,
+                roll: 14,
+                modifier: 3,
+                total: 17,
+            },
+            CombatEvent::TurnStarted { combatant: vex.id },
+            CombatEvent::SpellCast {
+                caster: vex.id,
+                spell: "Hunter's Mark".into(),
+                slot: Some(SpellSlot::Level(1)),
+                targets: vec![goblin.id],
+            },
+            CombatEvent::EffectAdded {
+                effect: Effect {
+                    id: marked,
+                    name: "Hunter's Mark".into(),
+                    source: Some(vex.id),
+                    targets: vec![goblin.id],
+                    concentration: true,
+                    expires: None,
+                },
+            },
+            CombatEvent::Damaged {
+                combatant: goblin.id,
+                amount: 7,
+                hit_points: hp(5, 12),
+            },
+            CombatEvent::FeatureUsed {
+                combatant: vex.id,
+                feature: "Favored Foe".into(),
+                amount: 2,
+            },
+            CombatEvent::EffectAdded {
+                effect: Effect {
+                    id: Uuid::new_v4(),
+                    name: "Prone".into(),
+                    source: None,
+                    targets: vec![goblin.id],
+                    concentration: false,
+                    expires: Some(Expiry {
+                        round: 2,
+                        at_turn_of: Some(vex.id),
+                    }),
+                },
+            },
+            CombatEvent::EffectEnded {
+                effect: marked,
+                reason: EffectEndReason::ConcentrationBroken,
+            },
+            CombatEvent::Damaged {
+                combatant: goblin.id,
+                amount: 5,
+                hit_points: hp(0, 12),
+            },
+            CombatEvent::CombatantRemoved {
+                combatant: goblin.id,
+            },
+            CombatEvent::Undone { command: cast },
+            CombatEvent::CombatantRestored {
+                combatant: Combatant {
+                    hit_points: hp(5, 12),
+                    ..goblin
+                },
+            },
+            CombatEvent::Ended,
+        ];
+        // The removal and its undo are one command.
+        let log: Vec<LoggedEvent> = events
+            .into_iter()
+            .zip(1..)
+            .map(|(event, seq)| {
+                let command = matches!(event, CombatEvent::CombatantRemoved { .. }).then_some(cast);
+                logged(seq, command, event)
+            })
+            .collect();
+        let log: Vec<LoggedEvent> = if as_player {
+            let mut concealer = Concealer::new(&Default::default());
+            log.iter().map(|e| concealer.event(e)).collect()
+        } else {
+            log
+        };
+        let names = Names::of(&log);
+        log.iter()
+            .map(|e| describe_in(&e.event, &log, &names))
+            .collect()
+    }
+
+    #[test]
+    fn the_log_reads_as_what_happened() {
+        assert_eq!(
+            fight(false),
+            [
+                "Vex joins (30/30 HP)",
+                "Goblin joins (12/12 HP)",
+                "Vex rolls 14+3 = 17 for initiative",
+                "Vex's turn",
+                "Vex casts Hunter's Mark on Goblin (1st level)",
+                "  Vex concentrates on Hunter's Mark",
+                "Goblin takes 7 damage (5/12)",
+                "Vex uses Favored Foe ×2",
+                "Prone on Goblin until Vex's turn, round 2",
+                "Hunter's Mark ends (concentration broken)",
+                "Goblin takes 5 damage (0/12, down)",
+                // Named after leaving, too.
+                "Goblin leaves",
+                "Undo: Goblin leaves",
+                "  Goblin back to 5/12 HP",
+                "The combat ends",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_player_reads_how_hurt_a_monster_looks_not_its_numbers() {
+        let log = fight(true);
+        assert_eq!(log[0], "Vex joins (30/30 HP)", "the party's own numbers");
+        assert_eq!(log[1], "Goblin joins");
+        assert_eq!(log[6], "Goblin takes 7 damage (bloodied)");
+        assert_eq!(log[10], "Goblin takes 5 damage (down)");
+        assert_eq!(log[13], "  Goblin back, looking bloodied");
+    }
+}

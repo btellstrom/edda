@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CharacterSheet, resources::RestKind};
+use crate::{CharacterSheet, Pool, resources::RestKind};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -152,7 +152,7 @@ impl CharacterSheet {
             pact.slots.reset();
         }
         if kind == RestKind::Long {
-            self.spellcasting.slots.values_mut().for_each(|s| s.reset());
+            self.spellcasting.slots.values_mut().for_each(Pool::reset);
             self.hit_points.current = self.hit_points.max;
         }
     }

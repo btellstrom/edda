@@ -10,7 +10,7 @@ use campaign_types::{
 use uuid::Uuid;
 
 use crate::{
-    prompt::Suggestion,
+    prompt::{Suggestion, Typed},
     session::{find_plan, monster_named},
 };
 
@@ -389,19 +389,13 @@ fn fight(plan: &EncounterPlan) -> Edited {
 
 /// What could come next on `line`.
 pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
-    let words: Vec<&str> = line.split_whitespace().collect();
-    let typing = !line.is_empty() && !line.ends_with(char::is_whitespace);
-    let (done, partial) = match (typing, words.split_last()) {
-        (true, Some((last, done))) => (done, *last),
-        _ => (&words[..], ""),
-    };
-    let lower = partial.to_lowercase();
-    let Some((&first, args)) = done.split_first() else {
+    let typed = Typed::new(line);
+    let Some((&first, args)) = typed.done.split_first() else {
         return VERBS
             .iter()
-            .filter(|(name, ..)| name.starts_with(&lower))
+            .filter(|(name, ..)| typed.could_be(name))
             .map(|(name, args, about)| Suggestion {
-                line: format!("{name} "),
+                line: typed.complete(name),
                 label: format!("{name} {args}").trim_end().to_string(),
                 detail: about.to_string(),
             })
@@ -410,25 +404,8 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
     let Some(verb) = verb(first) else {
         return Vec::new();
     };
-    // Names after `skip` of the arguments, which may span several words.
-    let named = |skip: usize, names: Vec<(String, String)>| -> Vec<Suggestion> {
-        let mut typed: Vec<&str> = args[skip..].to_vec();
-        if !partial.is_empty() {
-            typed.push(partial);
-        }
-        let typed = typed.join(" ").to_lowercase();
-        let head = done[..=skip].join(" ");
-        names
-            .into_iter()
-            .filter(|(name, _)| name.to_lowercase().starts_with(&typed))
-            .filter(|(name, _)| !(partial.is_empty() && name.eq_ignore_ascii_case(&typed)))
-            .map(|(name, detail)| Suggestion {
-                line: format!("{head} {name} "),
-                label: name,
-                detail,
-            })
-            .collect()
-    };
+    // Names after the action and `skip` of its arguments.
+    let named = |skip: usize, names| typed.names_from(1 + skip, names);
     let entries = || -> Vec<Suggestion> {
         let Some(open) = ctx.current else {
             return Vec::new();
@@ -438,9 +415,9 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
             .iter()
             .enumerate()
             .map(|(i, m)| (i + 1, m))
-            .filter(|(n, _)| n.to_string().starts_with(&lower))
+            .filter(|(n, _)| typed.could_be(&n.to_string()))
             .map(|(n, m)| Suggestion {
-                line: format!("{first} {n} "),
+                line: typed.complete(&n.to_string()),
                 label: format!("{n} {}", m.name),
                 detail: format!("{} of them", m.count),
             })
@@ -462,15 +439,14 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
             let counted = args.first().is_some_and(|w| w.parse::<u16>().is_ok());
             let skip = usize::from(counted);
             if monster_named(ctx.bestiary, &args[skip..].join(" ")).is_some() {
-                return if "roll".starts_with(&lower) {
-                    vec![Suggestion {
-                        line: format!("{} roll ", done.join(" ")),
-                        label: "roll".into(),
-                        detail: "roll their hit points when the fight starts".into(),
-                    }]
-                } else {
-                    Vec::new()
-                };
+                return typed
+                    .keyword(
+                        "roll",
+                        "roll",
+                        "roll their hit points when the fight starts",
+                    )
+                    .into_iter()
+                    .collect();
             }
             named(
                 skip,

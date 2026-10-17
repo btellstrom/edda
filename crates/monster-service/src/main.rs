@@ -152,3 +152,21 @@ async fn serve(pool: sqlx::PgPool, bind: &str) -> Result<(), Box<dyn std::error:
     let app = monster_service::app(pool, verifier, limits.clone());
     campaign_server::serve(app, bind, "monster service", &limits).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_holds_a_list_or_just_one() {
+        let many: Vec<MonsterSheet> =
+            parse(r#"[{"name": "Goblin", "hit_points": 7}, {"name": "Orc", "hit_points": 15}]"#)
+                .unwrap();
+        assert_eq!(many.len(), 2);
+        let one: Vec<SpellText> = parse(r#"{"name": "Firebolt", "level": 0}"#).unwrap();
+        assert_eq!(one[0].name, "Firebolt");
+        assert!(parse::<MonsterSheet>("not json").is_err());
+        // A list with a broken entry is refused, not half imported.
+        assert!(parse::<MonsterSheet>(r#"[{"name": 7}]"#).is_err());
+    }
+}

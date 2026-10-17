@@ -40,11 +40,10 @@ impl IntoResponse for ApiError {
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
             ApiError::PreconditionRequired => StatusCode::PRECONDITION_REQUIRED,
             ApiError::VersionMismatch(_) => StatusCode::PRECONDITION_FAILED,
-            ApiError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,
             // Out of slots/uses is a conflict with the character's current
             // state; anything else means the request itself was wrong.
             ApiError::Action(e) if e.is_exhausted() => StatusCode::CONFLICT,
-            ApiError::Action(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            ApiError::Validation(_) | ApiError::Action(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Database(_) | ApiError::Corrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let message = campaign_server::error_message(status, &self);
