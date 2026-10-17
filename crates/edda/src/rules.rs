@@ -45,7 +45,7 @@ impl Shown for ConditionText {
 pub async fn run<T: Shown>(client: &MonsterClient, command: TextCommand) -> Result<()> {
     match command {
         TextCommand::List(search) => {
-            println!("{}", T::list(&client.texts::<T>(search.as_deref()).await?));
+            say!("{}", T::list(&client.texts::<T>(search.as_deref()).await?));
         }
         TextCommand::Show(name) => {
             let entry = find::<T>(client, &name).await?;
@@ -54,12 +54,12 @@ pub async fn run<T: Shown>(client: &MonsterClient, command: TextCommand) -> Resu
         TextCommand::Add(file) => {
             for text in read::<T>(&file)? {
                 let added = client.create_text(&text).await?;
-                println!("Added {} to the campaign", added.text.name());
+                say!("Added {} to the campaign", added.text.name());
             }
         }
         TextCommand::Export(name) => {
             let entry = find::<T>(client, &name).await?;
-            println!("{}", serde_json::to_string_pretty(&entry.text)?);
+            say!("{}", serde_json::to_string_pretty(&entry.text)?);
         }
         TextCommand::Delete { name, yes } => {
             let entry = find::<T>(client, &name).await?;
@@ -71,7 +71,7 @@ pub async fn run<T: Shown>(client: &MonsterClient, command: TextCommand) -> Resu
                 bail!("not deleted (pass --yes to skip the prompt)");
             }
             client.delete_text::<T>(entry.id).await?;
-            println!("Deleted {name}");
+            say!("Deleted {name}");
         }
     }
     Ok(())

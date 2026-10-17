@@ -18,7 +18,7 @@ pub async fn run(client: &MonsterClient, command: MonsterCommand) -> Result<()> 
     match command {
         MonsterCommand::List { search } => {
             let monsters = client.list(search.as_deref()).await?;
-            println!("{}", display::monster_list(&monsters));
+            say!("{}", display::monster_list(&monsters));
         }
         MonsterCommand::Show { monster } => {
             let monster = find(client, &monster).await?;
@@ -31,18 +31,18 @@ pub async fn run(client: &MonsterClient, command: MonsterCommand) -> Result<()> 
         MonsterCommand::Add { file } => {
             for sheet in read(&file)? {
                 let added = client.create(&sheet).await?;
-                println!("Added {} to the campaign", added.sheet.name);
+                say!("Added {} to the campaign", added.sheet.name);
             }
         }
         MonsterCommand::Export { monster } => {
             let monster = find(client, &monster).await?;
-            println!("{}", serde_json::to_string_pretty(&monster.sheet)?);
+            say!("{}", serde_json::to_string_pretty(&monster.sheet)?);
         }
         MonsterCommand::Edit { monster } => {
             let monster = find(client, &monster).await?;
             match edit(client, monster).await? {
-                Some(saved) => println!("Saved {} (v{})", saved.sheet.name, saved.version),
-                None => println!("No changes."),
+                Some(saved) => say!("Saved {} (v{})", saved.sheet.name, saved.version),
+                None => say!("No changes."),
             }
         }
         MonsterCommand::Delete { monster, yes } => {
@@ -58,7 +58,7 @@ pub async fn run(client: &MonsterClient, command: MonsterCommand) -> Result<()> 
                 bail!("not deleted (pass --yes to skip the prompt)");
             }
             client.delete(monster.id).await?;
-            println!("Deleted {name}");
+            say!("Deleted {name}");
         }
     }
     Ok(())

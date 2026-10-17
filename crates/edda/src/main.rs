@@ -2,6 +2,9 @@
 //! character sheets, and opens full-screen views for fights and for
 //! planning them. See docs/using-edda.md.
 
+#[macro_use]
+mod out;
+
 mod auth;
 mod cli;
 mod complete;
@@ -102,7 +105,7 @@ async fn run(cli: Cli) -> Result<()> {
         | TopCommand::Condition(_) => {
             unreachable!("handled above")
         }
-        TopCommand::List => println!("{}", display::list(&client.list().await?)),
+        TopCommand::List => say!("{}", display::list(&client.list().await?)),
         TopCommand::New(args) => {
             let sheet = CharacterSheet {
                 name: args.name,
@@ -112,7 +115,7 @@ async fn run(cli: Cli) -> Result<()> {
                 ..Default::default()
             };
             let created = client.create(&sheet).await?;
-            println!(
+            say!(
                 "Created {} ({})",
                 created.sheet.name,
                 parse::short_id(created.id)
@@ -139,7 +142,7 @@ async fn import(client: &Client, files: &[std::path::PathBuf]) -> Result<()> {
             editor::parse_sheets(&text).with_context(|| format!("in {}", file.display()))?;
         for sheet in sheets {
             if taken.contains(&sheet.name.to_lowercase()) {
-                println!(
+                say!(
                     "Skipped {}: there's already a character by that name",
                     sheet.name
                 );
@@ -147,7 +150,7 @@ async fn import(client: &Client, files: &[std::path::PathBuf]) -> Result<()> {
             }
             let created = client.create(&sheet).await?;
             taken.push(created.sheet.name.to_lowercase());
-            println!(
+            say!(
                 "Created {} ({})",
                 created.sheet.name,
                 parse::short_id(created.id)
@@ -163,16 +166,16 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
     let (id, command) = character_command(client, &args).await?;
     match command {
         C::Show { json } => show(client, id, json).await?,
-        C::Get { field } => println!("{}", edit::get_field(&client.get(id).await?.sheet, field)),
+        C::Get { field } => say!("{}", edit::get_field(&client.get(id).await?.sheet, field)),
         C::Set { field, value } => {
             let saved = modify(client, id, |s| edit::set_field(s, field, &value)).await?;
             let name = field.to_possible_value().expect("no skipped fields");
             let shown = edit::get_field(&saved.sheet, field);
-            println!("{}: {} = {shown}", saved.sheet.name, name.get_name());
+            say!("{}: {} = {shown}", saved.sheet.name, name.get_name());
         }
         C::Edit => match editor::edit(client, client.get(id).await?).await? {
-            Some(saved) => println!("Saved {} (v{})", saved.sheet.name, saved.version),
-            None => println!("No changes."),
+            Some(saved) => say!("Saved {} (v{})", saved.sheet.name, saved.version),
+            None => say!("No changes."),
         },
         C::Delete { yes } => {
             let name = client.get(id).await?.sheet.name;
@@ -180,7 +183,7 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
                 bail!("not deleted (pass --yes to skip the prompt)");
             }
             client.delete(id).await?;
-            println!("Deleted {name}");
+            say!("Deleted {name}");
         }
 
         C::Owners { change } => auth::owners(client, id, change).await?,
@@ -272,7 +275,7 @@ async fn character_command(client: &Client, args: &[String]) -> Result<(Uuid, Ch
 async fn show(client: &Client, id: Uuid, json: bool) -> Result<()> {
     let character = client.get(id).await?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&character)?);
+        say!("{}", serde_json::to_string_pretty(&character)?);
     } else {
         styled::print(&display::sheet(
             &character,
@@ -302,9 +305,9 @@ async fn cast(
     let found = saved.sheet.spellcasting.find_spell(&spell);
     let name = found.map_or(spell.as_str(), |s| s.name.as_str());
     if ritual || found.is_some_and(|s| s.level == 0) {
-        println!("Cast {name} (no slot used)");
+        say!("Cast {name} (no slot used)");
     } else {
-        println!("Cast {name}");
+        say!("Cast {name}");
         print_slots(&saved);
     }
     Ok(())
@@ -314,8 +317,8 @@ async fn cast(
 async fn rest(client: &Client, id: Uuid, kind: cli::RestArg) -> Result<()> {
     let saved = act(client, id, CharacterAction::Rest { kind: kind.into() }).await?;
     let label = format!("{kind:?}").to_lowercase();
-    println!("{} takes a {label} rest.\n", saved.sheet.name);
-    println!("{}", display::status(&saved.sheet));
+    say!("{} takes a {label} rest.\n", saved.sheet.name);
+    say!("{}", display::status(&saved.sheet));
     Ok(())
 }
 
@@ -334,7 +337,7 @@ async fn act(client: &Client, id: Uuid, action: CharacterAction) -> Result<Chara
 }
 
 fn updated(saved: &Character) {
-    println!("Updated {} (v{})", saved.sheet.name, saved.version);
+    say!("Updated {} (v{})", saved.sheet.name, saved.version);
 }
 
 fn print_resource(saved: &Character, name: &str) {
@@ -344,13 +347,13 @@ fn print_resource(saved: &Character, name: &str) {
         .iter()
         .find(|r| r.name.eq_ignore_ascii_case(name))
     {
-        println!("{}  {}", r.name, display::pool(r.uses));
+        say!("{}  {}", r.name, display::pool(r.uses));
     }
 }
 
 fn print_slots(saved: &Character) {
     match display::slots_line(&saved.sheet) {
-        Some(slots) => println!("Slots  {slots}"),
-        None => println!("{} has no spell slots", saved.sheet.name),
+        Some(slots) => say!("Slots  {slots}"),
+        None => say!("{} has no spell slots", saved.sheet.name),
     }
 }

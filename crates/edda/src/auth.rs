@@ -22,16 +22,17 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
         AuthCommand::Status => status(&identity).await,
         AuthCommand::Campaigns => {
             match identity.profiles()?.as_slice() {
-                [] => println!("This device isn't in any campaign yet."),
-                _ => print!("{}", campaign_list(&identity)?),
+                [] => say!("This device isn't in any campaign yet."),
+                _ => say!("{}", campaign_list(&identity)?.trim_end()),
             }
             Ok(())
         }
         AuthCommand::Use { campaign } => {
             let profile = identity.select(&campaign)?;
-            println!(
+            say!(
                 "Now using {} ({}).",
-                profile.campaign.name, profile.campaign.id
+                profile.campaign.name,
+                profile.campaign.id
             );
             Ok(())
         }
@@ -39,7 +40,7 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
         AuthCommand::Invite { dm, yes } => invite(&identity, auth_server, dm, yes).await,
         AuthCommand::Pair { code, name } => pair(&identity, auth_server, &code, &name).await,
         AuthCommand::Key => {
-            println!("{}", identity.key()?.public());
+            say!("{}", identity.key()?.public());
             eprintln!("\nGive this to your DM. Once they've approved it, run:");
             eprintln!("  edda auth join <CAMPAIGN ID>");
             Ok(())
@@ -53,9 +54,9 @@ pub async fn run(command: AuthCommand, auth_server: &str) -> Result<()> {
         } => approve(&identity, public_key, &name, dm).await,
         AuthCommand::Devices => {
             let (_, session, auth) = logged_in(&identity).await?;
-            print!(
+            say!(
                 "{}",
-                device_table(&auth.devices().await?, session.claims.key)
+                device_table(&auth.devices().await?, session.claims.key).trim_end()
             );
             Ok(())
         }
@@ -72,29 +73,30 @@ async fn logged_in(identity: &Identity) -> Result<(Profile, Session, AuthClient)
 
 async fn status(identity: &Identity) -> Result<()> {
     match identity.profile()? {
-        None if !identity.profiles()?.is_empty() => println!(
+        None if !identity.profiles()?.is_empty() => say!(
             "No campaign chosen. Pick one with: edda auth use <CAMPAIGN>\n{}",
             campaign_list(identity)?
         ),
-        None => println!(
+        None => say!(
             "Not in a campaign. This device's key: {}",
             identity.key()?.public()
         ),
         Some(_) => {
             let (profile, session) = identity.login().await?;
             let claims = session.claims;
-            println!(
+            say!(
                 "Campaign  {} ({})",
-                profile.campaign.name, profile.campaign.id
+                profile.campaign.name,
+                profile.campaign.id
             );
             let others = identity.profiles()?.len().saturating_sub(1);
             if others > 0 {
-                println!("          and {others} more: edda auth campaigns");
+                say!("          and {others} more: edda auth campaigns");
             }
-            println!("Rules     {}", claims.edition);
-            println!("Device    {} ({:?})", claims.name, claims.role);
-            println!("Key       {}", claims.key);
-            println!("Server    {}", profile.auth_server);
+            say!("Rules     {}", claims.edition);
+            say!("Device    {} ({:?})", claims.name, claims.role);
+            say!("Key       {}", claims.key);
+            say!("Server    {}", profile.auth_server);
         }
     }
     Ok(())
@@ -102,12 +104,13 @@ async fn status(identity: &Identity) -> Result<()> {
 
 fn forget(identity: &Identity, campaign: &str) -> Result<()> {
     let (profile, was_current) = identity.forget(campaign)?;
-    println!(
+    say!(
         "Forgot {} ({}) on this device.",
-        profile.campaign.name, profile.campaign.id
+        profile.campaign.name,
+        profile.campaign.id
     );
     if was_current && !identity.profiles()?.is_empty() {
-        println!("Pick another with: edda auth use <CAMPAIGN>");
+        say!("Pick another with: edda auth use <CAMPAIGN>");
     }
     Ok(())
 }
@@ -127,10 +130,10 @@ async fn invite(identity: &Identity, auth_server: &str, dm: bool, yes: bool) -> 
     let role = if dm { Role::Dm } else { Role::Player };
     let invitation = host.invite(role).await?;
     let code = &invitation.code;
-    println!("Pairing code (works once, for 10 minutes):\n\n    {code}\n");
-    println!("On the new device:");
-    println!("  edda auth pair {code} --name \"<device name>\" --auth-server {address}\n");
-    println!("Waiting for it to join… (Ctrl-C to give up)");
+    say!("Pairing code (works once, for 10 minutes):\n\n    {code}\n");
+    say!("On the new device:");
+    say!("  edda auth pair {code} --name \"<device name>\" --auth-server {address}\n");
+    say!("Waiting for it to join… (Ctrl-C to give up)");
     let role_name = role_name(role);
     let device = pairing::host(
         &host,
@@ -149,7 +152,7 @@ async fn invite(identity: &Identity, auth_server: &str, dm: bool, yes: bool) -> 
     )
     .await?;
     let cert = &device.cert.cert;
-    println!(
+    say!(
         "{} ({}) has joined as {role_name}.",
         cert.name,
         cert.device.fingerprint()
@@ -162,7 +165,7 @@ async fn pair(identity: &Identity, auth_server: &str, code: &str, name: &str) ->
     let code: PairingCode = code.parse()?;
     let auth = AuthClient::new(auth_server);
     let key = identity.key()?;
-    println!("Pairing… (your DM may need to approve)");
+    say!("Pairing… (your DM may need to approve)");
     let joined = pairing::join(&auth, &code, &key, name).await?;
     identity.save_profile(&Profile {
         auth_server: auth_server.to_string(),
@@ -170,7 +173,7 @@ async fn pair(identity: &Identity, auth_server: &str, code: &str, name: &str) ->
         campaign: joined.campaign.clone(),
     })?;
     let (_, session) = identity.login().await?;
-    println!(
+    say!(
         "Joined {} as {} ({}, key {}).",
         joined.campaign.name,
         session.claims.name,
@@ -190,11 +193,12 @@ async fn setup(identity: &Identity, auth_server: &str, code: &str, name: &str) -
         server_key,
         campaign: campaign.clone(),
     })?;
-    println!(
+    say!(
         "This device is now DM of {} ({}).",
-        campaign.name, campaign.id
+        campaign.name,
+        campaign.id
     );
-    println!("Add players with:  edda auth invite");
+    say!("Add players with:  edda auth invite");
     switched_hint(identity)
 }
 
@@ -212,7 +216,7 @@ async fn join(identity: &Identity, auth_server: &str, campaign: Uuid) -> Result<
         server_key,
         campaign: campaign.clone(),
     })?;
-    println!("Joined {} as {}.", campaign.name, session.claims.name);
+    say!("Joined {} as {}.", campaign.name, session.claims.name);
     switched_hint(identity)
 }
 
@@ -229,11 +233,12 @@ async fn approve(identity: &Identity, public_key: PublicKey, name: &str, dm: boo
         name,
     )?;
     auth.add_device(&cert).await?;
-    println!("Approved {name} ({}).", public_key.fingerprint());
-    println!("They can now run:");
-    println!(
+    say!("Approved {name} ({}).", public_key.fingerprint());
+    say!("They can now run:");
+    say!(
         "  edda auth join {} --auth-server {}",
-        profile.campaign.id, profile.auth_server
+        profile.campaign.id,
+        profile.auth_server
     );
     Ok(())
 }
@@ -243,7 +248,7 @@ async fn revoke(identity: &Identity, device: &str) -> Result<()> {
     let devices = auth.devices().await?;
     let target = find_device(&devices, device)?;
     let revoked = auth.revoke(target.device).await?;
-    println!(
+    say!(
         "Revoked {} ({}).",
         revoked.cert.cert.name,
         target.device.fingerprint()
@@ -285,11 +290,11 @@ pub async fn owners(
     }
     let name = &current.sheet.name;
     if current.owners.is_empty() {
-        println!("Nobody plays {name} yet; only DM devices change them.");
-        println!("Let a player's device play them with: edda {name} owners add <DEVICE>");
+        say!("Nobody plays {name} yet; only DM devices change them.");
+        say!("Let a player's device play them with: edda {name} owners add <DEVICE>");
         return Ok(());
     }
-    println!("{name} is played by:");
+    say!("{name} is played by:");
     for owner in &current.owners {
         let named = devices
             .iter()
@@ -297,7 +302,7 @@ pub async fn owners(
             .map_or("(a device no longer in the campaign)", |d| {
                 d.cert.cert.name.as_str()
             });
-        println!("  {}  {named}", &owner[..8.min(owner.len())]);
+        say!("  {}  {named}", &owner[..8.min(owner.len())]);
     }
     Ok(())
 }
@@ -305,7 +310,7 @@ pub async fn owners(
 /// After joining: the new campaign is now in use; say how to get back.
 fn switched_hint(identity: &Identity) -> Result<()> {
     if identity.profiles()?.len() > 1 {
-        println!("It's now the campaign in use; switch with: edda auth use <CAMPAIGN>");
+        say!("It's now the campaign in use; switch with: edda auth use <CAMPAIGN>");
     }
     Ok(())
 }

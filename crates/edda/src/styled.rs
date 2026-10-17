@@ -307,7 +307,7 @@ pub fn print_width() -> usize {
 /// Prints lines, in colour on a terminal (unless `NO_COLOR` is set).
 pub fn print(lines: &[Line<'static>]) {
     let colour = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-    println!("{}", render(lines, colour));
+    say!("{}", render(lines, colour));
 }
 
 /// The lines as text, with ANSI colours or without.
