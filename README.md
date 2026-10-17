@@ -549,7 +549,10 @@ reach the stack `make up` runs, its databases, or this machine's
   `.claude/hooks/guard.py`, that blocks shell commands which would reach
   the real stack: `campaign-edit` outside the sandbox, its containers and
   ports, compose without an isolated project, `make up`/`down`/`install`,
-  and the like. `make check` and CI run its self-test.
+  and the like. It reads a command as the shell does, so `campaign-edit`
+  in a grep pattern or a commit message is just text, while one run
+  through `bash -c`, `$( )`, tmux, ssh or a variable still counts. `make
+  check` and CI run its self-test.
 
 The Rust version is pinned in `rust-toolchain.toml` (the Dockerfile's), and
 the lints in the workspace `Cargo.toml` and `clippy.toml`: no `unsafe`, no

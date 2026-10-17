@@ -9,3 +9,4 @@
 /data/conditions/*.json
 # Your own characters to `campaign-edit import`.
 /data/characters/
+__pycache__/
