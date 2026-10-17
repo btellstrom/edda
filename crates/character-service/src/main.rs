@@ -1,5 +1,5 @@
 //! `character-service`: serves the character service, and the admin's
-//! commands (`delete-campaign`, `import-sqlite`).
+//! command, `delete-campaign`.
 
 use std::env;
 
@@ -22,24 +22,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .delete_campaign(campaign)
             .await?;
         println!("Deleted {deleted} character(s) of campaign {campaign}");
-        return Ok(());
-    }
-    // `character-service import-sqlite <FILE>` brings the characters over
-    // from the SQLite database the service used to keep (make
-    // migrate-sqlite).
-    if let [command, file] = args.as_slice()
-        && command == "import-sqlite"
-    {
-        let pool = character_service::connect(&database_url).await?;
-        let imported =
-            character_service::sqlite::import_sqlite(&pool, std::path::Path::new(file)).await?;
-        println!("Imported {} character(s) from {file}", imported.characters);
-        if imported.without_campaign > 0 {
-            println!(
-                "Left behind {} from before campaigns, which no campaign could see",
-                imported.without_campaign
-            );
-        }
         return Ok(());
     }
     let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_string());

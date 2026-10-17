@@ -6,7 +6,6 @@
 pub mod error;
 /// The HTTP routes.
 pub mod routes;
-pub mod sqlite;
 /// Characters in Postgres.
 pub mod store;
 

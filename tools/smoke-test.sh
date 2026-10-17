@@ -3,9 +3,8 @@
 # whole compose stack as a separate project (its own image, volumes and
 # ports, so a running stack is left alone), seeds it, and drives
 # edda through setting up a campaign, importing characters and
-# looking things up, directly and through the HTTPS proxy. Upgrades data
-# from SQLite the way an old stack would have it, backs it all up, loses a
-# character and restores it. Deletes all of it afterwards, pass or fail.
+# looking things up, directly and through the HTTPS proxy. Backs it all
+# up, loses a character and restores it. Deletes all of it afterwards, pass or fail.
 #
 #   tools/smoke-test.sh            (CONTAINER=docker for Docker)
 #
@@ -80,41 +79,6 @@ done
 step "Setting up a campaign"
 code=$(compose exec -T auth auth-service new-campaign Smoke --edition 2024 | sed -n 's/^    \(.*\)$/\1/p')
 "$EDIT" auth setup "$code" --name "Smoke DM" >/dev/null
-
-step "Upgrading from SQLite"
-# Databases the way the old services kept them, with a character and a
-# homebrew monster, where an old stack has them: in the services' volumes.
-campaign=$("$EDIT" auth status | sed -n 's/^Campaign .*(\(.*\))$/\1/p')
-python3 - "$work" "$campaign" <<'PY'
-import glob, json, sqlite3, sys, uuid
-work, campaign = sys.argv[1], sys.argv[2]
-when = "2026-01-01T00:00:00+00:00"
-def old(name):
-    db = sqlite3.connect(f"{work}/{name}.db")
-    service = "character" if name == "characters" else "monster"
-    for migration in sorted(glob.glob(f"crates/{service}-service/sqlite-migrations/*.sql")):
-        db.executescript(open(migration).read())
-    return db
-db = old("characters")
-db.execute("INSERT INTO characters (id, campaign, owners, name, sheet, version, created_at, updated_at) "
-           "VALUES (?, ?, '[]', 'Keyleth', ?, 3, ?, ?)",
-           (str(uuid.uuid4()), campaign, json.dumps({"name": "Keyleth", "race": "Half-Elf"}), when, when))
-db.commit()
-db = old("monsters")
-db.execute("INSERT INTO monsters (id, campaign, name, source, edition, sheet, version, created_at, updated_at) "
-           "VALUES (?, ?, 'Smoke Dragon', 'Homebrew', NULL, ?, 1, ?, ?)",
-           (str(uuid.uuid4()), campaign, json.dumps({"name": "Smoke Dragon", "hit_points": 50, "source": "Homebrew"}), when, when))
-db.commit()
-PY
-for service in characters monsters; do
-    compose run --rm --no-deps -T "$service" sh -c "cat > /data/$service.db" < "$work/$service.db"
-done
-upgraded=$(make -s migrate-sqlite CONTAINER="$CONTAINER" 2>&1)
-expect "Imported 1 character(s)" "$upgraded"
-expect "Imported 1 monster(s)" "$upgraded"
-expect "Keyleth" "$("$EDIT" list)"
-expect "Smoke Dragon" "$("$EDIT" monster list dragon)"
-expect "Goblin Warrior" "$("$EDIT" monster list goblin)"
 
 step "Characters"
 cat > "$work/vex.json" <<'JSON'

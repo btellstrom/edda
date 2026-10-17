@@ -8,7 +8,6 @@
 pub mod error;
 /// The HTTP routes.
 pub mod routes;
-pub mod sqlite;
 pub mod store;
 pub mod texts;
 

@@ -88,9 +88,6 @@ services:
       AUTH_SERVICE_URL: http://auth:3002
     ports:
       - "127.0.0.1:${CHARACTERS_PORT:-3000}:3000"
-    # Where the service kept its data in SQLite, for `make migrate-sqlite`.
-    volumes:
-      - characters-data:/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -137,9 +134,6 @@ services:
       AUTH_SERVICE_URL: http://auth:3002
     ports:
       - "127.0.0.1:${MONSTERS_PORT:-3003}:3003"
-    # Where the service kept its data in SQLite, for `make migrate-sqlite`.
-    volumes:
-      - monsters-data:/data
     depends_on:
       auth:
         condition: service_started
@@ -195,8 +189,6 @@ services:
 
 volumes:
   postgres-data:
-  characters-data:
   combat-data:
-  monsters-data:
   proxy-data:
   proxy-config:

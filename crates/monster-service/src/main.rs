@@ -1,5 +1,5 @@
 //! `monster-service`: serves the monster service, and the admin's
-//! commands (`import`, `delete-campaign`, `import-sqlite`).
+//! commands (`import`, `delete-campaign`).
 
 use std::{env, path::PathBuf};
 
@@ -47,9 +47,6 @@ enum Command {
     /// Delete a campaign's own monsters (`make delete-campaign` deletes
     /// the rest of the campaign too).
     DeleteCampaign { campaign: Uuid },
-    /// Bring the monsters, spells and conditions over from the `SQLite`
-    /// database the service used to keep (make migrate-sqlite).
-    ImportSqlite { file: PathBuf },
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -112,16 +109,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Command::DeleteCampaign { campaign }) => {
             let deleted = MonsterStore::new(pool).delete_campaign(campaign).await?;
             println!("Deleted {deleted} monster(s) of campaign {campaign}");
-            Ok(())
-        }
-        Some(Command::ImportSqlite { file }) => {
-            let imported = monster_service::sqlite::import_sqlite(&pool, &file).await?;
-            println!(
-                "Imported {} monster(s) and {} spell(s) and condition(s) from {}",
-                imported.monsters,
-                imported.rules_texts,
-                file.display()
-            );
             Ok(())
         }
     }
