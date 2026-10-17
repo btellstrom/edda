@@ -19,7 +19,7 @@ jobs:
     name: Server image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -49,7 +49,7 @@ jobs:
           - { os: windows-latest, target: x86_64-pc-windows-msvc, file: edda.exe }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --release --locked -p edda --target ${{ matrix.target }}
       - name: Package
