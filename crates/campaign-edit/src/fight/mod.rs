@@ -10,12 +10,7 @@ mod ui;
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use campaign_auth::protocol::Session;
-use campaign_client::{
-    Client,
-    combat::{CombatClient, Received, Replica, live::CommandSender},
-    monsters::MonsterClient,
-};
+use campaign_client::combat::{Received, Replica, live::CommandSender};
 use campaign_types::{
     Character, CharacterSummary,
     combat::{
@@ -26,7 +21,6 @@ use campaign_types::{
     monster::{Monster, MonsterSummary},
     rules_text::{ConditionEntry, ConditionText, SpellEntry, SpellText},
 };
-use chrono::Utc;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
@@ -34,60 +28,10 @@ use uuid::Uuid;
 
 use crate::{
     cli::FightArgs,
-    identity::{Identity, Profile},
+    prompt::{Keyed, Prompt, Suggestion},
+    session::{self, Login},
 };
-use command::{Context, Parsed, Step, Suggestion, Topic};
-
-/// Logged in, with the token renewed shortly before it expires (tokens last
-/// a quarter of an hour; a fight lasts longer). The planner uses it too.
-pub(crate) struct Login {
-    identity: Identity,
-    /// The campaign the screen was opened in, even if another is chosen
-    /// meanwhile (say, in another terminal).
-    pub(crate) profile: Profile,
-    pub(crate) session: Session,
-    characters_url: String,
-    combat_url: String,
-    monsters_url: String,
-}
-
-impl Login {
-    pub(crate) async fn new(
-        characters_url: &str,
-        combat_url: &str,
-        monsters_url: &str,
-    ) -> Result<Self> {
-        let identity = Identity::locate()?;
-        let (profile, session) = identity.login().await?;
-        Ok(Self {
-            identity,
-            profile,
-            session,
-            characters_url: characters_url.to_string(),
-            combat_url: combat_url.to_string(),
-            monsters_url: monsters_url.to_string(),
-        })
-    }
-
-    async fn token(&mut self) -> Result<String> {
-        if self.session.claims.expires_at < Utc::now() + chrono::Duration::minutes(2) {
-            self.session = self.identity.login_to(&self.profile).await?;
-        }
-        Ok(self.session.token.clone())
-    }
-
-    pub(crate) async fn characters(&mut self) -> Result<Client> {
-        Ok(Client::new(&self.characters_url).with_token(&self.token().await?))
-    }
-
-    pub(crate) async fn combats(&mut self) -> Result<CombatClient> {
-        Ok(CombatClient::new(&self.combat_url).with_token(&self.token().await?))
-    }
-
-    pub(crate) async fn monsters(&mut self) -> Result<MonsterClient> {
-        Ok(MonsterClient::new(&self.monsters_url).with_token(&self.token().await?))
-    }
-}
+use command::{Context, Parsed, Step, Topic};
 
 /// What the WebSocket reader passes to the screen.
 enum Incoming {
@@ -119,8 +63,7 @@ pub struct App {
     pinned: Option<Topic>,
     sender: Option<CommandSender>,
     incoming: mpsc::UnboundedSender<Incoming>,
-    input: String,
-    selected: usize,
+    prompt: Prompt,
     /// The outcome of the last line, and whether it was a failure.
     status: Option<(String, bool)>,
     /// How many lines the log is scrolled back.
@@ -137,10 +80,9 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
     let plan = match &args.plan {
         Some(wanted) => {
             let encounters = combats.encounters().await?;
-            let found =
-                crate::plan::command::find_plan(&encounters, wanted, false).ok_or_else(|| {
-                    anyhow!("no plan matches \"{wanted}\" (see `campaign-edit plan`)")
-                })?;
+            let found = session::find_plan(&encounters, wanted, false).ok_or_else(|| {
+                anyhow!("no plan matches \"{wanted}\" (see `campaign-edit plan`)")
+            })?;
             Some(found.plan.clone())
         }
         None => None,
@@ -186,8 +128,7 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
         pinned: None,
         sender: Some(sender),
         incoming,
-        input: String::new(),
-        selected: 0,
+        prompt: Prompt::default(),
         status: monster_problem.map(|problem| (problem, true)),
         scroll: 0,
         panel: Default::default(),
@@ -312,7 +253,7 @@ impl App {
             let picked = self
                 .suggestions()
                 .into_iter()
-                .nth(self.selected)
+                .nth(self.prompt.selected)
                 .map(|s| match &typed {
                     Topic::Spell(_) => Topic::Spell(s.label),
                     Topic::Effect(_) => Topic::Effect(s.label),
@@ -326,11 +267,11 @@ impl App {
     }
 
     pub fn parsed(&self) -> Parsed {
-        command::parse(&self.input, &self.context())
+        command::parse(&self.prompt.input, &self.context())
     }
 
     pub fn suggestions(&self) -> Vec<Suggestion> {
-        command::suggest(&self.input, &self.context())
+        command::suggest(&self.prompt.input, &self.context())
     }
 
     /// The combatant whose sheet to show: whoever the line is about.
@@ -341,48 +282,20 @@ impl App {
 
     /// Handles a key; `false` to leave.
     async fn key(&mut self, key: KeyEvent) -> bool {
-        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
         match key.code {
-            KeyCode::Up if alt => {
-                self.panel.by(-1);
-                return true;
-            }
-            KeyCode::Down if alt => {
-                self.panel.by(1);
-                return true;
-            }
-            KeyCode::Char('c' | 'd') if ctrl => return false,
-            KeyCode::Char('u') if ctrl => self.input.clear(),
-            KeyCode::Char('w') if ctrl => {
-                let trimmed = self.input.trim_end();
-                let cut = trimmed.rfind(' ').map_or(0, |i| i + 1);
-                self.input.truncate(cut);
-            }
-            KeyCode::Char(c) => self.input.push(c),
-            KeyCode::Backspace => {
-                self.input.pop();
-            }
-            // A second Esc, on an empty line, lets go of what `show` kept.
-            KeyCode::Esc if self.input.is_empty() => self.pinned = None,
-            KeyCode::Esc => self.input.clear(),
-            KeyCode::Tab => {
-                if let Some(s) = self.suggestions().get(self.selected) {
-                    self.input = s.line.clone();
-                }
-            }
-            KeyCode::Down => self.selected += 1,
-            KeyCode::Up => self.selected = self.selected.saturating_sub(1),
+            KeyCode::Up if alt => self.panel.by(-1),
+            KeyCode::Down if alt => self.panel.by(1),
             KeyCode::PageUp => self.scroll += 5,
             KeyCode::PageDown => self.scroll = self.scroll.saturating_sub(5),
-            KeyCode::Enter => return self.enter().await,
-            _ => return true,
+            // A second Esc, on an empty line, lets go of what `show` kept.
+            KeyCode::Esc if self.prompt.input.is_empty() => self.pinned = None,
+            _ => match self.prompt.key(key, &self.suggestions()) {
+                Keyed::Edited => {}
+                Keyed::Enter => return self.enter().await,
+                Keyed::Quit => return false,
+            },
         }
-        if !matches!(key.code, KeyCode::Up | KeyCode::Down) {
-            self.selected = 0;
-        }
-        let count = self.suggestions().len();
-        self.selected = self.selected.min(count.saturating_sub(1));
         true
     }
 
@@ -395,8 +308,7 @@ impl App {
                 return true;
             }
         };
-        self.input.clear();
-        self.selected = 0;
+        self.prompt.clear();
         self.scroll = 0;
         // Running another line lets go of what `show` kept.
         self.pinned = None;

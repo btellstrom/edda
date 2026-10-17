@@ -9,7 +9,10 @@ use campaign_types::{
 };
 use uuid::Uuid;
 
-use crate::fight::command::{Suggestion, monster_named};
+use crate::{
+    prompt::Suggestion,
+    session::{find_plan, monster_named},
+};
 
 pub struct Context<'a> {
     pub encounters: &'a [Encounter],
@@ -141,35 +144,6 @@ pub fn parse(line: &str, ctx: &Context) -> Parsed {
     parsed.sentence = sentence;
     parsed.plan = plan;
     parsed
-}
-
-/// A plan by name: exactly, or (unless `exact`) by a unique prefix of
-/// its name or id.
-pub fn find_plan<'e>(
-    encounters: &'e [Encounter],
-    name: &str,
-    exact: bool,
-) -> Option<&'e Encounter> {
-    let name = name.to_lowercase();
-    if name.is_empty() {
-        return None;
-    }
-    if let Some(e) = encounters
-        .iter()
-        .find(|e| e.plan.name.to_lowercase() == name)
-    {
-        return Some(e);
-    }
-    if exact {
-        return None;
-    }
-    let mut matching = encounters.iter().filter(|e| {
-        e.plan.name.to_lowercase().starts_with(&name) || e.id.to_string().starts_with(&name)
-    });
-    match (matching.next(), matching.next()) {
-        (Some(one), None) => Some(one),
-        _ => None,
-    }
 }
 
 /// "4 Goblins": a count and a name.

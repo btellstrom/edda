@@ -18,9 +18,9 @@ use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyM
 use futures_util::StreamExt;
 use uuid::Uuid;
 
-use crate::fight::{
-    Login,
-    command::{Suggestion, monster_named},
+use crate::{
+    prompt::{Keyed, Prompt, Suggestion},
+    session::{self, Login},
 };
 use command::{Context, Parsed, Step};
 
@@ -34,8 +34,7 @@ pub struct App {
     roster: Vec<CharacterSummary>,
     /// Stat blocks fetched so far, by monster id.
     stat_blocks: HashMap<Uuid, Monster>,
-    input: String,
-    selected: usize,
+    prompt: Prompt,
     /// The outcome of the last line, and whether it was a failure.
     status: Option<(String, bool)>,
     /// The stat block panel, scrolled by hand.
@@ -55,7 +54,7 @@ pub async fn run(
     let combats = login.combats().await?;
     let mut encounters = combats.encounters().await?;
     let current = match wanted {
-        Some(name) => match command::find_plan(&encounters, name, false) {
+        Some(name) => match session::find_plan(&encounters, name, false) {
             Some(found) => Some(found.id),
             None => {
                 let plan = EncounterPlan {
@@ -79,8 +78,7 @@ pub async fn run(
         bestiary,
         roster,
         stat_blocks: HashMap::new(),
-        input: String::new(),
-        selected: 0,
+        prompt: Prompt::default(),
         status: None,
         panel: Default::default(),
     };
@@ -131,19 +129,19 @@ impl App {
     }
 
     pub fn parsed(&self) -> Parsed {
-        command::parse(&self.input, &self.context())
+        command::parse(&self.prompt.input, &self.context())
     }
 
     pub fn suggestions(&self) -> Vec<Suggestion> {
-        command::suggest(&self.input, &self.context())
+        command::suggest(&self.prompt.input, &self.context())
     }
 
     /// The monster whose stat block to show: the one the line is about,
     /// or the one the highlighted suggestion names.
     pub fn shown(&self) -> Option<Uuid> {
         self.parsed().monster.or_else(|| {
-            let suggestion = self.suggestions().into_iter().nth(self.selected)?;
-            monster_named(&self.bestiary, &suggestion.label).map(|m| m.id)
+            let suggestion = self.suggestions().into_iter().nth(self.prompt.selected)?;
+            session::monster_named(&self.bestiary, &suggestion.label).map(|m| m.id)
         })
     }
 
@@ -173,44 +171,16 @@ impl App {
     }
 
     async fn key(&mut self, key: KeyEvent) -> Leave {
-        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
         match key.code {
-            KeyCode::Up if alt => {
-                self.panel.by(-1);
-                return Leave::Stay;
-            }
-            KeyCode::Down if alt => {
-                self.panel.by(1);
-                return Leave::Stay;
-            }
-            KeyCode::Char('c' | 'd') if ctrl => return Leave::Quit,
-            KeyCode::Char('u') if ctrl => self.input.clear(),
-            KeyCode::Char('w') if ctrl => {
-                let trimmed = self.input.trim_end();
-                let cut = trimmed.rfind(' ').map_or(0, |i| i + 1);
-                self.input.truncate(cut);
-            }
-            KeyCode::Char(c) => self.input.push(c),
-            KeyCode::Backspace => {
-                self.input.pop();
-            }
-            KeyCode::Esc => self.input.clear(),
-            KeyCode::Tab => {
-                if let Some(s) = self.suggestions().get(self.selected) {
-                    self.input = s.line.clone();
-                }
-            }
-            KeyCode::Down => self.selected += 1,
-            KeyCode::Up => self.selected = self.selected.saturating_sub(1),
-            KeyCode::Enter => return self.enter().await,
-            _ => return Leave::Stay,
+            KeyCode::Up if alt => self.panel.by(-1),
+            KeyCode::Down if alt => self.panel.by(1),
+            _ => match self.prompt.key(key, &self.suggestions()) {
+                Keyed::Edited => {}
+                Keyed::Enter => return self.enter().await,
+                Keyed::Quit => return Leave::Quit,
+            },
         }
-        if !matches!(key.code, KeyCode::Up | KeyCode::Down) {
-            self.selected = 0;
-        }
-        let count = self.suggestions().len();
-        self.selected = self.selected.min(count.saturating_sub(1));
         Leave::Stay
     }
 
@@ -235,8 +205,7 @@ impl App {
             Ok(()) => (parsed.sentence, false),
             Err(e) => (format!("{}: {e:#}", parsed.sentence), true),
         });
-        self.input.clear();
-        self.selected = 0;
+        self.prompt.clear();
         Leave::Stay
     }
 

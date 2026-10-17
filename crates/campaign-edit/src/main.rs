@@ -9,7 +9,9 @@ mod identity;
 mod monsters;
 mod parse;
 mod plan;
+mod prompt;
 mod rules;
+mod session;
 mod styled;
 
 use std::process::ExitCode;

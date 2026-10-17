@@ -13,6 +13,7 @@ use ratatui::{
 };
 
 use super::{App, command};
+use crate::prompt::{self, Shown};
 
 /// Suggestion rows below the command line: every action, and two more.
 #[expect(clippy::cast_possible_truncation, reason = "a couple of dozen actions")]
@@ -292,59 +293,13 @@ fn draw_stat_block(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_command(frame: &mut Frame, app: &App, area: Rect, rows: usize) {
     let parsed = app.parsed();
-    let mut lines = vec![Line::from(vec![
-        Span::raw("> ").bold(),
-        Span::raw(app.input.clone()),
-    ])];
-    lines.push(if app.input.is_empty() {
-        match &app.status {
-            Some((text, true)) => Line::from(text.clone()).red(),
-            Some((text, false)) => Line::from(format!("✓ {text}")).green(),
-            None => Line::from("Type an action; Tab completes.").dark_gray(),
-        }
-    } else {
-        match &parsed.plan {
-            Ok(_) => Line::from(vec![
-                Span::raw(parsed.sentence.clone()).bold(),
-                Span::raw("   ⏎").green(),
-            ]),
-            Err(problem) => Line::from(vec![
-                Span::raw(parsed.sentence.clone()),
-                Span::raw(if parsed.sentence.is_empty() {
-                    ""
-                } else {
-                    "   "
-                }),
-                Span::raw(problem.clone()).yellow(),
-            ]),
-        }
-    });
-
-    let suggestions = app.suggestions();
-    let first = app.selected.saturating_sub(rows.saturating_sub(1));
-    let width = suggestions
-        .iter()
-        .map(|s| s.label.chars().count())
-        .max()
-        .unwrap_or(0);
-    for (i, s) in suggestions.iter().enumerate().skip(first).take(rows) {
-        let line = Line::from(vec![
-            Span::raw(format!("  {:<width$}  ", s.label)),
-            Span::raw(s.detail.clone()).dark_gray(),
-        ]);
-        lines.push(if i == app.selected {
-            line.reversed()
-        } else {
-            line
-        });
-    }
-
-    let help = " Tab completes · ↑↓ choose · Enter runs · Esc clears · Ctrl-C quits ";
-    frame.render_widget(
-        Paragraph::new(lines).block(Block::bordered().title(help)),
-        area,
-    );
-    let typed = u16::try_from(app.input.chars().count()).unwrap_or(u16::MAX);
-    let x = area.x.saturating_add(3).saturating_add(typed);
-    frame.set_cursor_position((x.min(area.right().saturating_sub(2)), area.y + 1));
+    let shown = Shown {
+        sentence: &parsed.sentence,
+        problem: parsed.plan.as_ref().err().map(String::as_str),
+        suggestions: &app.suggestions(),
+        status: app.status.as_ref(),
+        hint: "Type an action; Tab completes.",
+        help: " Tab completes · ↑↓ choose · Enter runs · Esc clears · Ctrl-C quits ",
+    };
+    prompt::draw(frame, area, &app.prompt, &shown, rows);
 }
