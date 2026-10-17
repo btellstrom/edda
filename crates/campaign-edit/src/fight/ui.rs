@@ -14,7 +14,7 @@ use ratatui::{
 use uuid::Uuid;
 
 use super::{
-    App,
+    Screen,
     command::{self, Step, Topic},
     log,
 };
@@ -28,7 +28,9 @@ use crate::{
 /// line lists), and two more.
 #[expect(clippy::cast_possible_truncation, reason = "a couple of dozen actions")]
 const SUGGESTIONS: u16 = command::ACTIONS as u16 + 2;
-/// Rows the initiative order and sheet keep, however short the terminal.
+/// Rows the initiative order and sheet keep before the log or suggestions
+/// get any; on a terminal too short even for that, they give way too, and
+/// only the command line stays.
 const MAIN: u16 = 8;
 /// The log's rows, and how few it may shrink to.
 const LOG: u16 = 8;
@@ -37,19 +39,24 @@ const LOG_MIN: u16 = 4;
 const FIXED: u16 = 1 + 4;
 
 /// Rows for the log and the suggestions on a terminal `height` rows tall.
-/// On a short one the log gives way first, then the suggestions.
+/// On a short one the log gives way first, then the suggestions; the log
+/// goes altogether rather than be too short to read.
 fn rows(height: u16) -> (u16, u16) {
     let spare = height.saturating_sub(FIXED + MAIN);
-    let log = spare.saturating_sub(SUGGESTIONS).clamp(LOG_MIN, LOG);
+    let log = if spare < LOG_MIN {
+        0
+    } else {
+        spare.saturating_sub(SUGGESTIONS).clamp(LOG_MIN, LOG)
+    };
     let suggestions = spare.saturating_sub(log).min(SUGGESTIONS);
     (log, suggestions)
 }
 
-pub fn draw(frame: &mut Frame, app: &App) {
+pub fn draw(frame: &mut Frame, screen: &Screen) {
     let (log_rows, suggestion_rows) = rows(frame.area().height);
     let [header, main, history, command] = Layout::vertical([
         Constraint::Length(1),
-        Constraint::Min(MAIN),
+        Constraint::Fill(1),
         Constraint::Length(log_rows),
         Constraint::Length(4 + suggestion_rows),
     ])
@@ -57,22 +64,22 @@ pub fn draw(frame: &mut Frame, app: &App) {
     let [order, sheet] =
         Layout::horizontal([Constraint::Percentage(45), Constraint::Percentage(55)]).areas(main);
 
-    draw_header(frame, app, header);
-    draw_order(frame, app, order);
-    draw_panel(frame, app, sheet);
-    draw_log(frame, app, history);
-    draw_command(frame, app, command, usize::from(suggestion_rows));
+    draw_header(frame, screen, header);
+    draw_order(frame, screen, order);
+    draw_panel(frame, screen, sheet);
+    draw_log(frame, screen, history);
+    draw_command(frame, screen, command, usize::from(suggestion_rows));
 }
 
-fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
-    let state = app.replica.state();
+fn draw_header(frame: &mut Frame, screen: &Screen, area: Rect) {
+    let state = screen.replica.state();
     let status = match state.status {
         CombatStatus::Preparing => "preparing".to_string(),
         CombatStatus::Active => format!("round {}", state.round),
         CombatStatus::Paused => format!("round {} · paused", state.round),
         CombatStatus::Ended => "ended".to_string(),
     };
-    let connection = if app.sender.is_some() {
+    let connection = if screen.online {
         Span::raw("")
     } else {
         Span::raw("  offline").red().bold()
@@ -81,7 +88,7 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
         Span::raw(format!(" {} ", state.name)).bold(),
         Span::raw(format!("· {status}")),
         connection,
-        Span::raw(format!("   you are {}", app.login.session.claims.name)).dark_gray(),
+        Span::raw(format!("   you are {}", screen.me)).dark_gray(),
     ]);
     frame.render_widget(Paragraph::new(line), area);
 }
@@ -108,9 +115,9 @@ fn targets(steps: &[Step]) -> Vec<Uuid> {
     out
 }
 
-fn draw_order(frame: &mut Frame, app: &App, area: Rect) {
-    let state = app.replica.state();
-    let parsed = app.parsed();
+fn draw_order(frame: &mut Frame, screen: &Screen, area: Rect) {
+    let state = screen.replica.state();
+    let parsed = screen.parsed();
     let targeted = parsed.plan.as_deref().map(targets).unwrap_or_default();
     let width = state
         .combatants
@@ -134,7 +141,7 @@ fn draw_order(frame: &mut Frame, app: &App, area: Rect) {
             style = style.add_modifier(Modifier::BOLD);
         }
         let mut role = Span::raw("");
-        if parsed.actor == Some(c.id) && !app.prompt.input.is_empty() {
+        if parsed.actor == Some(c.id) && !screen.prompt.input.is_empty() {
             style = style.fg(Color::Cyan);
             role = Span::raw("  acts").cyan();
         }
@@ -233,12 +240,12 @@ fn hp(c: &Combatant) -> Span<'static> {
 
 /// The side panel: a description of what the line is about (or what
 /// `show` keeps there), else the acting combatant's sheet.
-fn draw_panel(frame: &mut Frame, app: &App, area: Rect) {
-    let state = app.replica.state();
-    let ctx = app.context();
-    let topic = app.topic().map(|topic| match topic {
+fn draw_panel(frame: &mut Frame, screen: &Screen, area: Rect) {
+    let state = screen.replica.state();
+    let ctx = screen.context();
+    let topic = screen.topic().map(|topic| match topic {
         // A name that's only a combatant's is their sheet.
-        Topic::Named(name) if !describes_text(app, &name) => ctx
+        Topic::Named(name) if !describes_text(screen, &name) => ctx
             .named_combatant(&name)
             .map_or(Topic::Named(name), |c| Topic::Combatant(c.id)),
         other => other,
@@ -246,12 +253,12 @@ fn draw_panel(frame: &mut Frame, app: &App, area: Rect) {
     match topic {
         Some(Topic::Combatant(id)) => {
             if let Some(combatant) = state.combatant(id) {
-                draw_sheet(frame, app, area, combatant);
+                draw_sheet(frame, screen, area, combatant);
             }
         }
-        Some(topic) => draw_description(frame, app, area, &topic),
-        None => match app.shown() {
-            Some(combatant) => draw_sheet(frame, app, area, combatant),
+        Some(topic) => draw_description(frame, screen, area, &topic),
+        None => match screen.shown() {
+            Some(combatant) => draw_sheet(frame, screen, area, combatant),
             None => frame.render_widget(
                 Paragraph::new("Nobody's turn yet.")
                     .dark_gray()
@@ -263,18 +270,18 @@ fn draw_panel(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 /// Whether `name` is an effect in play, a spell or a condition.
-fn describes_text(app: &App, name: &str) -> bool {
-    let ctx = app.context();
+fn describes_text(screen: &Screen, name: &str) -> bool {
+    let ctx = screen.context();
     ctx.describes(&Topic::Effect(name.to_string()))
         || ctx.describes(&Topic::Spell(name.to_string()))
 }
 
 /// A spell's, effect's or condition's description, with how an effect in
 /// play stands and, while casting, the caster's slots.
-fn draw_description(frame: &mut Frame, app: &App, area: Rect, topic: &Topic) {
+fn draw_description(frame: &mut Frame, screen: &Screen, area: Rect, topic: &Topic) {
     let inner = usize::from(area.width.saturating_sub(2));
     let height = usize::from(area.height.saturating_sub(2));
-    let state = app.replica.state();
+    let state = screen.replica.state();
     let name = match topic {
         Topic::Spell(name) | Topic::Effect(name) | Topic::Named(name) => name.trim(),
         Topic::Combatant(_) => return,
@@ -293,10 +300,10 @@ fn draw_description(frame: &mut Frame, app: &App, area: Rect, topic: &Topic) {
     }
     if let Topic::Spell(_) = topic {
         // What there is to cast it with.
-        let slots = app
+        let slots = screen
             .shown()
             .and_then(|c| c.character_id)
-            .and_then(|id| app.sheets.get(&id))
+            .and_then(|id| screen.sheets.get(&id))
             .and_then(|c| display::slots_line(&c.sheet));
         if let Some(slots) = slots {
             doc.row(0, "Slots", 5, vec![plain(slots)]);
@@ -307,10 +314,10 @@ fn draw_description(frame: &mut Frame, app: &App, area: Rect, topic: &Topic) {
     if !lines.is_empty() {
         lines.push(Line::default());
     }
-    let spell = rules_text::named(&app.spells, name);
+    let spell = rules_text::named(&screen.spells, name);
     let condition = match topic {
         Topic::Spell(_) => None,
-        _ => rules_text::named(&app.conditions, name),
+        _ => rules_text::named(&screen.conditions, name),
     };
     let (title, text) = if let Some(spell) = spell {
         (
@@ -323,7 +330,7 @@ fn draw_description(frame: &mut Frame, app: &App, area: Rect, topic: &Topic) {
             display::condition(&condition.text, inner, Detail::Panel),
         )
     } else {
-        let known = app.context().known_spell(name).cloned();
+        let known = screen.context().known_spell(name).cloned();
         let mut doc = Doc::new(inner);
         let title = match &known {
             Some(spell) => {
@@ -364,7 +371,7 @@ fn draw_description(frame: &mut Frame, app: &App, area: Rect, topic: &Topic) {
     } else {
         format!(" {title} ")
     };
-    let scrolled = app.panel.place(topic, 0, lines.len(), height);
+    let scrolled = screen.panel.place(topic, 0, lines.len(), height);
     render_panel(frame, area, title, Text::from(lines), scrolled);
 }
 
@@ -424,12 +431,12 @@ fn render_panel(
     );
 }
 
-fn draw_sheet(frame: &mut Frame, app: &App, area: Rect, combatant: &Combatant) {
+fn draw_sheet(frame: &mut Frame, screen: &Screen, area: Rect, combatant: &Combatant) {
     // Inside the borders.
     let inner = usize::from(area.width.saturating_sub(2));
     let height = usize::from(area.height.saturating_sub(2));
-    let sheet = combatant.character_id.and_then(|id| app.sheets.get(&id));
-    let monster = combatant.monster_id.and_then(|id| app.monsters.get(&id));
+    let sheet = combatant.character_id.and_then(|id| screen.sheets.get(&id));
+    let monster = combatant.monster_id.and_then(|id| screen.monsters.get(&id));
     let text = match (sheet, monster) {
         // A player's device: the numbers are behind the DM's screen, and
         // its stat block with them.
@@ -497,12 +504,12 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect, combatant: &Combatant) {
     };
     // When it doesn't all fit, show the part the line needs: spells for a
     // cast, a monster's actions for an attack.
-    let section = app.parsed().section;
+    let section = screen.parsed().section;
     let automatic = crate::styled::scroll_to(&text.lines, section.map(Section::title), height);
-    let scrolled = app
+    let scrolled = screen
         .panel
         .place((combatant.id, section), automatic, text.lines.len(), height);
-    let turn = app.replica.state().current_turn == Some(combatant.id);
+    let turn = screen.replica.state().current_turn == Some(combatant.id);
     let title = if turn {
         format!(" {} · their turn ", combatant.name)
     } else {
@@ -511,11 +518,11 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect, combatant: &Combatant) {
     render_panel(frame, area, title, text, scrolled);
 }
 
-fn draw_log(frame: &mut Frame, app: &App, area: Rect) {
+fn draw_log(frame: &mut Frame, screen: &Screen, area: Rect) {
     // Who did it, on the first line of each command.
     let mut lines: Vec<Line> = Vec::new();
     let mut previous = None;
-    for event in &app.log {
+    for event in &screen.log {
         let first = event.command_id.is_none() || event.command_id != previous;
         previous = event.command_id;
         let actor = match (&event.actor, first) {
@@ -525,13 +532,13 @@ fn draw_log(frame: &mut Frame, app: &App, area: Rect) {
         };
         lines.push(Line::from(vec![
             Span::raw(actor).dark_gray(),
-            Span::raw(log::describe_in(&event.event, &app.log, &app.names)),
+            Span::raw(log::describe_in(&event.event, &screen.log, &screen.names)),
         ]));
     }
     let visible = usize::from(area.height.saturating_sub(2));
-    let end = lines.len().saturating_sub(app.scroll.min(lines.len()));
+    let end = lines.len().saturating_sub(screen.scroll.min(lines.len()));
     let start = end.saturating_sub(visible);
-    let title = if app.scroll > 0 {
+    let title = if screen.scroll > 0 {
         " Log (scrolled back; PgDn) "
     } else {
         " Log "
@@ -542,22 +549,230 @@ fn draw_log(frame: &mut Frame, app: &App, area: Rect) {
     );
 }
 
-fn draw_command(frame: &mut Frame, app: &App, area: Rect, rows: usize) {
-    let parsed = app.parsed();
+fn draw_command(frame: &mut Frame, screen: &Screen, area: Rect, rows: usize) {
+    let parsed = screen.parsed();
     let shown = Shown {
         sentence: &parsed.sentence,
         problem: parsed.plan.as_ref().err().map(String::as_str),
-        suggestions: &app.suggestions(),
-        status: app.status.as_ref(),
+        suggestions: &screen.suggestions(),
+        status: screen.status.as_ref(),
         hint: "Type an action, or a number for who acts.",
         help: " Tab completes · ↑↓ choose · Enter runs · Esc clears · PgUp log · Ctrl-C quits ",
     };
-    prompt::draw(frame, area, &app.prompt, &shown, rows);
+    prompt::draw(frame, area, &screen.prompt, &shown, rows);
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use campaign_client::combat::Replica;
+    use campaign_types::{
+        Character,
+        combat::{CombatEvent, CombatSnapshot, Concealer, Effect},
+        monster::{Monster, MonsterSheet},
+    };
+    use ratatui::{Terminal, backend::TestBackend};
+
     use super::*;
+    use crate::{fight::log::Names, prompt::Prompt};
+
+    /// Vex (a ranger with spells) has the turn against a goblin, who is
+    /// hurt and marked by her Hunter's Mark.
+    fn screen(player: bool) -> (Screen, Uuid) {
+        let vex: Character = serde_json::from_value(serde_json::json!({
+            "id": Uuid::new_v4(), "campaign": Uuid::nil(), "version": 1,
+            "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+            "owners": ["laura"],
+            "name": "Vex", "race": "Half-Elf", "armor_class": 16,
+            "hit_points": { "current": 44, "max": 44 },
+            "classes": [{ "name": "Ranger", "level": 5, "spellcasting_ability": "wisdom" }],
+            "spellcasting": { "spells": [
+                { "name": "Hunter's Mark", "level": 1, "concentration": true, "prepared": true },
+                { "name": "Cure Wounds", "level": 1, "prepared": true }
+            ] },
+            "resources": [{ "name": "Favored Foe", "max": 3, "recharge": "long_rest" }],
+            "inventory": [{ "name": "Longbow" }, { "name": "Arrows", "quantity": 40 }],
+            "notes": "Trusts Trinket more than people."
+        }))
+        .expect("a valid character");
+        let goblin = Monster {
+            id: Uuid::new_v4(),
+            campaign: None,
+            sheet: MonsterSheet {
+                name: "Goblin".into(),
+                hit_points: 12,
+                armor_class: 15,
+                ..Default::default()
+            },
+            version: 1,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        let mut vex_c = Combatant::from_character(&vex);
+        vex_c.initiative = Some(20);
+        let mut goblin_c = Combatant::from_monster(&goblin, "Goblin".into(), 12);
+        goblin_c.initiative = Some(5);
+        let goblin_id = goblin_c.id;
+        let mut state = CombatState::default();
+        for event in [
+            CombatEvent::CombatantAdded {
+                combatant: vex_c.clone(),
+            },
+            CombatEvent::CombatantAdded {
+                combatant: goblin_c,
+            },
+            CombatEvent::Started,
+            CombatEvent::RoundStarted { round: 1 },
+            CombatEvent::TurnStarted {
+                combatant: vex_c.id,
+            },
+            CombatEvent::Damaged {
+                combatant: goblin_id,
+                amount: 5,
+                hit_points: campaign_types::HitPoints {
+                    max: 12,
+                    current: 7,
+                    temporary: 0,
+                },
+            },
+            CombatEvent::EffectAdded {
+                effect: Effect {
+                    id: Uuid::new_v4(),
+                    name: "Hunter's Mark".into(),
+                    source: Some(vex_c.id),
+                    targets: vec![goblin_id],
+                    concentration: true,
+                    expires: None,
+                },
+            },
+        ] {
+            state.apply(&event);
+        }
+        if player {
+            state = Concealer::new(&state).state(&state);
+        }
+        let screen = Screen {
+            replica: Replica::new(CombatSnapshot {
+                id: Uuid::nil(),
+                seq: 7,
+                state,
+            }),
+            log: Vec::new(),
+            names: Names::default(),
+            roster: vec![(&vex).into()],
+            sheets: HashMap::from([(vex.id, vex)]),
+            bestiary: Vec::new(),
+            monsters: HashMap::from([(goblin.id, goblin)]),
+            spells: Vec::new(),
+            conditions: Vec::new(),
+            pinned: None,
+            prompt: Prompt::default(),
+            status: None,
+            scroll: 0,
+            panel: Default::default(),
+            player: player.then(|| "laura".to_string()),
+            me: if player { "Laura's phone" } else { "DM laptop" }.into(),
+            online: true,
+        };
+        (screen, goblin_id)
+    }
+
+    /// The screen drawn on a terminal `width` by `height`, as text.
+    fn render(screen: &Screen, width: u16, height: u16) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).expect("in memory");
+        terminal
+            .draw(|frame| draw(frame, screen))
+            .expect("in memory");
+        let buffer = terminal.backend().buffer();
+        (0..height)
+            .map(|y| {
+                (0..width)
+                    .map(|x| buffer[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn line_with<'a>(text: &'a str, wanted: &str) -> &'a str {
+        text.lines()
+            .find(|l| l.contains(wanted))
+            .unwrap_or_else(|| panic!("no line with {wanted:?} in:\n{text}"))
+    }
+
+    #[test]
+    fn the_order_shows_whose_turn_it_is_and_how_everyone_stands() {
+        let (screen, _) = screen(false);
+        let text = render(&screen, 110, 40);
+        let vex = line_with(&text, "1 Vex");
+        assert!(
+            vex.contains('▶') && vex.contains("44/44") && vex.contains("AC 16"),
+            "{vex}"
+        );
+        let goblin = line_with(&text, "2 Goblin");
+        assert!(
+            goblin.contains("7/12") && goblin.contains("AC 15"),
+            "{goblin}"
+        );
+        assert!(
+            text.contains("Hunter's Mark"),
+            "the effect under its target"
+        );
+        assert!(text.contains("you are DM laptop"));
+        assert!(text.contains("Type an action, or a number for who acts."));
+    }
+
+    #[test]
+    fn a_player_sees_monsters_only_by_how_hurt_they_look() {
+        let (mut screen, goblin) = screen(true);
+        let text = render(&screen, 110, 40);
+        let row = line_with(&text, "2 Goblin");
+        assert!(
+            row.contains("hurt") && !row.contains("7/12") && !row.contains("AC"),
+            "{row}"
+        );
+        assert!(
+            line_with(&text, "1 Vex").contains("44/44"),
+            "the party's own numbers"
+        );
+
+        screen.pinned = Some(Topic::Combatant(goblin));
+        let text = render(&screen, 110, 40);
+        assert!(text.contains("Looks hurt"));
+        assert!(text.contains("The rest is behind the DM's screen."));
+        assert!(!text.contains("AC 15"), "nor the stat block");
+    }
+
+    #[test]
+    fn typing_a_cast_turns_the_panel_to_spellcasting_and_lists_spells() {
+        let (mut screen, _) = screen(false);
+        // Short enough that the sheet doesn't fit.
+        let before = render(&screen, 110, 30);
+        assert!(
+            !before.contains("── Spellcasting"),
+            "the panel starts at the top"
+        );
+        screen.prompt.input = "cast ".into();
+        let text = render(&screen, 110, 30);
+        assert!(text.contains("── Spellcasting"), "{text}");
+        assert!(
+            text.lines()
+                .any(|l| l.contains("Cure Wounds") && l.contains("1st level")),
+            "the spells as suggestions"
+        );
+        assert!(text.contains("Vex casts …"), "the line in words");
+    }
+
+    #[test]
+    fn a_cramped_terminal_still_has_the_command_line() {
+        let (mut screen, _) = screen(false);
+        screen.prompt.input = "damage 2 3".into();
+        for (width, height) in [(60, 16), (40, 10), (20, 6)] {
+            let text = render(&screen, width, height);
+            assert!(text.contains("> damage"), "{width}×{height}:\n{text}");
+        }
+    }
 
     #[test]
     fn every_action_fits_with_two_rows_to_spare_when_there_is_room() {
@@ -568,6 +783,7 @@ mod tests {
         // Shorter: the log shrinks to its least, then the suggestions.
         assert_eq!(rows(35), (LOG_MIN, 18));
         assert_eq!(rows(20), (LOG_MIN, 3));
-        assert_eq!(rows(10), (LOG_MIN, 0));
+        assert_eq!(rows(16), (0, 3), "no log rather than one too short to read");
+        assert_eq!(rows(10), (0, 0));
     }
 }

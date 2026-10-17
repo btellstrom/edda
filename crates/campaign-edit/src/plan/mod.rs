@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use campaign_types::{
-    CharacterSummary,
+    CharacterSummary, Edition,
     encounter::{Encounter, EncounterPlan},
     monster::{Monster, MonsterSummary},
 };
@@ -24,21 +24,31 @@ use crate::{
 };
 use command::{Context, Parsed, Step};
 
-pub struct App {
-    login: Login,
+/// Everything the planner shows, and what it makes of the line being
+/// typed: no connections, so it can be drawn (and tested) alone.
+pub struct Screen {
     /// The campaign's plans, by name.
-    encounters: Vec<Encounter>,
+    pub(crate) encounters: Vec<Encounter>,
     /// The plan being worked on.
-    current: Option<Uuid>,
-    bestiary: Vec<MonsterSummary>,
-    roster: Vec<CharacterSummary>,
+    pub(crate) current: Option<Uuid>,
+    pub(crate) bestiary: Vec<MonsterSummary>,
+    pub(crate) roster: Vec<CharacterSummary>,
     /// Stat blocks fetched so far, by monster id.
-    stat_blocks: HashMap<Uuid, Monster>,
-    prompt: Prompt,
+    pub(crate) stat_blocks: HashMap<Uuid, Monster>,
+    pub(crate) prompt: Prompt,
     /// The outcome of the last line, and whether it was a failure.
-    status: Option<(String, bool)>,
+    pub(crate) status: Option<(String, bool)>,
     /// The stat block panel, scrolled by hand.
-    panel: crate::styled::PanelScroll,
+    pub(crate) panel: crate::styled::PanelScroll,
+    /// This device's name, and the rules the campaign plays by.
+    pub(crate) me: String,
+    pub(crate) edition: Edition,
+}
+
+/// The planner, connected.
+pub struct App {
+    screen: Screen,
+    login: Login,
 }
 
 /// Opens the planner on the plan `wanted` (a new one, if there's none by
@@ -72,22 +82,26 @@ pub async fn run(
     let roster = login.characters().await?.list().await?;
     let bestiary = login.monsters().await?.list(None).await?;
     let mut app = App {
+        screen: Screen {
+            encounters,
+            current,
+            bestiary,
+            roster,
+            stat_blocks: HashMap::new(),
+            prompt: Prompt::default(),
+            status: None,
+            panel: Default::default(),
+            me: login.session.claims.name.clone(),
+            edition: login.profile.campaign.edition,
+        },
         login,
-        encounters,
-        current,
-        bestiary,
-        roster,
-        stat_blocks: HashMap::new(),
-        prompt: Prompt::default(),
-        status: None,
-        panel: Default::default(),
     };
-    app.sort();
+    app.screen.sort();
 
     let mut terminal = ratatui::init();
     let mut keys = EventStream::new();
     let result = loop {
-        if let Err(e) = terminal.draw(|frame| ui::draw(frame, &app)) {
+        if let Err(e) = terminal.draw(|frame| ui::draw(frame, &app.screen)) {
             break Err(e.into());
         }
         match keys.next().await {
@@ -113,7 +127,7 @@ enum Leave {
     Fight(Uuid),
 }
 
-impl App {
+impl Screen {
     pub fn context(&self) -> Context<'_> {
         Context {
             encounters: &self.encounters,
@@ -152,10 +166,14 @@ impl App {
     fn sort(&mut self) {
         self.encounters.sort_by_key(|e| e.plan.name.to_lowercase());
     }
+}
 
+impl App {
     async fn fetch_shown(&mut self) {
-        let Some(id) = self.shown() else { return };
-        if self.stat_blocks.contains_key(&id) {
+        let Some(id) = self.screen.shown() else {
+            return;
+        };
+        if self.screen.stat_blocks.contains_key(&id) {
             return;
         }
         let fetched = match self.login.monsters().await {
@@ -164,18 +182,20 @@ impl App {
         };
         match fetched {
             Ok(monster) => {
-                self.stat_blocks.insert(id, monster);
+                self.screen.stat_blocks.insert(id, monster);
             }
-            Err(e) => self.status = Some((format!("couldn't load the stat block: {e:#}"), true)),
+            Err(e) => {
+                self.screen.status = Some((format!("couldn't load the stat block: {e:#}"), true))
+            }
         }
     }
 
     async fn key(&mut self, key: KeyEvent) -> Leave {
         let alt = key.modifiers.contains(KeyModifiers::ALT);
         match key.code {
-            KeyCode::Up if alt => self.panel.by(-1),
-            KeyCode::Down if alt => self.panel.by(1),
-            _ => match self.prompt.key(key, &self.suggestions()) {
+            KeyCode::Up if alt => self.screen.panel.by(-1),
+            KeyCode::Down if alt => self.screen.panel.by(1),
+            _ => match self.screen.prompt.key(key, &self.screen.suggestions()) {
                 Keyed::Edited => {}
                 Keyed::Enter => return self.enter().await,
                 Keyed::Quit => return Leave::Quit,
@@ -185,27 +205,27 @@ impl App {
     }
 
     async fn enter(&mut self) -> Leave {
-        let parsed = self.parsed();
+        let parsed = self.screen.parsed();
         let step = match parsed.plan {
             Ok(step) => step,
             Err(problem) => {
-                self.status = Some((problem, true));
+                self.screen.status = Some((problem, true));
                 return Leave::Stay;
             }
         };
         let outcome = match step {
             Step::Quit => return Leave::Quit,
-            Step::Fight => match self.current {
+            Step::Fight => match self.screen.current {
                 Some(id) => return Leave::Fight(id),
                 None => return Leave::Stay,
             },
             step => self.change(step).await,
         };
-        self.status = Some(match outcome {
+        self.screen.status = Some(match outcome {
             Ok(()) => (parsed.sentence, false),
             Err(e) => (format!("{}: {e:#}", parsed.sentence), true),
         });
-        self.prompt.clear();
+        self.screen.prompt.clear();
         Leave::Stay
     }
 
@@ -219,29 +239,29 @@ impl App {
                     ..Default::default()
                 };
                 let created = combats.create_encounter(&plan).await?;
-                self.current = Some(created.id);
-                self.encounters.push(created);
+                self.screen.current = Some(created.id);
+                self.screen.encounters.push(created);
             }
-            Step::Open(id) => self.current = Some(id),
+            Step::Open(id) => self.screen.current = Some(id),
             Step::Save(plan) => {
-                let Some(id) = self.current else {
+                let Some(id) = self.screen.current else {
                     return Ok(());
                 };
                 let saved = combats.replace_encounter(id, &plan).await?;
-                if let Some(old) = self.encounters.iter_mut().find(|e| e.id == id) {
+                if let Some(old) = self.screen.encounters.iter_mut().find(|e| e.id == id) {
                     *old = saved;
                 }
             }
             Step::Delete(id) => {
                 combats.delete_encounter(id).await?;
-                self.encounters.retain(|e| e.id != id);
-                if self.current == Some(id) {
-                    self.current = None;
+                self.screen.encounters.retain(|e| e.id != id);
+                if self.screen.current == Some(id) {
+                    self.screen.current = None;
                 }
             }
             Step::Fight | Step::Quit => {}
         }
-        self.sort();
+        self.screen.sort();
         Ok(())
     }
 }

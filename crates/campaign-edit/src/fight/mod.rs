@@ -43,37 +43,48 @@ enum Incoming {
     Sheet(Uuid),
 }
 
+/// Everything the fight screen shows, and what it makes of the line
+/// being typed: no connections, so it can be drawn (and tested) alone.
+pub struct Screen {
+    pub(crate) replica: Replica,
+    pub(crate) log: Vec<LoggedEvent>,
+    /// Names of every combatant and effect ever in the combat, for the log.
+    pub(crate) names: log::Names,
+    pub(crate) sheets: HashMap<Uuid, Character>,
+    pub(crate) roster: Vec<CharacterSummary>,
+    /// The monsters that can be added.
+    pub(crate) bestiary: Vec<MonsterSummary>,
+    /// Stat blocks of the monsters in the fight, by monster id.
+    pub(crate) monsters: HashMap<Uuid, Monster>,
+    /// The spells' and conditions' descriptions.
+    pub(crate) spells: Vec<SpellEntry>,
+    pub(crate) conditions: Vec<ConditionEntry>,
+    /// What `show` keeps in the side panel, until Esc or another line.
+    pub(crate) pinned: Option<Topic>,
+    pub(crate) prompt: Prompt,
+    /// The outcome of the last line, and whether it was a failure.
+    pub(crate) status: Option<(String, bool)>,
+    /// How many lines the log is scrolled back.
+    pub(crate) scroll: usize,
+    /// The sheet panel, scrolled by hand.
+    pub(crate) panel: crate::styled::PanelScroll,
+    /// This device's key, if it's a player's.
+    pub(crate) player: Option<String>,
+    /// This device's name.
+    pub(crate) me: String,
+    /// Whether the live connection is up.
+    pub(crate) online: bool,
+}
+
+/// The fight screen, connected.
 pub struct App {
+    screen: Screen,
     login: Login,
     combat: Uuid,
-    replica: Replica,
-    log: Vec<LoggedEvent>,
-    /// Names of every combatant and effect ever in the combat, for the log.
-    names: log::Names,
-    sheets: HashMap<Uuid, Character>,
-    roster: Vec<CharacterSummary>,
-    /// The monsters that can be added.
-    bestiary: Vec<MonsterSummary>,
-    /// Stat blocks of the monsters in the fight, by monster id.
-    monsters: HashMap<Uuid, Monster>,
-    /// The spells' and conditions' descriptions.
-    spells: Vec<SpellEntry>,
-    conditions: Vec<ConditionEntry>,
-    /// What `show` keeps in the side panel, until Esc or another line.
-    pinned: Option<Topic>,
     sender: Option<CommandSender>,
     incoming: mpsc::UnboundedSender<Incoming>,
-    prompt: Prompt,
-    /// The outcome of the last line, and whether it was a failure.
-    status: Option<(String, bool)>,
-    /// How many lines the log is scrolled back.
-    scroll: usize,
-    /// The sheet panel, scrolled by hand.
-    panel: crate::styled::PanelScroll,
     /// Failed reconnection attempts in a row.
     retries: u32,
-    /// This device's key, if it's a player's.
-    player: Option<String>,
 }
 
 pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> Result<()> {
@@ -114,34 +125,39 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
     let (sender, snapshot) = connect(&mut login, combat, &incoming).await?;
     let claims = &login.session.claims;
     let player = (claims.role == Principal::Player).then(|| claims.key.to_string());
+    let me = claims.name.clone();
     let mut app = App {
+        screen: Screen {
+            replica: Replica::new(snapshot),
+            names: log::Names::of(&log),
+            log,
+            sheets: HashMap::new(),
+            roster,
+            bestiary,
+            monsters: HashMap::new(),
+            spells,
+            conditions,
+            pinned: None,
+            prompt: Prompt::default(),
+            status: monster_problem.map(|problem| (problem, true)),
+            scroll: 0,
+            panel: Default::default(),
+            player,
+            me,
+            online: true,
+        },
         login,
         combat,
-        replica: Replica::new(snapshot),
-        names: log::Names::of(&log),
-        log,
-        sheets: HashMap::new(),
-        roster,
-        bestiary,
-        monsters: HashMap::new(),
-        spells,
-        conditions,
-        pinned: None,
         sender: Some(sender),
         incoming,
-        prompt: Prompt::default(),
-        status: monster_problem.map(|problem| (problem, true)),
-        scroll: 0,
-        panel: Default::default(),
         retries: 0,
-        player,
     };
     app.refresh_sheets().await;
 
     let mut terminal = ratatui::init();
     let mut keys = EventStream::new();
     let result = loop {
-        if let Err(e) = terminal.draw(|frame| ui::draw(frame, &app)) {
+        if let Err(e) = terminal.draw(|frame| ui::draw(frame, &app.screen)) {
             break Err(e.into());
         }
         tokio::select! {
@@ -230,7 +246,7 @@ async fn connect(
     Ok((sender, snapshot))
 }
 
-impl App {
+impl Screen {
     pub fn context(&self) -> Context<'_> {
         Context {
             state: self.replica.state(),
@@ -280,176 +296,6 @@ impl App {
         self.replica.state().combatant(id)
     }
 
-    /// Handles a key; `false` to leave.
-    async fn key(&mut self, key: KeyEvent) -> bool {
-        let alt = key.modifiers.contains(KeyModifiers::ALT);
-        match key.code {
-            KeyCode::Up if alt => self.panel.by(-1),
-            KeyCode::Down if alt => self.panel.by(1),
-            KeyCode::PageUp => self.scroll += 5,
-            KeyCode::PageDown => self.scroll = self.scroll.saturating_sub(5),
-            // A second Esc, on an empty line, lets go of what `show` kept.
-            KeyCode::Esc if self.prompt.input.is_empty() => self.pinned = None,
-            _ => match self.prompt.key(key, &self.suggestions()) {
-                Keyed::Edited => {}
-                Keyed::Enter => return self.enter().await,
-                Keyed::Quit => return false,
-            },
-        }
-        true
-    }
-
-    async fn enter(&mut self) -> bool {
-        let parsed = self.parsed();
-        let steps = match parsed.plan {
-            Ok(steps) => steps,
-            Err(problem) => {
-                self.status = Some((problem, true));
-                return true;
-            }
-        };
-        self.prompt.clear();
-        self.scroll = 0;
-        // Running another line lets go of what `show` kept.
-        self.pinned = None;
-        for step in steps {
-            let outcome = match step {
-                Step::Quit => return false,
-                Step::Show(topic) => {
-                    self.pinned = Some(topic);
-                    Ok(())
-                }
-                Step::Combat(command) => self.send(command).await,
-                Step::Join(id) => match self.fetch(id).await {
-                    Ok(character) => {
-                        let combatant = Combatant::from_character(&character);
-                        self.send(CombatCommand::AddCombatant { combatant }).await
-                    }
-                    Err(e) => Err(e),
-                },
-            };
-            if let Err(e) = outcome {
-                self.status = Some((format!("{}: {e:#}", parsed.sentence), true));
-                return true;
-            }
-        }
-        self.status = Some((parsed.sentence, false));
-        true
-    }
-
-    /// A monster's stat block, fetched once.
-    async fn monster(&mut self, id: Uuid) -> Result<Monster> {
-        if let Some(monster) = self.monsters.get(&id) {
-            return Ok(monster.clone());
-        }
-        let monster = self.login.monsters().await?.get(id).await?;
-        self.monsters.insert(id, monster.clone());
-        Ok(monster)
-    }
-
-    /// Sends a combat command, showing its predicted outcome at once.
-    async fn send(&mut self, command: CombatCommand) -> Result<()> {
-        let envelope = CommandEnvelope::new(command);
-        self.replica.submit(envelope.clone())?;
-        // While offline it stays pending, and is sent once reconnected.
-        if let Some(sender) = &mut self.sender {
-            sender.send(&envelope).await?;
-        }
-        Ok(())
-    }
-
-    async fn fetch(&mut self, id: Uuid) -> Result<Character> {
-        let character = self.login.characters().await?.get(id).await?;
-        self.sheets.insert(id, character.clone());
-        Ok(character)
-    }
-
-    /// Fetches the sheets of the combatants who are characters.
-    async fn refresh_sheets(&mut self) {
-        let ids: Vec<Uuid> = self
-            .replica
-            .state()
-            .combatants
-            .iter()
-            .filter_map(|c| c.character_id)
-            .collect();
-        for id in ids {
-            if let Err(e) = self.fetch(id).await {
-                self.status = Some((format!("couldn't load a character sheet: {e:#}"), true));
-            }
-        }
-        let monsters: Vec<Uuid> = self
-            .replica
-            .state()
-            .combatants
-            .iter()
-            .filter_map(|c| c.monster_id)
-            .collect();
-        for id in monsters {
-            if let Err(e) = self.monster(id).await {
-                self.status = Some((format!("couldn't load a stat block: {e:#}"), true));
-            }
-        }
-    }
-
-    async fn receive(&mut self, incoming: Incoming) {
-        let message = match incoming {
-            Incoming::Message(message) => message,
-            Incoming::Closed(reason) => {
-                self.status = Some((format!("{reason}; reconnecting…"), true));
-                self.reconnect().await;
-                return;
-            }
-            Incoming::Retry => {
-                self.reconnect().await;
-                return;
-            }
-            Incoming::Sheet(character) => {
-                self.fetch_or_say(character).await;
-                return;
-            }
-        };
-        let event = match &message {
-            ServerMessage::Event(event) => Some(event.clone()),
-            _ => None,
-        };
-        match self.replica.receive(message) {
-            Received::Updated => {}
-            Received::Rejected { error, .. } => self.status = Some((error, true)),
-            Received::NeedsResync => {
-                self.reconnect().await;
-                return;
-            }
-        }
-        let Some(event) = event else { return };
-        if self.log.last().is_some_and(|last| last.seq >= event.seq) {
-            return;
-        }
-        self.names.learn(&event.event);
-        self.log.push(event.clone());
-        for character in self.sheets_changed_by(&event.event) {
-            self.fetch_or_say(character).await;
-        }
-        if let CombatEvent::Undone { command } = event.event {
-            // The combat service gives back what the undone command spent
-            // right after logging the undo; read those sheets again then.
-            for character in self.sheets_spent_by(command) {
-                let incoming = self.incoming.clone();
-                tokio::spawn(async move {
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                    let _ = incoming.send(Incoming::Sheet(character));
-                });
-            }
-        }
-        if let CombatEvent::CombatantAdded { combatant }
-        | CombatEvent::CombatantRestored { combatant } = &event.event
-            && let Some(monster) = combatant.monster_id
-            && let Err(e) = self.monster(monster).await
-        {
-            self.status = Some((format!("couldn't load a stat block: {e:#}"), true));
-        }
-    }
-
     /// The characters whose sheets `event` means have changed: whoever's
     /// turn starts, who joins, and who spent a slot or uses (the combat
     /// service spends them; sheets change outside the combat too).
@@ -477,11 +323,191 @@ impl App {
             .filter_map(|(combatant, _)| state.combatant(combatant).and_then(|c| c.character_id))
             .collect()
     }
+}
+
+impl App {
+    /// Handles a key; `false` to leave.
+    async fn key(&mut self, key: KeyEvent) -> bool {
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        match key.code {
+            KeyCode::Up if alt => self.screen.panel.by(-1),
+            KeyCode::Down if alt => self.screen.panel.by(1),
+            KeyCode::PageUp => self.screen.scroll += 5,
+            KeyCode::PageDown => self.screen.scroll = self.screen.scroll.saturating_sub(5),
+            // A second Esc, on an empty line, lets go of what `show` kept.
+            KeyCode::Esc if self.screen.prompt.input.is_empty() => self.screen.pinned = None,
+            _ => match self.screen.prompt.key(key, &self.screen.suggestions()) {
+                Keyed::Edited => {}
+                Keyed::Enter => return self.enter().await,
+                Keyed::Quit => return false,
+            },
+        }
+        true
+    }
+
+    async fn enter(&mut self) -> bool {
+        let parsed = self.screen.parsed();
+        let steps = match parsed.plan {
+            Ok(steps) => steps,
+            Err(problem) => {
+                self.screen.status = Some((problem, true));
+                return true;
+            }
+        };
+        self.screen.prompt.clear();
+        self.screen.scroll = 0;
+        // Running another line lets go of what `show` kept.
+        self.screen.pinned = None;
+        for step in steps {
+            let outcome = match step {
+                Step::Quit => return false,
+                Step::Show(topic) => {
+                    self.screen.pinned = Some(topic);
+                    Ok(())
+                }
+                Step::Combat(command) => self.send(command).await,
+                Step::Join(id) => match self.fetch(id).await {
+                    Ok(character) => {
+                        let combatant = Combatant::from_character(&character);
+                        self.send(CombatCommand::AddCombatant { combatant }).await
+                    }
+                    Err(e) => Err(e),
+                },
+            };
+            if let Err(e) = outcome {
+                self.screen.status = Some((format!("{}: {e:#}", parsed.sentence), true));
+                return true;
+            }
+        }
+        self.screen.status = Some((parsed.sentence, false));
+        true
+    }
+
+    /// A monster's stat block, fetched once.
+    async fn monster(&mut self, id: Uuid) -> Result<Monster> {
+        if let Some(monster) = self.screen.monsters.get(&id) {
+            return Ok(monster.clone());
+        }
+        let monster = self.login.monsters().await?.get(id).await?;
+        self.screen.monsters.insert(id, monster.clone());
+        Ok(monster)
+    }
+
+    /// Sends a combat command, showing its predicted outcome at once.
+    async fn send(&mut self, command: CombatCommand) -> Result<()> {
+        let envelope = CommandEnvelope::new(command);
+        self.screen.replica.submit(envelope.clone())?;
+        // While offline it stays pending, and is sent once reconnected.
+        if let Some(sender) = &mut self.sender {
+            sender.send(&envelope).await?;
+        }
+        Ok(())
+    }
+
+    async fn fetch(&mut self, id: Uuid) -> Result<Character> {
+        let character = self.login.characters().await?.get(id).await?;
+        self.screen.sheets.insert(id, character.clone());
+        Ok(character)
+    }
+
+    /// Fetches the sheets of the combatants who are characters.
+    async fn refresh_sheets(&mut self) {
+        let ids: Vec<Uuid> = self
+            .screen
+            .replica
+            .state()
+            .combatants
+            .iter()
+            .filter_map(|c| c.character_id)
+            .collect();
+        for id in ids {
+            if let Err(e) = self.fetch(id).await {
+                self.screen.status =
+                    Some((format!("couldn't load a character sheet: {e:#}"), true));
+            }
+        }
+        let monsters: Vec<Uuid> = self
+            .screen
+            .replica
+            .state()
+            .combatants
+            .iter()
+            .filter_map(|c| c.monster_id)
+            .collect();
+        for id in monsters {
+            if let Err(e) = self.monster(id).await {
+                self.screen.status = Some((format!("couldn't load a stat block: {e:#}"), true));
+            }
+        }
+    }
+
+    async fn receive(&mut self, incoming: Incoming) {
+        let message = match incoming {
+            Incoming::Message(message) => message,
+            Incoming::Closed(reason) => {
+                self.screen.status = Some((format!("{reason}; reconnecting…"), true));
+                self.reconnect().await;
+                return;
+            }
+            Incoming::Retry => {
+                self.reconnect().await;
+                return;
+            }
+            Incoming::Sheet(character) => {
+                self.fetch_or_say(character).await;
+                return;
+            }
+        };
+        let event = match &message {
+            ServerMessage::Event(event) => Some(event.clone()),
+            _ => None,
+        };
+        match self.screen.replica.receive(message) {
+            Received::Updated => {}
+            Received::Rejected { error, .. } => self.screen.status = Some((error, true)),
+            Received::NeedsResync => {
+                self.reconnect().await;
+                return;
+            }
+        }
+        let Some(event) = event else { return };
+        if self
+            .screen
+            .log
+            .last()
+            .is_some_and(|last| last.seq >= event.seq)
+        {
+            return;
+        }
+        self.screen.names.learn(&event.event);
+        self.screen.log.push(event.clone());
+        for character in self.screen.sheets_changed_by(&event.event) {
+            self.fetch_or_say(character).await;
+        }
+        if let CombatEvent::Undone { command } = event.event {
+            // The combat service gives back what the undone command spent
+            // right after logging the undo; read those sheets again then.
+            for character in self.screen.sheets_spent_by(command) {
+                let incoming = self.incoming.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    let _ = incoming.send(Incoming::Sheet(character));
+                });
+            }
+        }
+        if let CombatEvent::CombatantAdded { combatant }
+        | CombatEvent::CombatantRestored { combatant } = &event.event
+            && let Some(monster) = combatant.monster_id
+            && let Err(e) = self.monster(monster).await
+        {
+            self.screen.status = Some((format!("couldn't load a stat block: {e:#}"), true));
+        }
+    }
 
     /// Reads a sheet again, saying so if that fails.
     async fn fetch_or_say(&mut self, character: Uuid) {
         if let Err(e) = self.fetch(character).await {
-            self.status = Some((format!("couldn't load a character sheet: {e:#}"), true));
+            self.screen.status = Some((format!("couldn't load a character sheet: {e:#}"), true));
         }
     }
 
@@ -490,13 +516,14 @@ impl App {
     /// working meanwhile, and commands queue up).
     async fn reconnect(&mut self) {
         self.sender = None;
+        self.screen.online = false;
         match self.try_reconnect().await {
             Ok(()) => {
                 self.retries = 0;
-                self.status = Some(("reconnected".into(), false));
+                self.screen.status = Some(("reconnected".into(), false));
             }
             Err(e) => {
-                self.status = Some((format!("offline, retrying: {e:#}"), true));
+                self.screen.status = Some((format!("offline, retrying: {e:#}"), true));
                 let wait = Duration::from_secs(1 << self.retries.min(4));
                 self.retries += 1;
                 let incoming = self.incoming.clone();
@@ -510,17 +537,20 @@ impl App {
 
     async fn try_reconnect(&mut self) -> Result<()> {
         let (mut sender, snapshot) = connect(&mut self.login, self.combat, &self.incoming).await?;
-        let after = self.log.last().map_or(0, |e| e.seq);
+        let after = self.screen.log.last().map_or(0, |e| e.seq);
         let missed = self.login.combats().await?.log(self.combat, after).await?;
         for event in &missed {
-            self.names.learn(&event.event);
+            self.screen.names.learn(&event.event);
         }
-        self.log.extend(missed);
-        self.replica.receive(ServerMessage::Snapshot(snapshot));
-        for envelope in self.replica.pending().to_vec() {
+        self.screen.log.extend(missed);
+        self.screen
+            .replica
+            .receive(ServerMessage::Snapshot(snapshot));
+        for envelope in self.screen.replica.pending().to_vec() {
             sender.send(&envelope).await?;
         }
         self.sender = Some(sender);
+        self.screen.online = true;
         Ok(())
     }
 }
