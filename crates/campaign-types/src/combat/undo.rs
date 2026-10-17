@@ -21,8 +21,8 @@
 //! An ended combat accepts only the undo of the command that ended it.
 //!
 //! Spells and features are spent on character sheets, outside the combat:
-//! undoing a cast ends the effect it put into play, but giving the slot
-//! back is up to whoever undoes it (the fight screen does).
+//! undoing a cast ends the effect it put into play, and the combat service
+//! gives the slot back to the sheet.
 
 use std::collections::HashSet;
 
@@ -41,58 +41,8 @@ pub fn undo(
     target: Option<Uuid>,
     mine: impl Fn(Uuid) -> bool,
 ) -> Result<Vec<CombatEvent>, CombatError> {
-    let undone: HashSet<Uuid> = log
-        .iter()
-        .filter_map(|e| match e.event {
-            CombatEvent::Undone { command } => Some(command),
-            _ => None,
-        })
-        .collect();
-    // The undos themselves, which can't be undone in turn.
-    let undos: HashSet<Uuid> = log
-        .iter()
-        .filter(|e| matches!(e.event, CombatEvent::Undone { .. }))
-        .filter_map(|e| e.command_id)
-        .collect();
-
-    let target = match target {
-        Some(command) => {
-            if !log.iter().any(|e| e.command_id == Some(command)) {
-                return Err(CombatError::UnknownCommand(command));
-            }
-            if undos.contains(&command) {
-                return Err(CombatError::CannotUndo("an undo can't be undone".into()));
-            }
-            if !mine(command) {
-                return Err(CombatError::NotYourCommand);
-            }
-            if undone.contains(&command) {
-                return Err(CombatError::AlreadyUndone);
-            }
-            command
-        }
-        None => log
-            .iter()
-            .rev()
-            .filter_map(|e| e.command_id)
-            .find(|c| !undos.contains(c) && !undone.contains(c) && mine(*c))
-            .ok_or(CombatError::NothingToUndo)?,
-    };
-
-    // A command's events are contiguous: commands to a combat are applied
-    // one at a time.
-    let first = log
-        .iter()
-        .position(|e| e.command_id == Some(target))
-        .expect("found above");
-    let last = log
-        .iter()
-        .rposition(|e| e.command_id == Some(target))
-        .expect("found above");
-    let replay = |events: &[LoggedEvent]| CombatState::replay(events.iter().map(|e| &e.event));
-    let before = replay(&log[..first]);
-    let after = replay(&log[..=last]);
-    let now = replay(log);
+    let target = which(log, target, mine)?;
+    let [before, after, now] = around(log, target);
 
     let progress = |s: &CombatState| (s.status, s.round, s.current_turn);
     let rewind = progress(&before) != progress(&after);
@@ -110,97 +60,189 @@ pub fn undo(
         events: Vec::new(),
     };
     out.emit(CombatEvent::Undone { command: target });
-
-    // Combatants it removed or changed.
-    for old in &before.combatants {
-        let current = out.state.combatant(old.id).cloned();
-        match (after.combatant(old.id), current) {
-            (None, None) => out.emit(CombatEvent::CombatantRestored {
-                combatant: old.clone(),
-            }),
-            (Some(new), Some(current)) => {
-                let reverted = revert(old, new, &current);
-                if reverted != current {
-                    out.emit(CombatEvent::CombatantRestored {
-                        combatant: reverted,
-                    });
-                }
-            }
-            (Some(new), None) if new != old => {
-                return Err(CombatError::CannotUndo(format!(
-                    "{} has left the combat",
-                    old.name
-                )));
-            }
-            _ => {}
-        }
-    }
-
-    // Effects it added. Ended before any are restored, so a concentration
-    // effect it replaced can come back.
-    for effect in &after.effects {
-        if before.effect(effect.id).is_none() && out.state.effect(effect.id).is_some() {
-            out.emit(CombatEvent::EffectEnded {
-                effect: effect.id,
-                reason: EffectEndReason::Undone,
-            });
-        }
-    }
-
-    // Effects it ended, or whose targets it removed.
-    for old in &before.effects {
-        let present = |state: &CombatState, id: &Uuid| state.combatant(*id).is_some();
-        match (after.effect(old.id), out.state.effect(old.id).cloned()) {
-            (None, None) => {
-                let replaced = old.concentration
-                    && out
-                        .state
-                        .effects
-                        .iter()
-                        .any(|e| e.concentration && e.source == old.source);
-                if !replaced {
-                    let mut effect = old.clone();
-                    effect.targets.retain(|t| present(&out.state, t));
-                    out.emit(CombatEvent::EffectRestored { effect });
-                }
-            }
-            (Some(new), Some(mut current)) => {
-                let lost = old.targets.iter().filter(|t| !new.targets.contains(t));
-                let back: Vec<_> = lost
-                    .filter(|t| present(&out.state, t) && !current.targets.contains(t))
-                    .copied()
-                    .collect();
-                if !back.is_empty() {
-                    current.targets.extend(back);
-                    out.emit(CombatEvent::EffectRestored { effect: current });
-                }
-            }
-            _ => {}
-        }
-    }
-
-    // Combatants it added.
-    for new in &after.combatants {
-        if before.combatant(new.id).is_none() && out.state.combatant(new.id).is_some() {
-            out.remove(new.id)?;
-        }
-    }
-
+    out.restore_combatants(&before, &after)?;
+    // Ended before any are restored, so a concentration effect the command
+    // replaced can come back.
+    out.end_added_effects(&before, &after);
+    out.restore_effects(&before, &after);
+    out.remove_added_combatants(&before, &after)?;
     if rewind {
+        out.restore_progress(&before)?;
+    }
+    Ok(out.events)
+}
+
+/// The command to undo: `target`, if it can be undone by whoever `mine`
+/// says sent it, or their latest one not undone yet.
+fn which(
+    log: &[LoggedEvent],
+    target: Option<Uuid>,
+    mine: impl Fn(Uuid) -> bool,
+) -> Result<Uuid, CombatError> {
+    let undone: HashSet<Uuid> = log
+        .iter()
+        .filter_map(|e| match e.event {
+            CombatEvent::Undone { command } => Some(command),
+            _ => None,
+        })
+        .collect();
+    // The undos themselves, which can't be undone in turn.
+    let undos: HashSet<Uuid> = log
+        .iter()
+        .filter(|e| matches!(e.event, CombatEvent::Undone { .. }))
+        .filter_map(|e| e.command_id)
+        .collect();
+
+    let Some(command) = target else {
+        return log
+            .iter()
+            .rev()
+            .filter_map(|e| e.command_id)
+            .find(|c| !undos.contains(c) && !undone.contains(c) && mine(*c))
+            .ok_or(CombatError::NothingToUndo);
+    };
+    if !log.iter().any(|e| e.command_id == Some(command)) {
+        return Err(CombatError::UnknownCommand(command));
+    }
+    if undos.contains(&command) {
+        return Err(CombatError::CannotUndo("an undo can't be undone".into()));
+    }
+    if !mine(command) {
+        return Err(CombatError::NotYourCommand);
+    }
+    if undone.contains(&command) {
+        return Err(CombatError::AlreadyUndone);
+    }
+    Ok(command)
+}
+
+/// The combat just before `command`, just after it, and now.
+fn around(log: &[LoggedEvent], command: Uuid) -> [CombatState; 3] {
+    // A command's events are contiguous: commands to a combat are applied
+    // one at a time.
+    let first = log
+        .iter()
+        .position(|e| e.command_id == Some(command))
+        .expect("the command is in the log");
+    let last = log
+        .iter()
+        .rposition(|e| e.command_id == Some(command))
+        .expect("the command is in the log");
+    let replay = |events: &[LoggedEvent]| CombatState::replay(events.iter().map(|e| &e.event));
+    [replay(&log[..first]), replay(&log[..=last]), replay(log)]
+}
+
+/// Taking back what the command changed, from the combat as it was
+/// `before` the command and `after` it.
+impl Emitter {
+    /// Combatants it removed or changed.
+    fn restore_combatants(
+        &mut self,
+        before: &CombatState,
+        after: &CombatState,
+    ) -> Result<(), CombatError> {
+        for old in &before.combatants {
+            let current = self.state.combatant(old.id).cloned();
+            match (after.combatant(old.id), current) {
+                (None, None) => self.emit(CombatEvent::CombatantRestored {
+                    combatant: old.clone(),
+                }),
+                (Some(new), Some(current)) => {
+                    let reverted = revert(old, new, &current);
+                    if reverted != current {
+                        self.emit(CombatEvent::CombatantRestored {
+                            combatant: reverted,
+                        });
+                    }
+                }
+                (Some(new), None) if new != old => {
+                    return Err(CombatError::CannotUndo(format!(
+                        "{} has left the combat",
+                        old.name
+                    )));
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Effects it added.
+    fn end_added_effects(&mut self, before: &CombatState, after: &CombatState) {
+        for effect in &after.effects {
+            if before.effect(effect.id).is_none() && self.state.effect(effect.id).is_some() {
+                self.emit(CombatEvent::EffectEnded {
+                    effect: effect.id,
+                    reason: EffectEndReason::Undone,
+                });
+            }
+        }
+    }
+
+    /// Effects it ended, or whose targets it removed.
+    fn restore_effects(&mut self, before: &CombatState, after: &CombatState) {
+        let present = |state: &CombatState, id: &Uuid| state.combatant(*id).is_some();
+        for old in &before.effects {
+            match (after.effect(old.id), self.state.effect(old.id).cloned()) {
+                (None, None) => {
+                    let replaced = old.concentration
+                        && self
+                            .state
+                            .effects
+                            .iter()
+                            .any(|e| e.concentration && e.source == old.source);
+                    if !replaced {
+                        let mut effect = old.clone();
+                        effect.targets.retain(|t| present(&self.state, t));
+                        self.emit(CombatEvent::EffectRestored { effect });
+                    }
+                }
+                (Some(new), Some(mut current)) => {
+                    let lost = old.targets.iter().filter(|t| !new.targets.contains(t));
+                    let back: Vec<_> = lost
+                        .filter(|t| present(&self.state, t) && !current.targets.contains(t))
+                        .copied()
+                        .collect();
+                    if !back.is_empty() {
+                        current.targets.extend(back);
+                        self.emit(CombatEvent::EffectRestored { effect: current });
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Combatants it added.
+    fn remove_added_combatants(
+        &mut self,
+        before: &CombatState,
+        after: &CombatState,
+    ) -> Result<(), CombatError> {
+        for new in &after.combatants {
+            if before.combatant(new.id).is_none() && self.state.combatant(new.id).is_some() {
+                self.remove(new.id)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// The round, turn and status from before it.
+    fn restore_progress(&mut self, before: &CombatState) -> Result<(), CombatError> {
         if let Some(turn) = before.current_turn
-            && out.state.combatant(turn).is_none()
+            && self.state.combatant(turn).is_none()
         {
             return Err(CombatError::CannotUndo(
                 "whose turn it was has left the combat".into(),
             ));
         }
-        out.emit(CombatEvent::ProgressRestored {
+        self.emit(CombatEvent::ProgressRestored {
             status: before.status,
             round: before.round,
             current_turn: before.current_turn,
         });
+        Ok(())
     }
-    Ok(out.events)
 }
 
 /// `current` with the change from `old` to `new` taken back: hit points

@@ -193,18 +193,7 @@ pub fn decide(
         events: Vec::new(),
     };
     match command {
-        CombatCommand::AddCombatant { combatant } => {
-            if combatant.name.trim().is_empty() {
-                return Err(CombatError::EmptyName);
-            }
-            if combatant.hit_points.current > combatant.hit_points.max {
-                return Err(CombatError::InvalidHitPoints);
-            }
-            out.ensure_unused(combatant.id)?;
-            out.emit(CombatEvent::CombatantAdded {
-                combatant: combatant.clone(),
-            });
-        }
+        CombatCommand::AddCombatant { combatant } => out.add_combatant(combatant)?,
         CombatCommand::RemoveCombatant { combatant } => out.remove(*combatant)?,
         CombatCommand::RollInitiative { combatant, roll } => {
             let roll = match roll {
@@ -214,21 +203,7 @@ pub fn decide(
             };
             out.roll_initiative(*combatant, roll)?;
         }
-        CombatCommand::RollInitiativeForAll => {
-            let unrolled: Vec<_> = state
-                .combatants
-                .iter()
-                .filter(|c| c.initiative.is_none())
-                .map(|c| c.id)
-                .collect();
-            if unrolled.is_empty() {
-                return Err(CombatError::NothingToRoll);
-            }
-            for id in unrolled {
-                let roll = dice.d20().ok_or(CombatError::DiceUnavailable)?;
-                out.roll_initiative(id, roll)?;
-            }
-        }
+        CombatCommand::RollInitiativeForAll => out.roll_for_all(dice)?,
         CombatCommand::SetInitiative { combatant, total } => {
             out.combatant(*combatant)?;
             out.emit(CombatEvent::InitiativeSet {
@@ -236,18 +211,7 @@ pub fn decide(
                 total: *total,
             });
         }
-        CombatCommand::Start => {
-            if state.status != CombatStatus::Preparing {
-                return Err(CombatError::AlreadyStarted);
-            }
-            let first = state
-                .turn_order()
-                .next()
-                .ok_or(CombatError::NoInitiative)?
-                .id;
-            out.emit(CombatEvent::Started);
-            out.start_turn(first, true);
-        }
+        CombatCommand::Start => out.start()?,
         CombatCommand::NextTurn => {
             out.ensure_active()?;
             let (next, wrapped) = out
@@ -255,64 +219,12 @@ pub fn decide(
                 .ok_or(CombatError::NoInitiative)?;
             out.start_turn(next, wrapped);
         }
-        CombatCommand::Damage { combatant, amount } => {
-            let before = out.combatant(*combatant)?.hit_points;
-            let mut hp = before;
-            let absorbed = hp.temporary.min(clamp_u16(*amount));
-            hp.temporary -= absorbed;
-            hp.current = hp.current.saturating_sub(clamp_u16(*amount) - absorbed);
-            out.emit(CombatEvent::Damaged {
-                combatant: *combatant,
-                amount: *amount,
-                hit_points: hp,
-            });
-            if before.current > 0 && hp.current == 0 {
-                out.end_concentration(*combatant, EffectEndReason::ConcentrationBroken);
-            }
-        }
-        CombatCommand::Heal { combatant, amount } => {
-            let mut hp = out.combatant(*combatant)?.hit_points;
-            hp.current = hp.current.saturating_add(clamp_u16(*amount)).min(hp.max);
-            out.emit(CombatEvent::Healed {
-                combatant: *combatant,
-                amount: *amount,
-                hit_points: hp,
-            });
-        }
+        CombatCommand::Damage { combatant, amount } => out.damage(*combatant, *amount)?,
+        CombatCommand::Heal { combatant, amount } => out.heal(*combatant, *amount)?,
         CombatCommand::SetTemporaryHitPoints { combatant, amount } => {
-            let mut hp = out.combatant(*combatant)?.hit_points;
-            hp.temporary = *amount;
-            out.emit(CombatEvent::TemporaryHitPointsSet {
-                combatant: *combatant,
-                hit_points: hp,
-            });
+            out.set_temporary(*combatant, *amount)?;
         }
-        CombatCommand::AddEffect { effect } => {
-            if effect.name.trim().is_empty() {
-                return Err(CombatError::EmptyName);
-            }
-            out.ensure_unused(effect.id)?;
-            for id in effect.source.iter().chain(&effect.targets) {
-                out.combatant(*id)?;
-            }
-            if let (true, Some(source)) = (effect.concentration, effect.source) {
-                out.end_concentration(source, EffectEndReason::ConcentrationReplaced);
-            }
-            let expires = effect.rounds.map(|rounds| Expiry {
-                round: state.round + rounds,
-                at_turn_of: effect.source.or(state.current_turn),
-            });
-            out.emit(CombatEvent::EffectAdded {
-                effect: Effect {
-                    id: effect.id,
-                    name: effect.name.clone(),
-                    source: effect.source,
-                    targets: effect.targets.clone(),
-                    concentration: effect.concentration,
-                    expires,
-                },
-            });
-        }
+        CombatCommand::AddEffect { effect } => out.add_effect(effect)?,
         CombatCommand::RemoveEffect { effect } => {
             state
                 .effect(*effect)
@@ -328,49 +240,12 @@ pub fn decide(
             slot,
             targets,
             concentration,
-        } => {
-            if spell.trim().is_empty() {
-                return Err(CombatError::EmptyName);
-            }
-            for id in std::iter::once(caster).chain(targets) {
-                out.combatant(*id)?;
-            }
-            out.emit(CombatEvent::SpellCast {
-                caster: *caster,
-                spell: spell.clone(),
-                slot: *slot,
-                targets: targets.clone(),
-            });
-            if let Some(effect) = concentration {
-                out.ensure_unused(*effect)?;
-                out.end_concentration(*caster, EffectEndReason::ConcentrationReplaced);
-                out.emit(CombatEvent::EffectAdded {
-                    effect: Effect {
-                        id: *effect,
-                        name: spell.clone(),
-                        source: Some(*caster),
-                        targets: targets.clone(),
-                        concentration: true,
-                        expires: None,
-                    },
-                });
-            }
-        }
+        } => out.cast_spell(*caster, spell, *slot, targets, *concentration)?,
         CombatCommand::UseFeature {
             combatant,
             feature,
             amount,
-        } => {
-            if feature.trim().is_empty() {
-                return Err(CombatError::EmptyName);
-            }
-            out.combatant(*combatant)?;
-            out.emit(CombatEvent::FeatureUsed {
-                combatant: *combatant,
-                feature: feature.clone(),
-                amount: *amount,
-            });
-        }
+        } => out.use_feature(*combatant, feature, *amount)?,
         CombatCommand::Pause => {
             out.ensure_active()?;
             out.emit(CombatEvent::Paused);
@@ -385,6 +260,185 @@ pub fn decide(
         CombatCommand::Undo { .. } => unreachable!("handled above"),
     }
     Ok(out.events)
+}
+
+/// What each command does, when it takes more than a line or two. Each
+/// starts from the state the command was decided against.
+impl Emitter {
+    fn add_combatant(&mut self, combatant: &Combatant) -> Result<(), CombatError> {
+        if combatant.name.trim().is_empty() {
+            return Err(CombatError::EmptyName);
+        }
+        if combatant.hit_points.current > combatant.hit_points.max {
+            return Err(CombatError::InvalidHitPoints);
+        }
+        self.ensure_unused(combatant.id)?;
+        self.emit(CombatEvent::CombatantAdded {
+            combatant: combatant.clone(),
+        });
+        Ok(())
+    }
+
+    fn roll_for_all(&mut self, dice: &mut dyn Dice) -> Result<(), CombatError> {
+        let unrolled: Vec<_> = self
+            .state
+            .combatants
+            .iter()
+            .filter(|c| c.initiative.is_none())
+            .map(|c| c.id)
+            .collect();
+        if unrolled.is_empty() {
+            return Err(CombatError::NothingToRoll);
+        }
+        for id in unrolled {
+            let roll = dice.d20().ok_or(CombatError::DiceUnavailable)?;
+            self.roll_initiative(id, roll)?;
+        }
+        Ok(())
+    }
+
+    fn start(&mut self) -> Result<(), CombatError> {
+        if self.state.status != CombatStatus::Preparing {
+            return Err(CombatError::AlreadyStarted);
+        }
+        let first = self
+            .state
+            .turn_order()
+            .next()
+            .ok_or(CombatError::NoInitiative)?
+            .id;
+        self.emit(CombatEvent::Started);
+        self.start_turn(first, true);
+        Ok(())
+    }
+
+    /// Temporary hit points take damage first. Dropping to 0 breaks
+    /// concentration.
+    fn damage(&mut self, combatant: Uuid, amount: u32) -> Result<(), CombatError> {
+        let before = self.combatant(combatant)?.hit_points;
+        let mut hp = before;
+        let absorbed = hp.temporary.min(clamp_u16(amount));
+        hp.temporary -= absorbed;
+        hp.current = hp.current.saturating_sub(clamp_u16(amount) - absorbed);
+        self.emit(CombatEvent::Damaged {
+            combatant,
+            amount,
+            hit_points: hp,
+        });
+        if before.current > 0 && hp.current == 0 {
+            self.end_concentration(combatant, EffectEndReason::ConcentrationBroken);
+        }
+        Ok(())
+    }
+
+    fn heal(&mut self, combatant: Uuid, amount: u32) -> Result<(), CombatError> {
+        let mut hp = self.combatant(combatant)?.hit_points;
+        hp.current = hp.current.saturating_add(clamp_u16(amount)).min(hp.max);
+        self.emit(CombatEvent::Healed {
+            combatant,
+            amount,
+            hit_points: hp,
+        });
+        Ok(())
+    }
+
+    fn set_temporary(&mut self, combatant: Uuid, amount: u16) -> Result<(), CombatError> {
+        let mut hp = self.combatant(combatant)?.hit_points;
+        hp.temporary = amount;
+        self.emit(CombatEvent::TemporaryHitPointsSet {
+            combatant,
+            hit_points: hp,
+        });
+        Ok(())
+    }
+
+    /// A new concentration effect ends its source's old one. An effect
+    /// lasting some rounds expires at the start of its source's turn (or,
+    /// without a source, of whoever's turn it is now).
+    fn add_effect(&mut self, effect: &NewEffect) -> Result<(), CombatError> {
+        if effect.name.trim().is_empty() {
+            return Err(CombatError::EmptyName);
+        }
+        self.ensure_unused(effect.id)?;
+        for id in effect.source.iter().chain(&effect.targets) {
+            self.combatant(*id)?;
+        }
+        let expires = effect.rounds.map(|rounds| Expiry {
+            round: self.state.round + rounds,
+            at_turn_of: effect.source.or(self.state.current_turn),
+        });
+        if let (true, Some(source)) = (effect.concentration, effect.source) {
+            self.end_concentration(source, EffectEndReason::ConcentrationReplaced);
+        }
+        self.emit(CombatEvent::EffectAdded {
+            effect: Effect {
+                id: effect.id,
+                name: effect.name.clone(),
+                source: effect.source,
+                targets: effect.targets.clone(),
+                concentration: effect.concentration,
+                expires,
+            },
+        });
+        Ok(())
+    }
+
+    /// A cast with `concentration` also puts down the spell as an effect
+    /// (with that id), ending the caster's old one.
+    fn cast_spell(
+        &mut self,
+        caster: Uuid,
+        spell: &str,
+        slot: Option<SpellSlot>,
+        targets: &[Uuid],
+        concentration: Option<Uuid>,
+    ) -> Result<(), CombatError> {
+        if spell.trim().is_empty() {
+            return Err(CombatError::EmptyName);
+        }
+        for id in std::iter::once(&caster).chain(targets) {
+            self.combatant(*id)?;
+        }
+        self.emit(CombatEvent::SpellCast {
+            caster,
+            spell: spell.to_string(),
+            slot,
+            targets: targets.to_vec(),
+        });
+        if let Some(effect) = concentration {
+            self.ensure_unused(effect)?;
+            self.end_concentration(caster, EffectEndReason::ConcentrationReplaced);
+            self.emit(CombatEvent::EffectAdded {
+                effect: Effect {
+                    id: effect,
+                    name: spell.to_string(),
+                    source: Some(caster),
+                    targets: targets.to_vec(),
+                    concentration: true,
+                    expires: None,
+                },
+            });
+        }
+        Ok(())
+    }
+
+    fn use_feature(
+        &mut self,
+        combatant: Uuid,
+        feature: &str,
+        amount: u16,
+    ) -> Result<(), CombatError> {
+        if feature.trim().is_empty() {
+            return Err(CombatError::EmptyName);
+        }
+        self.combatant(combatant)?;
+        self.emit(CombatEvent::FeatureUsed {
+            combatant,
+            feature: feature.to_string(),
+            amount,
+        });
+        Ok(())
+    }
 }
 
 fn clamp_u16(n: u32) -> u16 {

@@ -9,220 +9,286 @@ use crate::{prompt::Suggestion, session::monster_named};
 /// number), spells, features, effects or characters, depending on where the
 /// cursor is.
 pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
-    let words: Vec<&str> = line.split_whitespace().collect();
-    let typing = !line.is_empty() && !line.ends_with(char::is_whitespace);
-    let (done, partial) = match (typing, words.split_last()) {
-        (true, Some((last, done))) => (done, *last),
-        _ => (&words[..], ""),
+    let typed = Typed::new(line, ctx);
+    if typed.done.len() <= typed.verb_at {
+        return typed.actions();
+    }
+    let Some(verb) = verb(typed.done[typed.verb_at]) else {
+        return Vec::new();
     };
-    let head = |extra: &[&str]| {
-        let mut parts: Vec<&str> = done.to_vec();
-        parts.extend_from_slice(extra);
-        parts.join(" ")
-    };
-    let complete = |base: &str, word: &str| {
-        if base.is_empty() {
+    match verb {
+        Verb::Damage | Verb::Heal | Verb::Temp | Verb::Remove => typed.targets(),
+        Verb::Init if typed.args().is_empty() => typed.targets(),
+        Verb::Effect => typed.effect(),
+        Verb::Cast => typed.cast(),
+        Verb::Use => typed.use_feature(),
+        Verb::Show => typed.show(),
+        Verb::Drop => typed.named(drop_names(ctx)),
+        Verb::Add => typed.add(),
+        _ => Vec::new(),
+    }
+}
+
+/// A line split up for completing it.
+struct Typed<'l, 'c> {
+    ctx: &'l Context<'c>,
+    /// The words finished so far.
+    done: Vec<&'l str>,
+    /// The word being typed, or "" after a space.
+    partial: &'l str,
+    /// Where the action word is: after an optional leading number.
+    verb_at: usize,
+}
+
+impl<'l, 'c> Typed<'l, 'c> {
+    fn new(line: &'l str, ctx: &'l Context<'c>) -> Self {
+        let words: Vec<&str> = line.split_whitespace().collect();
+        let typing = !line.is_empty() && !line.ends_with(char::is_whitespace);
+        let (done, partial) = match (typing, words.split_last()) {
+            (true, Some((last, done))) => (done.to_vec(), *last),
+            _ => (words, ""),
+        };
+        let verb_at = match done.first() {
+            Some(w) if w.parse::<usize>().is_ok() => 1,
+            _ => 0,
+        };
+        Self {
+            ctx,
+            done,
+            partial,
+            verb_at,
+        }
+    }
+
+    /// The words after the action.
+    fn args(&self) -> &[&'l str] {
+        &self.done[self.verb_at + 1..]
+    }
+
+    /// The line with `word` in place of the one being typed.
+    fn complete(&self, word: &str) -> String {
+        if self.done.is_empty() {
             format!("{word} ")
         } else {
-            format!("{base} {word} ")
+            format!("{} {word} ", self.done.join(" "))
         }
-    };
+    }
 
-    // Where the action word is: after an optional leading number.
-    let verb_at = match done.first() {
-        Some(w) if w.parse::<usize>().is_ok() => 1,
-        _ => 0,
-    };
-    if done.len() <= verb_at {
+    /// `word` (shown as `label`), if what's being typed could be its start.
+    fn keyword(&self, word: &str, label: &str, detail: &str) -> Option<Suggestion> {
+        word.starts_with(&self.partial.to_lowercase())
+            .then(|| Suggestion {
+                line: self.complete(word),
+                label: label.into(),
+                detail: detail.into(),
+            })
+    }
+
+    /// Who acts: the line's leading number, or whoever has the turn.
+    fn actor_sheet(&self) -> Option<&'l CharacterSheet> {
+        let ctx = self.ctx;
+        let actor = match self.verb_at {
+            1 => self.done[0].parse().ok().and_then(|n| ctx.numbered(n)),
+            _ => ctx.state.current_turn.and_then(|id| ctx.by_id(id)),
+        };
+        actor.and_then(|a| ctx.sheet(a))
+    }
+
+    /// The actions, and on a line's first word, who could act.
+    fn actions(&self) -> Vec<Suggestion> {
         let mut out: Vec<Suggestion> = VERBS
             .iter()
-            .filter(|(_, name, ..)| name.starts_with(&partial.to_lowercase()))
+            .filter(|(_, name, ..)| name.starts_with(&self.partial.to_lowercase()))
             .map(|(_, name, args, about)| Suggestion {
-                line: complete(&head(&[]), name),
+                line: self.complete(name),
                 label: format!("{name} {args}").trim_end().to_string(),
                 detail: about.to_string(),
             })
             .collect();
-        if done.is_empty() && !partial.is_empty() {
+        if self.done.is_empty() && !self.partial.is_empty() {
             // Starting with someone's name picks who acts.
-            out.extend(combatants(ctx, partial).map(|(n, c)| Suggestion {
+            out.extend(combatants(self.ctx, self.partial).map(|(n, c)| Suggestion {
                 line: format!("{n} "),
                 label: format!("{n} {}", c.name),
                 detail: "acts".into(),
             }));
         }
-        return out;
+        out
     }
 
-    let Some(verb) = verb(done[verb_at]) else {
-        return Vec::new();
-    };
-    let args = &done[verb_at + 1..];
-    let base = head(&[]);
-    let actor = match verb_at {
-        1 => done[0].parse().ok().and_then(|n| ctx.numbered(n)),
-        _ => ctx.state.current_turn.and_then(|id| ctx.by_id(id)),
-    };
-    let target_suggestions = || -> Vec<Suggestion> {
-        combatants(ctx, partial)
+    /// Combatants, completed to their number.
+    fn targets(&self) -> Vec<Suggestion> {
+        combatants(self.ctx, self.partial)
             .map(|(n, c)| Suggestion {
-                line: complete(&base, &n.to_string()),
+                line: self.complete(&n.to_string()),
                 label: format!("{n} {}", c.name),
                 detail: status(c),
             })
             .collect()
-    };
-    // Names that may span several words: offered while what's typed after
-    // the action could still be the start of one.
-    // `skip` words after the action come before the name (a count).
-    let named_after = |skip: usize, names: Vec<(String, String)>| -> Vec<Suggestion> {
-        let mut typed: Vec<&str> = args[skip..].to_vec();
-        if !partial.is_empty() {
-            typed.push(partial);
+    }
+
+    /// Names that may span several words: offered while what's typed after
+    /// the action could still be the start of one.
+    fn named(&self, names: Vec<(String, String)>) -> Vec<Suggestion> {
+        self.named_after(0, names)
+    }
+
+    /// Names, as [`Self::named`], that come `skip` words after the action
+    /// (after a count).
+    fn named_after(&self, skip: usize, names: Vec<(String, String)>) -> Vec<Suggestion> {
+        let mut typed: Vec<&str> = self.args()[skip..].to_vec();
+        if !self.partial.is_empty() {
+            typed.push(self.partial);
         }
         let typed = typed.join(" ").to_lowercase();
-        let verb_head = done[..=verb_at + skip].join(" ");
+        let head = self.done[..=self.verb_at + skip].join(" ");
         names
             .into_iter()
             .filter(|(name, _)| name.to_lowercase().starts_with(&typed))
-            .filter(|(name, _)| !(partial.is_empty() && name.eq_ignore_ascii_case(&typed)))
+            .filter(|(name, _)| !(self.partial.is_empty() && name.eq_ignore_ascii_case(&typed)))
             .map(|(name, detail)| Suggestion {
-                line: format!("{verb_head} {name} "),
+                line: format!("{head} {name} "),
                 label: name,
                 detail,
             })
             .collect()
-    };
-    let named = |names| named_after(0, names);
-
-    match verb {
-        Verb::Damage | Verb::Heal | Verb::Temp | Verb::Remove => target_suggestions(),
-        Verb::Init if args.is_empty() => target_suggestions(),
-        // First the effect's name, then whom it's on. Once there's a name,
-        // every target is offered, the first included, along with longer
-        // names it could still be the start of.
-        Verb::Effect if args.is_empty() => named(effect_names(ctx)),
-        Verb::Effect => {
-            let timed = args.iter().any(|w| w.eq_ignore_ascii_case("for"));
-            if args.last().is_some_and(|w| w.eq_ignore_ascii_case("for")) {
-                return Vec::new(); // the number of rounds comes next
-            }
-            let mut out = if timed {
-                Vec::new()
-            } else {
-                target_suggestions()
-            };
-            if !args.iter().any(|w| w.parse::<usize>().is_ok()) && !timed {
-                out.extend(named(effect_names(ctx)));
-            }
-            if !timed && "for".starts_with(&partial.to_lowercase()) {
-                out.push(Suggestion {
-                    line: complete(&base, "for"),
-                    label: "for <rounds>".into(),
-                    detail: "how long it lasts; leave out for until removed".into(),
-                });
-            }
-            out
-        }
-        Verb::Cast => {
-            let Some(sheet) = actor.and_then(|a| ctx.sheet(a)) else {
-                return Vec::new();
-            };
-            let spells = &sheet.spellcasting.spells;
-            match longest_name(args, spells.iter().map(|s| s.name.as_str())) {
-                Some(_) if !partial.eq_ignore_ascii_case("at") => target_suggestions(),
-                Some(_) => Vec::new(),
-                None => named(
-                    spells
-                        .iter()
-                        .filter(|s| s.prepared || s.ritual)
-                        .map(|s| (s.name.clone(), spell_detail(s, sheet)))
-                        .collect(),
-                ),
-            }
-        }
-        Verb::Use => {
-            let Some(sheet) = actor.and_then(|a| ctx.sheet(a)) else {
-                return Vec::new();
-            };
-            named(
-                sheet
-                    .resources
-                    .iter()
-                    .map(|r| (r.name.clone(), crate::display::pool(r.uses)))
-                    .collect(),
-            )
-        }
-        Verb::Show if args.iter().any(|w| w.parse::<usize>().is_ok()) => Vec::new(),
-        Verb::Show => {
-            let mut out = if args.is_empty() {
-                target_suggestions()
-            } else {
-                Vec::new()
-            };
-            out.extend(named(show_names(ctx)));
-            out
-        }
-        Verb::Drop => named(
-            ctx.state
-                .effects
-                .iter()
-                .map(|e| {
-                    let on: Vec<&str> = e
-                        .targets
-                        .iter()
-                        .filter_map(|t| ctx.by_id(*t))
-                        .map(|c| c.name.as_str())
-                        .collect();
-                    let detail = if on.is_empty() {
-                        String::new()
-                    } else {
-                        format!("on {}", on.join(", "))
-                    };
-                    (e.name.clone(), detail)
-                })
-                .collect(),
-        ),
-        Verb::Add => {
-            let counted = args.first().is_some_and(|w| w.parse::<u16>().is_ok());
-            let skip = usize::from(counted);
-            // After a whole monster's name: whether to roll its hit points.
-            if monster_named(ctx.bestiary, &args[skip..].join(" ")).is_some() {
-                return if "roll".starts_with(&partial.to_lowercase()) {
-                    vec![Suggestion {
-                        line: complete(&base, "roll"),
-                        label: "roll".into(),
-                        detail: "roll hit points instead of taking the maximum".into(),
-                    }]
-                } else {
-                    Vec::new()
-                };
-            }
-            let characters = ctx
-                .roster
-                .iter()
-                .filter(|_| !counted)
-                .filter(|r| {
-                    !ctx.state
-                        .combatants
-                        .iter()
-                        .any(|c| c.character_id == Some(r.id))
-                })
-                .map(|r| (r.name.clone(), format!("level {} {}", r.level, r.race)));
-            let monsters = ctx.bestiary.iter().map(|m| {
-                let whose = if m.shared { "" } else { " · campaign's own" };
-                let detail = format!(
-                    "CR {} · {} {} · {} HP{whose}",
-                    m.challenge, m.size, m.kind, m.max_hit_points
-                );
-                (m.name.clone(), detail)
-            });
-            let mut names: Vec<(String, String)> = characters.chain(monsters).collect();
-            names.dedup_by(|a, b| a.0.eq_ignore_ascii_case(&b.0));
-            named_after(skip, names)
-        }
-        _ => Vec::new(),
     }
+
+    /// First the effect's name, then whom it's on. Once there's a name,
+    /// every target is offered, the first included, along with longer names
+    /// it could still be the start of, and `for`.
+    fn effect(&self) -> Vec<Suggestion> {
+        let args = self.args();
+        if args.is_empty() {
+            return self.named(effect_names(self.ctx));
+        }
+        // After `for`, only the number of rounds is left.
+        if args.iter().any(|w| w.eq_ignore_ascii_case("for")) {
+            return Vec::new();
+        }
+        let mut out = self.targets();
+        if !args.iter().any(|w| w.parse::<usize>().is_ok()) {
+            out.extend(self.named(effect_names(self.ctx)));
+        }
+        out.extend(self.keyword(
+            "for",
+            "for <rounds>",
+            "how long it lasts; leave out for until removed",
+        ));
+        out
+    }
+
+    /// The actor's prepared spells (and rituals), then the targets.
+    fn cast(&self) -> Vec<Suggestion> {
+        let Some(sheet) = self.actor_sheet() else {
+            return Vec::new();
+        };
+        let spells = &sheet.spellcasting.spells;
+        match longest_name(self.args(), spells.iter().map(|s| s.name.as_str())) {
+            Some(_) if !self.partial.eq_ignore_ascii_case("at") => self.targets(),
+            Some(_) => Vec::new(),
+            None => self.named(
+                spells
+                    .iter()
+                    .filter(|s| s.prepared || s.ritual)
+                    .map(|s| (s.name.clone(), spell_detail(s, sheet)))
+                    .collect(),
+            ),
+        }
+    }
+
+    /// The actor's features.
+    fn use_feature(&self) -> Vec<Suggestion> {
+        let Some(sheet) = self.actor_sheet() else {
+            return Vec::new();
+        };
+        self.named(
+            sheet
+                .resources
+                .iter()
+                .map(|r| (r.name.clone(), crate::display::pool(r.uses)))
+                .collect(),
+        )
+    }
+
+    /// Whom to show (on an empty argument), or what.
+    fn show(&self) -> Vec<Suggestion> {
+        let args = self.args();
+        if args.iter().any(|w| w.parse::<usize>().is_ok()) {
+            return Vec::new();
+        }
+        let mut out = if args.is_empty() {
+            self.targets()
+        } else {
+            Vec::new()
+        };
+        out.extend(self.named(show_names(self.ctx)));
+        out
+    }
+
+    /// The campaign's characters not yet in the fight (unless counted) and
+    /// its monsters; after a whole monster's name, whether to roll its hit
+    /// points.
+    fn add(&self) -> Vec<Suggestion> {
+        let ctx = self.ctx;
+        let args = self.args();
+        let counted = args.first().is_some_and(|w| w.parse::<u16>().is_ok());
+        let skip = usize::from(counted);
+        if monster_named(ctx.bestiary, &args[skip..].join(" ")).is_some() {
+            return self
+                .keyword(
+                    "roll",
+                    "roll",
+                    "roll hit points instead of taking the maximum",
+                )
+                .into_iter()
+                .collect();
+        }
+        let characters = ctx
+            .roster
+            .iter()
+            .filter(|_| !counted)
+            .filter(|r| {
+                !ctx.state
+                    .combatants
+                    .iter()
+                    .any(|c| c.character_id == Some(r.id))
+            })
+            .map(|r| (r.name.clone(), format!("level {} {}", r.level, r.race)));
+        let monsters = ctx.bestiary.iter().map(|m| {
+            let whose = if m.shared { "" } else { " · campaign's own" };
+            let detail = format!(
+                "CR {} · {} {} · {} HP{whose}",
+                m.challenge, m.size, m.kind, m.max_hit_points
+            );
+            (m.name.clone(), detail)
+        });
+        let mut names: Vec<(String, String)> = characters.chain(monsters).collect();
+        names.dedup_by(|a, b| a.0.eq_ignore_ascii_case(&b.0));
+        self.named_after(skip, names)
+    }
+}
+
+/// The effects in play, with whom they're on.
+fn drop_names(ctx: &Context) -> Vec<(String, String)> {
+    ctx.state
+        .effects
+        .iter()
+        .map(|e| {
+            let on: Vec<&str> = e
+                .targets
+                .iter()
+                .filter_map(|t| ctx.by_id(*t))
+                .map(|c| c.name.as_str())
+                .collect();
+            let detail = if on.is_empty() {
+                String::new()
+            } else {
+                format!("on {}", on.join(", "))
+            };
+            (e.name.clone(), detail)
+        })
+        .collect()
 }
 
 /// Everything `show` can describe: the effects in play, the conditions and

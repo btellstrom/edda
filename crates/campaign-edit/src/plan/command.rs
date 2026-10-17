@@ -155,208 +155,236 @@ fn counted(count: u16, name: &str) -> String {
     }
 }
 
-/// Lines that change the open plan.
+/// A line in words, and the step it takes or what's missing or wrong.
+type Edited = (String, Result<Step, String>);
+
+/// Lines that change the open plan. `monster` is set to the monster the
+/// line is about, to show its stat block.
 fn edit(
     verb: &str,
     args: &[&str],
     open: &EncounterPlan,
     ctx: &Context,
     monster: &mut Option<Uuid>,
-) -> (String, Result<Step, String>) {
+) -> Edited {
     let mut plan = open.clone();
-    let entry = |word: Option<&&str>| -> Result<usize, String> {
-        let word = word.ok_or("which entry? type its number")?;
-        word.parse::<usize>()
-            .ok()
-            .filter(|n| (1..=plan.monsters.len()).contains(n))
-            .map(|n| n - 1)
-            .ok_or_else(|| format!("there's no entry {word}"))
-    };
     match verb {
-        "add" => {
-            let (count, rest) = match args.split_first() {
-                Some((n, rest)) if !rest.is_empty() => match n.parse::<u16>() {
-                    Ok(n) => (n, rest),
-                    Err(_) => (1, args),
-                },
-                _ => (1, args),
-            };
-            let (roll, rest) = match rest.split_last() {
-                Some((last, init)) if last.eq_ignore_ascii_case("roll") && !init.is_empty() => {
-                    (true, init)
-                }
-                _ => (false, rest),
-            };
-            let name = rest.join(" ");
-            let Some(found) = monster_named(ctx.bestiary, &name) else {
-                let problem = if name.is_empty() {
-                    "which monster? Tab lists them".to_string()
-                } else {
-                    format!("no monster called \"{name}\"; Tab lists them")
-                };
-                return ("Add …".into(), Err(problem));
-            };
-            *monster = Some(found.id);
-            if count == 0 {
-                return ("Add nothing".into(), Err("how many? at least 1".into()));
-            }
-            let hp = if roll {
-                ", rolling their hit points"
-            } else {
-                ""
-            };
-            let sentence = format!(
-                "Add {} ({} XP){hp}",
-                counted(count, &found.name),
-                found.xp * u32::from(count)
-            );
-            match plan
-                .monsters
-                .iter_mut()
-                .find(|m| m.monster == found.id && m.roll == roll)
-            {
-                Some(entry) => entry.count = entry.count.saturating_add(count),
-                None => plan.monsters.push(PlannedMonster {
-                    monster: found.id,
-                    name: found.name.clone(),
-                    count,
-                    xp: found.xp,
-                    roll,
-                }),
-            }
-            (sentence, Ok(Step::Save(plan)))
-        }
-        "remove" => {
-            let i = match entry(args.first()) {
-                Ok(i) => i,
-                Err(e) => return ("Remove …".into(), Err(e)),
-            };
-            *monster = Some(plan.monsters[i].monster);
-            let name = plan.monsters[i].name.clone();
-            let have = plan.monsters[i].count;
-            let fewer = match args.get(1).map(|n| n.parse::<u16>()) {
-                None => have,
-                Some(Ok(n)) if n > 0 => n.min(have),
-                Some(_) => return ("Remove …".into(), Err("how many? at least 1".into())),
-            };
-            if fewer == have {
-                plan.monsters.remove(i);
-                (format!("Remove the {name} entry"), Ok(Step::Save(plan)))
-            } else {
-                plan.monsters[i].count -= fewer;
-                (
-                    format!("Remove {}", counted(fewer, &name)),
-                    Ok(Step::Save(plan)),
-                )
-            }
-        }
-        "count" => {
-            let i = match entry(args.first()) {
-                Ok(i) => i,
-                Err(e) => return ("Set the count of …".into(), Err(e)),
-            };
-            *monster = Some(plan.monsters[i].monster);
-            let name = plan.monsters[i].name.clone();
-            match args.get(1).map(|n| n.parse::<u16>()) {
-                Some(Ok(n)) if n > 0 => {
-                    plan.monsters[i].count = n;
-                    (
-                        format!("{} in the plan", counted(n, &name)),
-                        Ok(Step::Save(plan)),
-                    )
-                }
-                _ => (
-                    format!("? × {name}"),
-                    Err("how many? at least 1 (remove takes it out)".into()),
-                ),
-            }
-        }
-        "party" => {
-            let text = args.join(" ");
-            if text.eq_ignore_ascii_case("all") {
-                plan.party.clear();
-                return (
-                    "Balance it for the whole party".into(),
-                    Ok(Step::Save(plan)),
-                );
-            }
-            let lower = text.to_lowercase();
-            let matching: Vec<_> = ctx
-                .roster
-                .iter()
-                .filter(|c| c.name.to_lowercase() == lower)
-                .chain(
-                    ctx.roster
-                        .iter()
-                        .filter(|c| c.name.to_lowercase().starts_with(&lower)),
-                )
-                .collect();
-            let Some(character) = matching.first().filter(|_| !text.is_empty()) else {
-                return (
-                    "Party …".into(),
-                    Err("all, or a character to add or leave out".into()),
-                );
-            };
-            let mut ids: Vec<Uuid> = party(&plan, ctx.roster).iter().map(|c| c.id).collect();
-            let sentence = if ids.contains(&character.id) {
-                ids.retain(|id| *id != character.id);
-                if ids.is_empty() {
-                    let sentence = format!("{} sits this one out", character.name);
-                    return (sentence, Err("someone has to be in the party".into()));
-                }
-                format!("{} sits this one out", character.name)
-            } else {
-                ids.push(character.id);
-                format!("{} is in", character.name)
-            };
-            // Everyone again means "the whole party", newcomers included.
-            plan.party = if ids.len() == ctx.roster.len() {
-                Vec::new()
-            } else {
-                ids
-            };
-            (sentence, Ok(Step::Save(plan)))
-        }
-        "rename" => {
-            let name = args.join(" ");
-            if name.is_empty() {
-                return ("Rename to …".into(), Err("what's it called?".into()));
-            }
-            let taken = ctx.encounters.iter().any(|e| {
-                e.plan.name.eq_ignore_ascii_case(&name) && Some(e.id) != ctx.current.map(|c| c.id)
-            });
-            if taken {
-                return (
-                    format!("Rename to {name}"),
-                    Err(format!("there's already a plan called {name}")),
-                );
-            }
-            plan.name = name.clone();
-            (format!("Rename to {name}"), Ok(Step::Save(plan)))
-        }
+        "add" => add(args, plan, ctx, monster),
+        "remove" => remove(args, plan, monster),
+        "count" => count(args, plan, monster),
+        "party" => change_party(args, plan, ctx),
+        "rename" => rename(args, plan, ctx),
         "notes" => {
             plan.notes = args.join(" ");
             ("Set the notes".into(), Ok(Step::Save(plan)))
         }
-        "fight" => {
-            if plan.monsters.is_empty() {
-                return (
-                    "Start a fight".into(),
-                    Err("add some monsters first".into()),
-                );
-            }
-            let monsters: Vec<_> = plan
-                .monsters
-                .iter()
-                .map(|m| counted(m.count, &m.name))
-                .collect();
-            (
-                format!("Start a fight: {}", monsters.join(", ")),
-                Ok(Step::Fight),
-            )
-        }
+        "fight" => fight(&plan),
         _ => unreachable!("every verb is handled"),
     }
+}
+
+/// The plan's entry numbered by `word` (from 1), as an index.
+fn entry(word: Option<&&str>, plan: &EncounterPlan) -> Result<usize, String> {
+    let word = word.ok_or("which entry? type its number")?;
+    word.parse::<usize>()
+        .ok()
+        .filter(|n| (1..=plan.monsters.len()).contains(n))
+        .map(|n| n - 1)
+        .ok_or_else(|| format!("there's no entry {word}"))
+}
+
+/// `add [count] <monster> [roll]`: onto an entry of the same monster
+/// (rolled the same way), or a new one.
+fn add(
+    args: &[&str],
+    mut plan: EncounterPlan,
+    ctx: &Context,
+    monster: &mut Option<Uuid>,
+) -> Edited {
+    let (count, rest) = match args.split_first() {
+        Some((n, rest)) if !rest.is_empty() => match n.parse::<u16>() {
+            Ok(n) => (n, rest),
+            Err(_) => (1, args),
+        },
+        _ => (1, args),
+    };
+    let (roll, rest) = match rest.split_last() {
+        Some((last, init)) if last.eq_ignore_ascii_case("roll") && !init.is_empty() => (true, init),
+        _ => (false, rest),
+    };
+    let name = rest.join(" ");
+    let Some(found) = monster_named(ctx.bestiary, &name) else {
+        let problem = if name.is_empty() {
+            "which monster? Tab lists them".to_string()
+        } else {
+            format!("no monster called \"{name}\"; Tab lists them")
+        };
+        return ("Add …".into(), Err(problem));
+    };
+    *monster = Some(found.id);
+    if count == 0 {
+        return ("Add nothing".into(), Err("how many? at least 1".into()));
+    }
+    let hp = if roll {
+        ", rolling their hit points"
+    } else {
+        ""
+    };
+    let sentence = format!(
+        "Add {} ({} XP){hp}",
+        counted(count, &found.name),
+        found.xp * u32::from(count)
+    );
+    match plan
+        .monsters
+        .iter_mut()
+        .find(|m| m.monster == found.id && m.roll == roll)
+    {
+        Some(entry) => entry.count = entry.count.saturating_add(count),
+        None => plan.monsters.push(PlannedMonster {
+            monster: found.id,
+            name: found.name.clone(),
+            count,
+            xp: found.xp,
+            roll,
+        }),
+    }
+    (sentence, Ok(Step::Save(plan)))
+}
+
+/// `remove <entry> [count]`: some of an entry, or all of it.
+fn remove(args: &[&str], mut plan: EncounterPlan, monster: &mut Option<Uuid>) -> Edited {
+    let i = match entry(args.first(), &plan) {
+        Ok(i) => i,
+        Err(e) => return ("Remove …".into(), Err(e)),
+    };
+    *monster = Some(plan.monsters[i].monster);
+    let name = plan.monsters[i].name.clone();
+    let have = plan.monsters[i].count;
+    let fewer = match args.get(1).map(|n| n.parse::<u16>()) {
+        None => have,
+        Some(Ok(n)) if n > 0 => n.min(have),
+        Some(_) => return ("Remove …".into(), Err("how many? at least 1".into())),
+    };
+    if fewer == have {
+        plan.monsters.remove(i);
+        (format!("Remove the {name} entry"), Ok(Step::Save(plan)))
+    } else {
+        plan.monsters[i].count -= fewer;
+        (
+            format!("Remove {}", counted(fewer, &name)),
+            Ok(Step::Save(plan)),
+        )
+    }
+}
+
+/// `count <entry> <count>`.
+fn count(args: &[&str], mut plan: EncounterPlan, monster: &mut Option<Uuid>) -> Edited {
+    let i = match entry(args.first(), &plan) {
+        Ok(i) => i,
+        Err(e) => return ("Set the count of …".into(), Err(e)),
+    };
+    *monster = Some(plan.monsters[i].monster);
+    let name = plan.monsters[i].name.clone();
+    match args.get(1).map(|n| n.parse::<u16>()) {
+        Some(Ok(n)) if n > 0 => {
+            plan.monsters[i].count = n;
+            (
+                format!("{} in the plan", counted(n, &name)),
+                Ok(Step::Save(plan)),
+            )
+        }
+        _ => (
+            format!("? × {name}"),
+            Err("how many? at least 1 (remove takes it out)".into()),
+        ),
+    }
+}
+
+/// `party all`, or `party <character>` to add someone or leave them out.
+fn change_party(args: &[&str], mut plan: EncounterPlan, ctx: &Context) -> Edited {
+    let text = args.join(" ");
+    if text.eq_ignore_ascii_case("all") {
+        plan.party.clear();
+        return (
+            "Balance it for the whole party".into(),
+            Ok(Step::Save(plan)),
+        );
+    }
+    let lower = text.to_lowercase();
+    let matching: Vec<_> = ctx
+        .roster
+        .iter()
+        .filter(|c| c.name.to_lowercase() == lower)
+        .chain(
+            ctx.roster
+                .iter()
+                .filter(|c| c.name.to_lowercase().starts_with(&lower)),
+        )
+        .collect();
+    let Some(character) = matching.first().filter(|_| !text.is_empty()) else {
+        return (
+            "Party …".into(),
+            Err("all, or a character to add or leave out".into()),
+        );
+    };
+    let mut ids: Vec<Uuid> = party(&plan, ctx.roster).iter().map(|c| c.id).collect();
+    let sentence = if ids.contains(&character.id) {
+        ids.retain(|id| *id != character.id);
+        if ids.is_empty() {
+            let sentence = format!("{} sits this one out", character.name);
+            return (sentence, Err("someone has to be in the party".into()));
+        }
+        format!("{} sits this one out", character.name)
+    } else {
+        ids.push(character.id);
+        format!("{} is in", character.name)
+    };
+    // Everyone again means "the whole party", newcomers included.
+    plan.party = if ids.len() == ctx.roster.len() {
+        Vec::new()
+    } else {
+        ids
+    };
+    (sentence, Ok(Step::Save(plan)))
+}
+
+/// `rename <name>`, to a name no other plan has.
+fn rename(args: &[&str], mut plan: EncounterPlan, ctx: &Context) -> Edited {
+    let name = args.join(" ");
+    if name.is_empty() {
+        return ("Rename to …".into(), Err("what's it called?".into()));
+    }
+    let taken = ctx.encounters.iter().any(|e| {
+        e.plan.name.eq_ignore_ascii_case(&name) && Some(e.id) != ctx.current.map(|c| c.id)
+    });
+    if taken {
+        return (
+            format!("Rename to {name}"),
+            Err(format!("there's already a plan called {name}")),
+        );
+    }
+    plan.name = name.clone();
+    (format!("Rename to {name}"), Ok(Step::Save(plan)))
+}
+
+/// `fight`: start a fight from the plan, if it has monsters.
+fn fight(plan: &EncounterPlan) -> Edited {
+    if plan.monsters.is_empty() {
+        return (
+            "Start a fight".into(),
+            Err("add some monsters first".into()),
+        );
+    }
+    let monsters: Vec<_> = plan
+        .monsters
+        .iter()
+        .map(|m| counted(m.count, &m.name))
+        .collect();
+    (
+        format!("Start a fight: {}", monsters.join(", ")),
+        Ok(Step::Fight),
+    )
 }
 
 /// What could come next on `line`.
