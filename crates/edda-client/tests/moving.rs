@@ -4,7 +4,7 @@
 //! API, as a hosting moves a customer between cells: exported from one,
 //! imported into the other just as it was, and deleted from the first.
 
-use edda_auth::{DeviceKey, server::TokenVerifier};
+use edda_auth::{DeviceKey, PublicKey, server::TokenVerifier};
 use edda_client::{
     Client, ClientError,
     admin::{AdminClient, Services},
@@ -35,7 +35,9 @@ struct Cell {
 }
 
 impl Cell {
-    async fn start() -> Self {
+    /// One signing tokens with `token_key`, as every cell of a hosting
+    /// does with the same one.
+    async fn start(token_key: &DeviceKey) -> Self {
         let admin = Admin::new("unused", TOKEN).unwrap();
         let serve_admin =
             |router| async { AdminClient::new(support::serve(admin.guard(router)).await, TOKEN) };
@@ -44,7 +46,12 @@ impl Cell {
             .await
             .unwrap();
         let auth_admin = serve_admin(auth_service::admin::router(pool.clone())).await;
-        let auth = support::serve(auth_service::app(pool, Limits::off()).await.unwrap()).await;
+        let app = auth_service::app(
+            pool,
+            Some(DeviceKey::from_seed(token_key.seed())),
+            Limits::off(),
+        );
+        let auth = support::serve(app.await.unwrap()).await;
         let key = AuthClient::new(&auth).server_key().await.unwrap();
 
         let pool = character_service::connect(&fresh_database_url("characters_test").await)
@@ -94,10 +101,10 @@ impl Cell {
         }
     }
 
-    /// The DM device's token there, logging in as a device does.
-    async fn login(&self, campaign: Uuid, key: &DeviceKey) -> String {
+    /// The device's token there. It insists on the token key it first saw,
+    /// as a device does, so it logs in only where that key signs.
+    async fn login(&self, campaign: Uuid, key: &DeviceKey, server_key: PublicKey) -> String {
         let client = AuthClient::new(&self.auth);
-        let server_key = client.server_key().await.unwrap();
         client
             .login(campaign, key, Some(server_key))
             .await
@@ -108,7 +115,8 @@ impl Cell {
 
 #[tokio::test]
 async fn a_campaign_moves_whole_from_one_server_to_another() {
-    let (old, new) = (Cell::start().await, Cell::start().await);
+    let token_key = DeviceKey::generate();
+    let (old, new) = (Cell::start(&token_key).await, Cell::start(&token_key).await);
 
     // A campaign with something in every service.
     let created = old
@@ -123,7 +131,7 @@ async fn a_campaign_moves_whole_from_one_server_to_another() {
         .setup(&created.setup_code, &dm_key, "DM laptop")
         .await
         .unwrap();
-    let token = old.login(campaign, &dm_key).await;
+    let token = old.login(campaign, &dm_key, token_key.public()).await;
     let grog = Client::new(&old.characters)
         .with_token(&token)
         .create(&CharacterSheet {
@@ -168,8 +176,8 @@ async fn a_campaign_moves_whole_from_one_server_to_another() {
         Err(ClientError::NotFound)
     ));
 
-    // Everything as it was, for the same device.
-    let token = new.login(campaign, &dm_key).await;
+    // Everything as it was, for the same device, trusting the same key.
+    let token = new.login(campaign, &dm_key, token_key.public()).await;
     let characters = Client::new(&new.characters).with_token(&token);
     assert_eq!(characters.get(grog.id).await.unwrap(), grog);
     let combats = CombatClient::new(&new.combat).with_token(&token);
@@ -205,7 +213,8 @@ async fn a_campaign_moves_whole_from_one_server_to_another() {
 
 #[tokio::test]
 async fn a_campaign_that_cant_all_come_leaves_nothing_behind() {
-    let (old, new) = (Cell::start().await, Cell::start().await);
+    let token_key = DeviceKey::generate();
+    let (old, new) = (Cell::start(&token_key).await, Cell::start(&token_key).await);
     let created = old
         .admin
         .auth
@@ -218,7 +227,7 @@ async fn a_campaign_that_cant_all_come_leaves_nothing_behind() {
         .setup(&created.setup_code, &dm_key, "DM laptop")
         .await
         .unwrap();
-    let token = old.login(campaign, &dm_key).await;
+    let token = old.login(campaign, &dm_key, token_key.public()).await;
     CombatClient::new(&old.combat)
         .with_token(&token)
         .create("Ambush")

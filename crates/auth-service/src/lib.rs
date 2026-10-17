@@ -14,7 +14,10 @@ pub mod store;
 use std::sync::Arc;
 
 use axum::{Extension, Router};
-use edda_auth::server::{TokenSigner, TokenVerifier};
+use edda_auth::{
+    DeviceKey,
+    server::{TokenSigner, TokenVerifier},
+};
 use edda_server::{Limits, openapi::Conventions};
 use sqlx::PgPool;
 
@@ -57,11 +60,20 @@ pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
 }
 
 /// The service, within `limits` (its campaigns' devices, and how often
-/// clients may try to sign in).
-pub async fn app(pool: PgPool, limits: Limits) -> Result<Router, error::ApiError> {
+/// clients may try to sign in), signing tokens with `token_key`, or with
+/// the key kept in its database if `None`.
+pub async fn app(
+    pool: PgPool,
+    token_key: Option<DeviceKey>,
+    limits: Limits,
+) -> Result<Router, error::ApiError> {
     let ready = edda_server::readiness(pool.clone());
     let store = Store::new(pool);
-    let signer = TokenSigner::new(&store.token_key().await?);
+    let token_key = match token_key {
+        Some(key) => key,
+        None => store.token_key().await?,
+    };
+    let signer = TokenSigner::new(&token_key);
     let verifier = Arc::new(TokenVerifier::new(signer.public_key()));
     Ok(Router::new()
         .merge(routes::router(&limits))

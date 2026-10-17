@@ -40,7 +40,7 @@ impl Auth {
             .await
             .expect("Postgres must be running for these tests (make test starts one; see docs/development.md)");
         let store = auth_service::Store::new(pool.clone());
-        let url = serve(auth_service::app(pool, limits).await.unwrap()).await;
+        let url = serve(auth_service::app(pool, None, limits).await.unwrap()).await;
         let key = AuthClient::new(&url).server_key().await.unwrap();
         Self { url, key, store }
     }

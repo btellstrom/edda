@@ -103,7 +103,10 @@ versions, logs and devices as they were, and `delete_campaign` deletes one
 everywhere. Make a campaign read-only before exporting it to move, or what
 changes meanwhile may be left out of a part. A device remembers the key of
 the auth service it joined through, so its logins work on the new server
-only if both auth services sign with the same key.
+only if both auth services sign tokens with the same key: make one with
+`auth-service new-token-key <FILE>` and give every auth service that file
+as `TOKEN_KEY_FILE` (otherwise each keeps a key of its own in its
+database). Keep it as secret as the database.
 
 ## Letting players in: HTTPS
 
