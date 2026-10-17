@@ -65,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = combat_service::Config {
         services,
         limits: edda_server::Limits::from_env()?,
+        listen_url: Some(edda_server::direct_database_url(&database_url)),
     };
     tracing::info!(?config, "combat service configured");
 

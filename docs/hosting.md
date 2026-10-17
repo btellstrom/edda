@@ -194,6 +194,14 @@ creates its own key then (`SERVICE_KEY_FILE`, default
 back: `auth-service add-service combat-service <KEY>` (`combat-service
 public-key` prints the key).
 
+**Behind PgBouncer.** With many service instances, a pooler such as
+PgBouncer keeps Postgres from running out of connections. In its
+transaction mode, set `DATABASE_URL` to the pooler and
+`DATABASE_DIRECT_URL` to Postgres itself: creating the database, applying
+migrations and the combat service's `LISTEN` need a session of their own,
+so they go there. PgBouncer 1.21 or later, with `max_prepared_statements`
+set, handles the services' prepared statements.
+
 **Several combat services** can run against the same database, with
 different `BIND_ADDR`s behind any load balancer, and clients may connect
 to whichever they like; see [the API](api.md#several-instances).

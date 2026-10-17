@@ -17,7 +17,7 @@ use std::sync::Arc;
 use axum::{Extension, Router};
 use edda_auth::server::TokenVerifier;
 use edda_server::{Limits, openapi::Conventions};
-use sqlx::PgPool;
+use sqlx::{PgPool, postgres::PgListener};
 
 /// The service's `OpenAPI` description.
 #[derive(utoipa::OpenApi)]
@@ -49,27 +49,35 @@ use sqlx::PgPool;
 )]
 pub struct ApiDoc;
 
-/// Where the other services are, and the limits.
-#[derive(Debug, Clone, Default)]
+/// Where the other services are, the limits, and where to listen for
+/// other instances' events.
+#[derive(Clone, Default)]
 pub struct Config {
     /// The other services to use, as this service itself. `None` uses
     /// none: sheets are left alone, and monsters can't be added by id.
     pub services: Option<services::ServicesConfig>,
     /// How much a campaign may keep, and how many may watch a combat.
     pub limits: Limits,
+    /// The database to `LISTEN` on, by a connection of its own (see
+    /// [`edda_server::direct_database_url`]); `None` takes one from the
+    /// pool, which works unless the pool goes through `PgBouncer`.
+    pub listen_url: Option<String>,
+}
+
+/// Leaves the URL out: it holds the database's password.
+impl std::fmt::Debug for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("services", &self.services)
+            .field("limits", &self.limits)
+            .field("listens_directly", &self.listen_url.is_some())
+            .finish()
+    }
 }
 
 /// Connects to the database, creating it if needed, and applies migrations.
 pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let pool = edda_server::open_database(database_url).await?;
-    migrate(&pool).await?;
-    Ok(pool)
-}
-
-/// Safe to run from several instances at once: sqlx serialises migrations
-/// with an advisory lock.
-pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
-    sqlx::migrate!().run(pool).await
+    edda_server::open_database(database_url, &sqlx::migrate!()).await
 }
 
 /// The service, with its background tasks started on the current runtime.
@@ -91,7 +99,11 @@ pub async fn app(
             .monster_service
             .map(|url| services::Monsters::new(login, url));
     }
-    let hub = hub::Hub::start(store, sheet_sync, monsters, config.limits).await?;
+    let listener = match &config.listen_url {
+        Some(url) => PgListener::connect(url).await?,
+        None => PgListener::connect_with(store.pool()).await?,
+    };
+    let hub = hub::Hub::start(store, listener, sheet_sync, monsters, config.limits).await?;
     Ok(Router::new()
         .merge(routes::router())
         .merge(encounters::router())

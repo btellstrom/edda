@@ -46,14 +46,7 @@ pub struct AppState {
 
 /// Opens (creating if needed) the database and applies migrations.
 pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let pool = edda_server::open_database(database_url).await?;
-    migrate(&pool).await?;
-    Ok(pool)
-}
-
-/// Brings the database up to date.
-pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
-    sqlx::migrate!().run(pool).await
+    edda_server::open_database(database_url, &sqlx::migrate!()).await
 }
 
 /// The service, accepting tokens that `verifier` vouches for, within

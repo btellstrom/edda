@@ -51,9 +51,7 @@ pub struct ApiDoc;
 
 /// Connects to the database, creating it if needed, and applies migrations.
 pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let pool = edda_server::open_database(database_url).await?;
-    sqlx::migrate!().run(&pool).await?;
-    Ok(pool)
+    edda_server::open_database(database_url, &sqlx::migrate!()).await
 }
 
 /// The service, within `limits` (its campaigns' devices, and how often

@@ -22,7 +22,11 @@ use axum::{
 use edda_auth::PublicKey;
 use edda_client::auth::AuthClient;
 use serde_json::json;
-use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};
+use sqlx::{
+    Connection, PgConnection, PgPool, Postgres,
+    migrate::{MigrateDatabase, Migrator},
+    postgres::PgPoolOptions,
+};
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing_subscriber::EnvFilter;
 
@@ -95,20 +99,39 @@ pub fn init_logging(crate_name: &str) {
         .expect("logging is set up once");
 }
 
-/// A connection pool to the Postgres database at `url`, creating the
-/// database first if there's none yet. The service then applies its own
-/// migrations (sqlx serialises them with an advisory lock, so instances
-/// may start at once).
-pub async fn open_database(url: &str) -> Result<PgPool, sqlx::Error> {
-    if !Postgres::database_exists(url).await? {
+/// A connection pool to the service's Postgres database at `url`, after
+/// creating the database if there's none yet and bringing it up to date
+/// with `migrations`. Those two go through [`direct_database_url`], as
+/// they need a session of their own (sqlx serialises migrations with an
+/// advisory lock, so instances may start at once).
+pub async fn open_database(url: &str, migrations: &Migrator) -> Result<PgPool, sqlx::Error> {
+    let direct = direct_database_url(url);
+    if !Postgres::database_exists(&direct).await? {
         // Another instance may be creating it at the same moment.
-        if let Err(e) = Postgres::create_database(url).await
-            && !Postgres::database_exists(url).await?
+        if let Err(e) = Postgres::create_database(&direct).await
+            && !Postgres::database_exists(&direct).await?
         {
             return Err(e);
         }
     }
+    let mut session = PgConnection::connect(&direct).await?;
+    migrations.run(&mut session).await?;
+    session.close().await?;
     PgPoolOptions::new().connect(url).await
+}
+
+/// Where to reach the database for what needs a session of its own:
+/// migrations, and the combat service's `LISTEN`. `DATABASE_DIRECT_URL`
+/// when `url` goes through a pooler that hands out connections per
+/// transaction (`PgBouncer`'s transaction mode), otherwise `url` itself.
+pub fn direct_database_url(url: &str) -> String {
+    direct_or(url, std::env::var("DATABASE_DIRECT_URL").ok())
+}
+
+fn direct_or(url: &str, direct: Option<String>) -> String {
+    direct
+        .filter(|d| !d.is_empty())
+        .unwrap_or_else(|| url.to_owned())
 }
 
 /// The key the auth service signs tokens with: `AUTH_PUBLIC_KEY` if set,
@@ -280,6 +303,15 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn a_direct_url_is_the_pooled_one_unless_given() {
+        let pooled = "postgres://pgbouncer:6432/combats";
+        assert_eq!(direct_or(pooled, None), pooled);
+        assert_eq!(direct_or(pooled, Some(String::new())), pooled);
+        let direct = "postgres://postgres:5432/combats";
+        assert_eq!(direct_or(pooled, Some(direct.into())), direct);
     }
 
     #[test]

@@ -100,16 +100,16 @@ impl Dice for ServerDice {
 }
 
 impl Hub {
-    /// Starts listening for events from all instances, and the background
+    /// Starts listening on `listener` for events from all instances, and the background
     /// upkeep: evicting idle combats and retrying HP write-back. Monsters
     /// are added from `monsters`.
     pub async fn start(
         store: Store,
+        mut listener: PgListener,
         sheet_sync: Option<SheetSync>,
         monsters: Option<Monsters>,
         limits: Limits,
     ) -> Result<Arc<Self>, sqlx::Error> {
-        let mut listener = PgListener::connect_with(store.pool()).await?;
         listener.listen(store::CHANNEL).await?;
         let hub = Arc::new(Self {
             store,
