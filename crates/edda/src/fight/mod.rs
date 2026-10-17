@@ -152,7 +152,7 @@ pub async fn run(args: FightArgs, characters_url: &str, monsters_url: &str) -> R
             prompt: Prompt::default(),
             status: monster_problem.map(|problem| (problem, true)),
             scroll: 0,
-            panel: Default::default(),
+            panel: crate::styled::PanelScroll::default(),
             player,
             me,
             online: true,
@@ -214,12 +214,11 @@ fn choose(combats: &[CombatSummary], wanted: Option<&str>) -> Result<Uuid> {
                 .iter()
                 .filter(|c| c.name.eq_ignore_ascii_case(&wanted))
                 .collect();
-            match exact.as_slice() {
-                [one] => Ok(one.id),
-                _ => {
-                    let names: Vec<_> = many.iter().map(|c| c.name.as_str()).collect();
-                    bail!("\"{wanted}\" could be {}", names.join(", "))
-                }
+            if let [one] = exact.as_slice() {
+                Ok(one.id)
+            } else {
+                let names: Vec<_> = many.iter().map(|c| c.name.as_str()).collect();
+                bail!("\"{wanted}\" could be {}", names.join(", "))
             }
         }
     }

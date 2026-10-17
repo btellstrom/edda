@@ -110,6 +110,11 @@ impl Doc {
     }
 
     /// Wraps `content` after `first`, starting later lines at `indent`.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "the methods above hand on what they're given; borrowing here \
+                  would only move the lint to them"
+    )]
     fn push(&mut self, first: Vec<Span<'static>>, indent: usize, content: Vec<Span<'static>>) {
         self.lines.extend(wrap(first, indent, &content, self.width));
     }

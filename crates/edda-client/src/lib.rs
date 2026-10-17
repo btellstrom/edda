@@ -64,6 +64,7 @@ impl Client {
     }
 
     /// Sends `token` (from [`auth::AuthClient::login`]) with every request.
+    #[must_use]
     pub fn with_token(mut self, token: &str) -> Self {
         self.http = http_client(Some(token));
         self

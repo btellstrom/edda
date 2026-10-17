@@ -1,4 +1,4 @@
-//! Moving the monsters, spells and conditions from SQLite, where the
+//! Moving the monsters, spells and conditions from `SQLite`, where the
 //! service used to keep them, into Postgres: `monster-service import-sqlite
 //! <FILE>`.
 
@@ -44,7 +44,7 @@ type TextRow = (
     DateTime<Utc>,
 );
 
-/// Copies everything in the SQLite database `file` into `pool`, as it is,
+/// Copies everything in the `SQLite` database `file` into `pool`, as it is,
 /// ids included, so plans and combats that refer to a monster still do.
 /// That includes the shared library, which replaces the one already in
 /// Postgres (loaded by the seed job, with ids of its own; the seed job's
@@ -135,7 +135,7 @@ pub async fn import_sqlite(pool: &PgPool, file: &Path) -> Result<Imported, Box<d
     })
 }
 
-/// The SQLite database `file`, only to read.
+/// The `SQLite` database `file`, only to read.
 async fn open(file: &Path) -> Result<SqlitePool, Box<dyn Error>> {
     if !file.exists() {
         return Err(format!("there's no {}", file.display()).into());

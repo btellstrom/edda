@@ -158,48 +158,11 @@ async fn import(client: &Client, files: &[std::path::PathBuf]) -> Result<()> {
 }
 
 async fn character(client: &Client, args: Vec<String>) -> Result<()> {
-    let (query, rest) = args
-        .split_first()
-        .expect("clap always passes the subcommand name");
-
-    // Parse before touching the network so `help` and usage errors are instant.
-    let mut command = CharacterArgs::command().bin_name(format!("edda {query}"));
-    let args = command
-        .try_get_matches_from_mut(rest)
-        .and_then(|matches| CharacterArgs::from_arg_matches(&matches));
-    let args = match args {
-        Ok(args) => args,
-        // A word that's neither a command nor a character (say, a command
-        // this version doesn't have) would otherwise be reported as a
-        // character with a bad subcommand: say what's really wrong.
-        Err(e) if e.use_stderr() => {
-            if let Ok(characters) = client.list().await {
-                parse::resolve_character(query, &characters)?;
-            }
-            e.exit()
-        }
-        Err(e) => e.exit(),
-    };
-
-    let id = parse::resolve_character(query, &client.list().await?)?;
-    let command = args
-        .command
-        .unwrap_or(CharacterCommand::Show { json: false });
-
     use CharacterCommand as C;
+
+    let (id, command) = character_command(client, &args).await?;
     match command {
-        C::Show { json } => {
-            let character = client.get(id).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&character)?);
-            } else {
-                styled::print(&display::sheet(
-                    &character,
-                    styled::print_width(),
-                    display::Detail::Full,
-                ));
-            }
-        }
+        C::Show { json } => show(client, id, json).await?,
         C::Get { field } => println!("{}", edit::get_field(&client.get(id).await?.sheet, field)),
         C::Set { field, value } => {
             let saved = modify(client, id, |s| edit::set_field(s, field, &value)).await?;
@@ -237,39 +200,23 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
         C::Resource(c) => updated(&modify(client, id, |s| edit::resource(s, &c)).await?),
 
         C::Slots(SlotsCommand::Use { level }) => {
-            print_slots(&act(client, id, CharacterAction::ExpendSpellSlot { level }).await?)
+            print_slots(&act(client, id, CharacterAction::ExpendSpellSlot { level }).await?);
         }
         C::Slots(SlotsCommand::Regain { level }) => {
-            print_slots(&act(client, id, CharacterAction::RestoreSpellSlot { level }).await?)
+            print_slots(&act(client, id, CharacterAction::RestoreSpellSlot { level }).await?);
         }
         C::Pact(PactCommand::Use) => {
-            print_slots(&act(client, id, CharacterAction::ExpendPactSlot).await?)
+            print_slots(&act(client, id, CharacterAction::ExpendPactSlot).await?);
         }
         C::Pact(PactCommand::Regain) => {
-            print_slots(&act(client, id, CharacterAction::RestorePactSlot).await?)
+            print_slots(&act(client, id, CharacterAction::RestorePactSlot).await?);
         }
         C::Cast {
             spell,
             at,
             pact,
             ritual,
-        } => {
-            let action = CharacterAction::CastSpell {
-                spell: spell.clone(),
-                at_level: at,
-                pact,
-                ritual,
-            };
-            let saved = act(client, id, action).await?;
-            let found = saved.sheet.spellcasting.find_spell(&spell);
-            let name = found.map_or(spell.as_str(), |s| s.name.as_str());
-            if ritual || found.is_some_and(|s| s.level == 0) {
-                println!("Cast {name} (no slot used)");
-            } else {
-                println!("Cast {name}");
-                print_slots(&saved);
-            }
-        }
+        } => cast(client, id, spell, at, pact, ritual).await?,
         C::Use { resource, amount } => {
             let action = CharacterAction::UseResource {
                 name: resource.clone(),
@@ -284,13 +231,91 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
             };
             print_resource(&act(client, id, action).await?, &resource);
         }
-        C::Rest { kind } => {
-            let saved = act(client, id, CharacterAction::Rest { kind: kind.into() }).await?;
-            let label = format!("{kind:?}").to_lowercase();
-            println!("{} takes a {label} rest.\n", saved.sheet.name);
-            println!("{}", display::status(&saved.sheet));
-        }
+        C::Rest { kind } => rest(client, id, kind).await?,
     }
+    Ok(())
+}
+
+/// The character `args` name, and what to do with it. Parses before
+/// touching the network, so `help` and usage errors are instant.
+async fn character_command(client: &Client, args: &[String]) -> Result<(Uuid, CharacterCommand)> {
+    let (query, rest) = args
+        .split_first()
+        .expect("clap always passes the subcommand name");
+
+    let mut command = CharacterArgs::command().bin_name(format!("edda {query}"));
+    let args = command
+        .try_get_matches_from_mut(rest)
+        .and_then(|matches| CharacterArgs::from_arg_matches(&matches));
+    let args = match args {
+        Ok(args) => args,
+        // A word that's neither a command nor a character (say, a command
+        // this version doesn't have) would otherwise be reported as a
+        // character with a bad subcommand: say what's really wrong.
+        Err(e) if e.use_stderr() => {
+            if let Ok(characters) = client.list().await {
+                parse::resolve_character(query, &characters)?;
+            }
+            e.exit()
+        }
+        Err(e) => e.exit(),
+    };
+
+    let id = parse::resolve_character(query, &client.list().await?)?;
+    let command = args
+        .command
+        .unwrap_or(CharacterCommand::Show { json: false });
+    Ok((id, command))
+}
+
+/// Prints the sheet, or with `json` the character as JSON.
+async fn show(client: &Client, id: Uuid, json: bool) -> Result<()> {
+    let character = client.get(id).await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&character)?);
+    } else {
+        styled::print(&display::sheet(
+            &character,
+            styled::print_width(),
+            display::Detail::Full,
+        ));
+    }
+    Ok(())
+}
+
+/// Casts `spell`, and says which slot it took.
+async fn cast(
+    client: &Client,
+    id: Uuid,
+    spell: String,
+    at: Option<u8>,
+    pact: bool,
+    ritual: bool,
+) -> Result<()> {
+    let action = CharacterAction::CastSpell {
+        spell: spell.clone(),
+        at_level: at,
+        pact,
+        ritual,
+    };
+    let saved = act(client, id, action).await?;
+    let found = saved.sheet.spellcasting.find_spell(&spell);
+    let name = found.map_or(spell.as_str(), |s| s.name.as_str());
+    if ritual || found.is_some_and(|s| s.level == 0) {
+        println!("Cast {name} (no slot used)");
+    } else {
+        println!("Cast {name}");
+        print_slots(&saved);
+    }
+    Ok(())
+}
+
+/// Takes a rest, and shows what it brought back.
+async fn rest(client: &Client, id: Uuid, kind: cli::RestArg) -> Result<()> {
+    let saved = act(client, id, CharacterAction::Rest { kind: kind.into() }).await?;
+    let label = format!("{kind:?}").to_lowercase();
+    println!("{} takes a {label} rest.\n", saved.sheet.name);
+    println!("{}", display::status(&saved.sheet));
     Ok(())
 }
 

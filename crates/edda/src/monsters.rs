@@ -164,15 +164,14 @@ async fn edit(client: &MonsterClient, monster: Monster) -> Result<Option<Monster
             std::fs::remove_file(&path).ok();
             return Ok(None);
         }
-        let saved = match monster.campaign {
-            Some(_) => client.replace(monster.id, &sheet).await,
-            None => {
-                let mut copy = sheet;
-                if copy.source == monster.sheet.source {
-                    copy.source = format!("Homebrew (from {})", monster.sheet.source);
-                }
-                client.create(&copy).await
+        let saved = if monster.campaign.is_some() {
+            client.replace(monster.id, &sheet).await
+        } else {
+            let mut copy = sheet;
+            if copy.source == monster.sheet.source {
+                copy.source = format!("Homebrew (from {})", monster.sheet.source);
             }
+            client.create(&copy).await
         };
         return match saved {
             Ok(saved) => {

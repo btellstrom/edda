@@ -467,8 +467,8 @@ fn draw_sheet(frame: &mut Frame, screen: &Screen, area: Rect, combatant: &Combat
             ));
             Text::from(lines)
         }
-        (sheet, _) => match sheet {
-            Some(character) => {
+        (sheet, _) => {
+            if let Some(character) = sheet {
                 // The combat's hit points are the current ones; the sheet's
                 // catch up a moment later.
                 let mut character = character.clone();
@@ -478,8 +478,7 @@ fn draw_sheet(frame: &mut Frame, screen: &Screen, area: Rect, combatant: &Combat
                     inner,
                     crate::display::Detail::Panel,
                 ))
-            }
-            None => {
+            } else {
                 let hp = combatant.hit_points;
                 let mut lines = vec![
                     Line::from(combatant.name.clone()).bold(),
@@ -500,7 +499,7 @@ fn draw_sheet(frame: &mut Frame, screen: &Screen, area: Rect, combatant: &Combat
                 lines.push(Line::from("No character sheet.").dark_gray());
                 Text::from(lines)
             }
-        },
+        }
     };
     // When it doesn't all fit, show the part the line needs: spells for a
     // cast, a monster's actions for an attack.
@@ -670,7 +669,7 @@ mod tests {
             prompt: Prompt::default(),
             status: None,
             scroll: 0,
-            panel: Default::default(),
+            panel: crate::styled::PanelScroll::default(),
             player: player.then(|| "laura".to_string()),
             me: if player { "Laura's phone" } else { "DM laptop" }.into(),
             online: true,

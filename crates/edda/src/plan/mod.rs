@@ -64,9 +64,10 @@ pub async fn run(
     let combats = login.combats().await?;
     let mut encounters = combats.encounters().await?;
     let current = match wanted {
-        Some(name) => match session::find_plan(&encounters, name, false) {
-            Some(found) => Some(found.id),
-            None => {
+        Some(name) => {
+            if let Some(found) = session::find_plan(&encounters, name, false) {
+                Some(found.id)
+            } else {
                 let plan = EncounterPlan {
                     name: name.to_string(),
                     ..Default::default()
@@ -76,7 +77,7 @@ pub async fn run(
                 encounters.push(created);
                 Some(id)
             }
-        },
+        }
         None => encounters.iter().max_by_key(|e| e.updated_at).map(|e| e.id),
     };
     let roster = login.characters().await?.list().await?;
@@ -90,7 +91,7 @@ pub async fn run(
             stat_blocks: HashMap::new(),
             prompt: Prompt::default(),
             status: None,
-            panel: Default::default(),
+            panel: crate::styled::PanelScroll::default(),
             me: login.session.claims.name.clone(),
             edition: login.profile.campaign.edition,
         },
@@ -185,7 +186,7 @@ impl App {
                 self.screen.stat_blocks.insert(id, monster);
             }
             Err(e) => {
-                self.screen.status = Some((format!("couldn't load the stat block: {e:#}"), true))
+                self.screen.status = Some((format!("couldn't load the stat block: {e:#}"), true));
             }
         }
     }

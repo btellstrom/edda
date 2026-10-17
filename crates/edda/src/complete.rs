@@ -1,5 +1,5 @@
 //! Shell completion. The shell asks edda itself what can come
-//! next (clap_complete's dynamic completion), so besides commands and
+//! next (`clap_complete`'s dynamic completion), so besides commands and
 //! options it completes the campaign's characters (and their commands),
 //! monsters, combats and this device's campaigns. Set up with, for bash:
 //!
@@ -31,7 +31,7 @@ use crate::{
 /// How long completion waits for the servers.
 const PATIENCE: Duration = Duration::from_millis(1500);
 
-/// Which shell is asking; clap_complete clears `COMPLETE` before the
+/// Which shell is asking; `clap_complete` clears `COMPLETE` before the
 /// completers run, so it's noted here first.
 static SHELL: OnceLock<Option<String>> = OnceLock::new();
 

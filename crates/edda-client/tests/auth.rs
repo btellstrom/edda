@@ -17,7 +17,7 @@ async fn setup_codes_work_once_and_make_a_dm() {
     let auth = Auth::start().await;
     let campaign = auth
         .store
-        .create_campaign("Vox Machina", Default::default())
+        .create_campaign("Vox Machina", edda_types::Edition::default())
         .await
         .unwrap();
     let code = auth

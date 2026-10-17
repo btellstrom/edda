@@ -61,7 +61,7 @@ impl Auth {
     pub async fn campaign(&self) -> Party {
         let campaign = self
             .store
-            .create_campaign("Test campaign", Default::default())
+            .create_campaign("Test campaign", edda_types::Edition::default())
             .await
             .unwrap();
         let code = self

@@ -28,6 +28,7 @@ impl AuthClient {
     }
 
     /// For the calls that need a logged-in device (see [`Session::token`]).
+    #[must_use]
     pub fn with_token(mut self, token: &str) -> Self {
         self.http = crate::http_client(Some(token));
         self

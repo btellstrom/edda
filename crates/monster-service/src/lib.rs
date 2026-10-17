@@ -22,7 +22,7 @@ use tower_http::trace::TraceLayer;
 
 pub use store::MonsterStore;
 
-/// The service's OpenAPI description.
+/// The service's `OpenAPI` description.
 #[derive(utoipa::OpenApi)]
 #[openapi(
     paths(

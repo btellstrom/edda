@@ -37,15 +37,14 @@ pub struct Identity {
 
 impl Identity {
     pub fn locate() -> Result<Self> {
-        let dir = match env::var_os("EDDA_CONFIG_DIR") {
-            Some(dir) => PathBuf::from(dir),
-            None => {
-                let config = env::var_os("XDG_CONFIG_HOME")
-                    .map(PathBuf::from)
-                    .or_else(|| env::var_os("HOME").map(|home| Path::new(&home).join(".config")))
-                    .ok_or_else(|| anyhow!("can't find a config directory; set EDDA_CONFIG_DIR"))?;
-                config.join("edda")
-            }
+        let dir = if let Some(dir) = env::var_os("EDDA_CONFIG_DIR") {
+            PathBuf::from(dir)
+        } else {
+            let config = env::var_os("XDG_CONFIG_HOME")
+                .map(PathBuf::from)
+                .or_else(|| env::var_os("HOME").map(|home| Path::new(&home).join(".config")))
+                .ok_or_else(|| anyhow!("can't find a config directory; set EDDA_CONFIG_DIR"))?;
+            config.join("edda")
         };
         Ok(Self::at(dir))
     }
@@ -268,7 +267,7 @@ mod tests {
             campaign: Campaign {
                 id: Uuid::new_v4(),
                 name: name.into(),
-                edition: Default::default(),
+                edition: edda_types::Edition::default(),
             },
         }
     }

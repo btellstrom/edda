@@ -47,7 +47,7 @@ enum Command {
     /// Delete a campaign's own monsters (`make delete-campaign` deletes
     /// the rest of the campaign too).
     DeleteCampaign { campaign: Uuid },
-    /// Bring the monsters, spells and conditions over from the SQLite
+    /// Bring the monsters, spells and conditions over from the `SQLite`
     /// database the service used to keep (make migrate-sqlite).
     ImportSqlite { file: PathBuf },
 }

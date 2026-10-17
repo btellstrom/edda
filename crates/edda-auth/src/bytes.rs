@@ -30,7 +30,7 @@ pub fn serialize<S: Serializer, const N: usize>(bytes: &[u8; N], s: S) -> Result
 pub fn deserialize<'de, D: Deserializer<'de>, const N: usize>(d: D) -> Result<[u8; N], D::Error> {
     struct Visitor<const N: usize>;
 
-    impl<'de, const N: usize> de::Visitor<'de> for Visitor<N> {
+    impl<const N: usize> de::Visitor<'_> for Visitor<N> {
         type Value = [u8; N];
 
         fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

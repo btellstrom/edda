@@ -105,6 +105,10 @@ mod tests {
         (state, ids)
     }
 
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "tests read better passing commands by value"
+    )]
     fn vex_may(state: &CombatState, command: CombatCommand) -> Result<(), CombatError> {
         player_may(state, &command, |c| c.name == "Vex")
     }

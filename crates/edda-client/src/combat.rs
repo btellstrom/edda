@@ -32,6 +32,7 @@ impl CombatClient {
 
     /// Sends `token` (from [`crate::auth::AuthClient::login`]) with every
     /// request, and when connecting.
+    #[must_use]
     pub fn with_token(mut self, token: &str) -> Self {
         self.http = crate::http_client(Some(token));
         self.token = Some(token.to_string());
@@ -399,7 +400,7 @@ mod tests {
             seq,
             command_id,
             actor: None,
-            at: Default::default(),
+            at: chrono::DateTime::default(),
             event,
         })
     }
@@ -538,7 +539,11 @@ mod tests {
             Received::Updated,
             "old"
         );
-        assert_eq!(r.state().status, Default::default(), "old event ignored");
+        assert_eq!(
+            r.state().status,
+            CombatStatus::default(),
+            "old event ignored"
+        );
         assert_eq!(
             r.receive(event(5, None, CombatEvent::Started)),
             Received::NeedsResync

@@ -1,4 +1,4 @@
-//! Moving the characters from SQLite, where the service used to keep them,
+//! Moving the characters from `SQLite`, where the service used to keep them,
 //! into Postgres: `character-service import-sqlite <FILE>`.
 
 use std::{collections::HashSet, error::Error, path::Path};
@@ -31,7 +31,7 @@ type Row = (
     DateTime<Utc>,
 );
 
-/// Copies every character in the SQLite database `file` into `pool`, as it
+/// Copies every character in the `SQLite` database `file` into `pool`, as it
 /// is: id, campaign, owners, version and dates included, so everything
 /// that refers to them still does. All or nothing, and only into a
 /// Postgres that has no characters yet, so it can't clobber or double up.
@@ -86,7 +86,7 @@ pub async fn import_sqlite(pool: &PgPool, file: &Path) -> Result<Imported, Box<d
     Ok(imported)
 }
 
-/// The SQLite database `file`, only to read.
+/// The `SQLite` database `file`, only to read.
 async fn open(file: &Path) -> Result<SqlitePool, Box<dyn Error>> {
     if !file.exists() {
         return Err(format!("there's no {}", file.display()).into());

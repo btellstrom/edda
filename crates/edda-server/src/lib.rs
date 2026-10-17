@@ -1,6 +1,6 @@
 //! What every edda service shares: logging, opening its
 //! database, finding the auth service's key, serving (with the CORS setting
-//! and the limits), error responses, and the conventions of their OpenAPI
+//! and the limits), error responses, and the conventions of their `OpenAPI`
 //! descriptions.
 
 pub mod limits;
@@ -32,6 +32,7 @@ use tracing_subscriber::EnvFilter;
     security(()),
     responses((status = 200, description = "The service is running.", body = String, example = "ok"))
 )]
+#[expect(clippy::unused_async, reason = "axum handlers are async")]
 pub async fn health() -> &'static str {
     "ok"
 }

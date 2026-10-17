@@ -360,7 +360,7 @@ mod tests {
             damaged(5, goblin.id, 2),
             damaged(6, vex.id, 20),
         ];
-        assert!(hp_changes(&log, 3).len() == 1);
+        assert_eq!(hp_changes(&log, 3).len(), 1);
         assert_eq!(hp_changes(&log, 3)[&character], hp(20, 0));
         assert_eq!(hp_changes(&log, 5)[&character], hp(20, 0));
         assert!(hp_changes(&log, 6).is_empty());

@@ -78,19 +78,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// This service's own key, for reaching the other services. Created on
 /// first start; it must then be registered with the auth service.
 fn service_key(path: &Path) -> Result<DeviceKey, Box<dyn std::error::Error>> {
-    let key = match DeviceKey::load(path)? {
-        Some(key) => key,
-        None => {
-            let key = DeviceKey::generate();
-            key.save(path)?;
-            tracing::warn!(
-                path = %path.display(),
-                "created a service key; register it with: \
-                 auth-service add-service combat-service {}",
-                key.public()
-            );
-            key
-        }
+    let key = if let Some(key) = DeviceKey::load(path)? {
+        key
+    } else {
+        let key = DeviceKey::generate();
+        key.save(path)?;
+        tracing::warn!(
+            path = %path.display(),
+            "created a service key; register it with: \
+             auth-service add-service combat-service {}",
+            key.public()
+        );
+        key
     };
     tracing::info!(key = %key.public(), "service key");
     Ok(key)

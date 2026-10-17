@@ -279,7 +279,7 @@ fn require_dm(claims: &Claims) -> Result<(), ApiError> {
     }
 }
 
-/// Receiving, for the OpenAPI description: the routes call [`receive`]
+/// Receiving, for the `OpenAPI` description: the routes call [`receive`]
 /// with their side, so these are only described, never called. Messages
 /// are sealed between the two devices, so reading needs no token.
 #[allow(dead_code)]

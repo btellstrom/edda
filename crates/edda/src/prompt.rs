@@ -123,7 +123,7 @@ impl Prompt {
             KeyCode::Esc => self.input.clear(),
             KeyCode::Tab => {
                 if let Some(s) = suggestions.get(self.selected) {
-                    self.input = s.line.clone();
+                    self.input.clone_from(&s.line);
                 }
             }
             KeyCode::Down => {

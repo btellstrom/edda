@@ -11,6 +11,14 @@ license = "MIT OR Apache-2.0"
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
+# The strict lints, but for three that would only add noise here: error
+# types are documented enums, and nearly every getter "could" be must_use.
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+# `push_str(&format!(..))` reads as plainly as `write!` and can't fail.
+format_push_string = "allow"
 # Panics belong to tests (clippy.toml allows them there); elsewhere errors
 # are returned, and `expect` says why something can't fail.
 unwrap_used = "warn"

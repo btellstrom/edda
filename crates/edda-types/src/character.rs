@@ -348,7 +348,7 @@ pub enum Skill {
 impl Skill {
     /// The ability the skill is checked with.
     pub fn ability(self) -> Ability {
-        use Ability::*;
+        use Ability::{Charisma, Dexterity, Intelligence, Strength, Wisdom};
         match self {
             Skill::Athletics => Strength,
             Skill::Acrobatics | Skill::SleightOfHand | Skill::Stealth => Dexterity,

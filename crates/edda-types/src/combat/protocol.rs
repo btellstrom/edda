@@ -32,6 +32,7 @@ impl CommandEnvelope {
 
     /// The same, saying who sends it (the server puts the device's name
     /// there anyway).
+    #[must_use]
     pub fn by(mut self, actor: impl Into<String>) -> Self {
         self.actor = Some(actor.into());
         self

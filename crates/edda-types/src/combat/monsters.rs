@@ -127,7 +127,9 @@ mod tests {
         let mut state = CombatState::default();
         let events = add_monsters(&state, &goblin, 1, false, &mut NoDice).unwrap();
         assert_eq!(added(&events), [("Goblin".to_string(), 12)]);
-        events.iter().for_each(|e| state.apply(e));
+        for e in &events {
+            state.apply(e);
+        }
 
         let events = add_monsters(&state, &goblin, 2, true, &mut Always(3)).unwrap();
         assert_eq!(

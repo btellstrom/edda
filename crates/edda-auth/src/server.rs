@@ -145,7 +145,7 @@ mod tests {
             campaign: Uuid::new_v4(),
             role: Principal::Player,
             name: "Vex's laptop".into(),
-            edition: Default::default(),
+            edition: edda_types::Edition::default(),
             expires_at: Utc::now() + lifetime,
         }
     }

@@ -111,7 +111,7 @@ mod tests {
             level: 1,
             classes: vec![],
             owners: Vec::new(),
-            updated_at: Default::default(),
+            updated_at: chrono::DateTime::default(),
         }
     }
 

@@ -160,6 +160,8 @@ mod tests {
 
     #[test]
     fn players_see_how_hurt_monsters_look_and_everything_about_the_party() {
+        use Vitality::{Bloodied, Down, Hurt, Unhurt};
+
         let mut goblin = Combatant::new("Goblin", 12);
         goblin.armor_class = Some(15);
         let mut vex = Combatant::new("Vex", 30);
@@ -223,7 +225,6 @@ mod tests {
                 looks.push(g.vitality());
             }
         }
-        use Vitality::*;
         assert_eq!(looks, [Unhurt, Hurt, Bloodied, Bloodied, Bloodied, Down]);
         assert!(seen.combatant(goblin.id).unwrap().is_down());
         let vex_seen = seen.combatant(vex.id).unwrap();

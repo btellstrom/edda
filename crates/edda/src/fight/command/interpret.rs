@@ -107,81 +107,10 @@ pub(super) fn interpret(
         Verb::Cast => cast(actor, args, ctx),
         Verb::Effect => effect(actor, args, ctx),
         Verb::Show => show(args, ctx),
-        Verb::Drop => {
-            let name = args.join(" ");
-            let found = ctx
-                .state
-                .effects
-                .iter()
-                .find(|e| e.name.eq_ignore_ascii_case(&name));
-            match found {
-                Some(e) => (
-                    format!("{} ends", e.name),
-                    Ok(vec![Step::Combat(CombatCommand::RemoveEffect {
-                        effect: e.id,
-                    })]),
-                ),
-                None if name.is_empty() => ("? ends".into(), Err("which effect?".into())),
-                None => (
-                    format!("{name} ends"),
-                    Err(format!("no effect called \"{name}\" is in play")),
-                ),
-            }
-        }
+        Verb::Drop => drop_effect(args, ctx),
         Verb::Use => use_feature(actor, args, ctx),
-        Verb::Init => {
-            let Some((first, rest)) = args.split_first() else {
-                return (
-                    "?'s initiative".into(),
-                    Err("whose? type their number".into()),
-                );
-            };
-            let target = match ctx.target(first) {
-                Ok(t) => t,
-                Err(e) => return ("?'s initiative".into(), Err(e)),
-            };
-            match rest {
-                [] => (
-                    format!("{} rolls initiative", target.name),
-                    Ok(vec![Step::Combat(CombatCommand::RollInitiative {
-                        combatant: target.id,
-                        roll: None,
-                    })]),
-                ),
-                [total] => match total.parse::<i16>() {
-                    Ok(total) => (
-                        format!("{}'s initiative is {total}", target.name),
-                        Ok(vec![Step::Combat(CombatCommand::SetInitiative {
-                            combatant: target.id,
-                            total,
-                        })]),
-                    ),
-                    Err(_) => (
-                        format!("{}'s initiative is ?", target.name),
-                        Err(format!("\"{total}\" isn't a number")),
-                    ),
-                },
-                _ => (
-                    format!("{}'s initiative", target.name),
-                    Err("just a number for the total".into()),
-                ),
-            }
-        }
-        Verb::Remove => match targets(args, ctx) {
-            Ok(ts) if ts.is_empty() => ("? leaves".into(), Err("who? type their number".into())),
-            Ok(ts) => (
-                format!(
-                    "{} {} the combat",
-                    names(&ts),
-                    verb_s(&ts, "leaves", "leave")
-                ),
-                Ok(ts
-                    .iter()
-                    .map(|t| Step::Combat(CombatCommand::RemoveCombatant { combatant: t.id }))
-                    .collect()),
-            ),
-            Err(e) => ("? leaves".into(), Err(e)),
-        },
+        Verb::Init => initiative(args, ctx),
+        Verb::Remove => remove(args, ctx),
         Verb::Add => add(args, ctx),
         Verb::Roll => bare(
             "Everyone without initiative rolls".into(),
@@ -212,6 +141,88 @@ pub(super) fn interpret(
                 )
             }
         }
+    }
+}
+
+/// `drop <effect>`: ends an effect in play.
+fn drop_effect(args: &[&str], ctx: &Context) -> Interpreted {
+    let name = args.join(" ");
+    let found = ctx
+        .state
+        .effects
+        .iter()
+        .find(|e| e.name.eq_ignore_ascii_case(&name));
+    match found {
+        Some(e) => (
+            format!("{} ends", e.name),
+            Ok(vec![Step::Combat(CombatCommand::RemoveEffect {
+                effect: e.id,
+            })]),
+        ),
+        None if name.is_empty() => ("? ends".into(), Err("which effect?".into())),
+        None => (
+            format!("{name} ends"),
+            Err(format!("no effect called \"{name}\" is in play")),
+        ),
+    }
+}
+
+/// `init <who> [total]`: rolls someone's initiative, or sets it.
+fn initiative(args: &[&str], ctx: &Context) -> Interpreted {
+    let Some((first, rest)) = args.split_first() else {
+        return (
+            "?'s initiative".into(),
+            Err("whose? type their number".into()),
+        );
+    };
+    let target = match ctx.target(first) {
+        Ok(t) => t,
+        Err(e) => return ("?'s initiative".into(), Err(e)),
+    };
+    match rest {
+        [] => (
+            format!("{} rolls initiative", target.name),
+            Ok(vec![Step::Combat(CombatCommand::RollInitiative {
+                combatant: target.id,
+                roll: None,
+            })]),
+        ),
+        [total] => match total.parse::<i16>() {
+            Ok(total) => (
+                format!("{}'s initiative is {total}", target.name),
+                Ok(vec![Step::Combat(CombatCommand::SetInitiative {
+                    combatant: target.id,
+                    total,
+                })]),
+            ),
+            Err(_) => (
+                format!("{}'s initiative is ?", target.name),
+                Err(format!("\"{total}\" isn't a number")),
+            ),
+        },
+        _ => (
+            format!("{}'s initiative", target.name),
+            Err("just a number for the total".into()),
+        ),
+    }
+}
+
+/// `remove <who>...`: takes combatants out of the fight.
+fn remove(args: &[&str], ctx: &Context) -> Interpreted {
+    match targets(args, ctx) {
+        Ok(ts) if ts.is_empty() => ("? leaves".into(), Err("who? type their number".into())),
+        Ok(ts) => (
+            format!(
+                "{} {} the combat",
+                names(&ts),
+                verb_s(&ts, "leaves", "leave")
+            ),
+            Ok(ts
+                .iter()
+                .map(|t| Step::Combat(CombatCommand::RemoveCombatant { combatant: t.id }))
+                .collect()),
+        ),
+        Err(e) => ("? leaves".into(), Err(e)),
     }
 }
 

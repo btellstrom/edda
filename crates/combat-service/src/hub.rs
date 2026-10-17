@@ -46,7 +46,7 @@ use crate::{
 const SUBSCRIBER_BUFFER: usize = 256;
 
 /// How long a combat with no connected clients stays in memory.
-const IDLE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const IDLE_TIMEOUT: Duration = Duration::from_mins(10);
 
 /// Every combat this instance has in memory, and what they need: the
 /// store, the other services and the limits.
@@ -392,7 +392,7 @@ impl Hub {
     }
 
     async fn evict_idle(self: Arc<Self>) {
-        let mut interval = tokio::time::interval(Duration::from_secs(60));
+        let mut interval = tokio::time::interval(Duration::from_mins(1));
         loop {
             interval.tick().await;
             self.live

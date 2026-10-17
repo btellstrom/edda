@@ -13,12 +13,15 @@
 CONTAINER ?= podman
 COMPOSE   ?= $(CONTAINER) compose
 IMAGE     ?= localhost/edda
+# The share of lines the tests must cover (CI fails below it). Raise it as
+# coverage rises; never lower it.
+COVERAGE_FLOOR = 78
 CARGO     ?= cargo
 # HTTPS=1: the proxy too (compose's `https` profile).
 PROFILES   = $(if $(HTTPS),--profile https)
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite test check deny smoke doc openapi clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore migrate-sqlite test check coverage coverage-floor deny smoke doc openapi clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -84,6 +87,13 @@ check: ## what CI checks: formatting, lints (warnings fail), the docs, the tests
 	$(CARGO) clippy --workspace --all-targets --locked -- -D warnings
 	RUSTDOCFLAGS="-D warnings" $(CARGO) doc --workspace --no-deps --locked
 	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) test --workspace --locked
+
+coverage: ## what the tests cover, failing below COVERAGE_FLOOR (cargo install cargo-llvm-cov)
+	CONTAINER=$(CONTAINER) tools/with-test-postgres.sh $(CARGO) llvm-cov --workspace --locked \
+		--summary-only --fail-under-lines $(COVERAGE_FLOOR) -- --include-ignored
+
+coverage-floor:
+	@echo $(COVERAGE_FLOOR)
 
 deny: ## the dependencies' licences, advisories and sources (cargo install cargo-deny)
 	cargo deny check

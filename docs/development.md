@@ -27,6 +27,7 @@ make test     # every test, against a throwaway Postgres of their own
 make check    # formatting, lints (warnings fail), the tests and the guard hook: what CI runs
 make deny     # dependencies: licences, security advisories, yanked crates (cargo install cargo-deny)
 make smoke    # end to end: the compose stack, seeded, driven by edda (needs make srd)
+make coverage # what the tests cover, failing below the floor
 make doc      # the Rust docs, in a browser
 make openapi  # docs/openapi.json anew, after changing a route
 cargo test -p edda-types -- --ignored   # the SRD data from make srd loads and is valid
@@ -91,8 +92,14 @@ on (Settings → Pages → Source: GitHub Actions).
 
 The Rust version is pinned in `rust-toolchain.toml` (and the
 Dockerfile's), and the lints in the workspace `Cargo.toml` and
-`clippy.toml`: no `unsafe`, no `unwrap` outside tests, and no casts that
-can silently change a number. `deny.toml` allows only permissive
+`clippy.toml`: Clippy's pedantic lints but for three that only add noise,
+no `unsafe`, no `unwrap` outside tests, and no casts that can silently
+change a number. Where a lint is wrong about one place, an
+`#[expect(..., reason = "...")]` says why.
+
+Coverage may only go up: CI fails when the tests cover less than
+`COVERAGE_FLOOR` (in the Makefile) of the lines, and `make coverage`
+checks the same locally. Raise the floor as coverage rises. `deny.toml` allows only permissive
 licences. Release builds use fat LTO and strip symbols, which makes them
 about 40% smaller.
 
@@ -100,7 +107,7 @@ about 40% smaller.
 
 `.github/workflows/ci.yml` runs on every push to master and every pull
 request: formatting, lints and the docs; the tests against a Postgres service, the
-SRD ones included, with a coverage report; cargo-deny and cargo-machete
+SRD ones included, with a coverage report and floor; cargo-deny and cargo-machete
 (unused dependencies); and the smoke test. Dependabot opens weekly pull
 requests for newer crates, base images and actions.
 

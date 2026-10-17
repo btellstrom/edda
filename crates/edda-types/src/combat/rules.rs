@@ -638,6 +638,10 @@ mod tests {
             id
         }
 
+        #[expect(
+            clippy::needless_pass_by_value,
+            reason = "tests read better passing commands by value"
+        )]
         fn run(&mut self, command: CombatCommand) -> Result<Vec<CombatEvent>, CombatError> {
             let events = decide(&self.state, &command, &mut NoDice)?;
             for e in &events {

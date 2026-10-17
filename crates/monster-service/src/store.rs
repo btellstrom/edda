@@ -171,15 +171,12 @@ impl MonsterStore {
             .bind(sheet.edition.map(|e| e.to_string()))
             .fetch_optional(&mut *tx)
             .await?;
-            match existing {
-                Some((id,)) => {
-                    update(&mut *tx, id, sheet).await?;
-                    imported.updated += 1;
-                }
-                None => {
-                    insert(&mut *tx, campaign, sheet).await?;
-                    imported.added += 1;
-                }
+            if let Some((id,)) = existing {
+                update(&mut *tx, id, sheet).await?;
+                imported.updated += 1;
+            } else {
+                insert(&mut *tx, campaign, sheet).await?;
+                imported.added += 1;
             }
         }
         tx.commit().await?;

@@ -386,7 +386,7 @@ mod tests {
         assert_eq!(goblin.kind, "humanoid (goblinoid)");
         assert_eq!(goblin.skills[&Skill::Stealth], 6);
         assert_eq!(goblin.initiative_modifier(), 2);
-        assert_eq!(goblin.challenge_value(), 0.25);
+        assert!((goblin.challenge_value() - 0.25).abs() < f32::EPSILON);
         assert_eq!(goblin.source, "Homebrew");
         assert!(goblin.suits(Edition::Rules2014) && goblin.suits(Edition::Rules2024));
         let back: MonsterSheet =

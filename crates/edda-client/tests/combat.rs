@@ -276,7 +276,7 @@ async fn changes_are_pushed_to_every_connected_client() {
         panic!("expected an event");
     };
     assert!(matches!(event.event, CombatEvent::Healed { amount: 2, .. }));
-    assert!(replica.receive(next(&mut player).await) == Received::Updated);
+    assert_eq!(replica.receive(next(&mut player).await), Received::Updated);
     assert_eq!(
         replica
             .state()
@@ -931,11 +931,11 @@ async fn a_fight_starts_from_a_plan_with_its_monsters_or_not_at_all() {
         .map(|c| c.name.as_str())
         .collect();
     assert_eq!(names, ["Goblin 1", "Goblin 2", "Goblin 3", "Goblin 4"]);
-    let named = combats
+    let renamed = combats
         .create_from_plan(plan.id, Some("Round two"))
         .await
         .unwrap();
-    assert_eq!(named.state.name, "Round two");
+    assert_eq!(renamed.state.name, "Round two");
 
     // A monster gone from the campaign: no combat at all.
     let gone = combats
@@ -1022,14 +1022,14 @@ async fn casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
         amount: 1,
     };
     run(&combats, combat, feature.clone()).await;
-    let uses = characters.get(pike.id).await.unwrap().sheet.resources[0].uses;
-    assert_eq!(uses.used, 1);
+    let feature_uses = characters.get(pike.id).await.unwrap().sheet.resources[0].uses;
+    assert_eq!(feature_uses.used, 1);
     let again = combats
         .command(combat, &CommandEnvelope::new(feature))
         .await;
     assert!(
         matches!(again, Err(ClientError::Rejected(_))),
-        "no uses left: {again:?}"
+        "no feature_uses left: {again:?}"
     );
 }
 

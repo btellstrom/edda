@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use edda_types::{
     HitPoints,
-    combat::{CombatEvent, EffectEndReason, LoggedEvent, SpellSlot, Vitality},
+    combat::{CombatEvent, Effect, EffectEndReason, LoggedEvent, SpellSlot, Vitality},
 };
 use uuid::Uuid;
 
@@ -70,7 +70,6 @@ pub fn describe_in(event: &CombatEvent, log: &[LoggedEvent], names: &Names) -> S
 
 pub fn describe(event: &CombatEvent, names: &Names) -> String {
     let name = |id: &Uuid| names.name(id);
-    let list = |ids: &[Uuid]| ids.iter().map(name).collect::<Vec<_>>().join(", ");
     match event {
         CombatEvent::Created { name, .. } => format!("{name} is set up"),
         CombatEvent::CombatantAdded { combatant } if combatant.concealed => {
@@ -100,17 +99,7 @@ pub fn describe(event: &CombatEvent, names: &Names) -> String {
             combatant,
             amount,
             hit_points: hp,
-        } => {
-            let down = match hp.current {
-                0 if !names.concealed.contains(combatant) => ", down",
-                _ => "",
-            };
-            format!(
-                "{} takes {amount} damage ({}{down})",
-                name(combatant),
-                names.hit_points(combatant, *hp)
-            )
-        }
+        } => damaged(combatant, *amount, *hp, names),
         CombatEvent::Healed {
             combatant,
             amount,
@@ -133,60 +122,16 @@ pub fn describe(event: &CombatEvent, names: &Names) -> String {
             name(combatant),
             hit_points.temporary
         ),
-        CombatEvent::EffectAdded { effect } => {
-            let mut text = effect.name.clone();
-            if effect.concentration && effect.source.is_some() {
-                // Following the cast that started it.
-                let source = effect.source.as_ref().map_or("someone", name);
-                return format!("  {source} concentrates on {}", effect.name);
-            }
-            if let Some(source) = &effect.source {
-                text = format!("{}: {text}", name(source));
-            }
-            if !effect.targets.is_empty() {
-                text += &format!(" on {}", list(&effect.targets));
-            }
-            if effect.concentration {
-                text += " (concentration)";
-            }
-            if let Some(expiry) = effect.expires {
-                let turn = expiry
-                    .at_turn_of
-                    .map_or(String::new(), |id| format!("{}'s turn, ", name(&id)));
-                text += &format!(" until {turn}round {}", expiry.round);
-            }
-            text
-        }
+        CombatEvent::EffectAdded { effect } => effect_added(effect, names),
         CombatEvent::EffectEnded { effect, reason } => {
-            let why = match reason {
-                EffectEndReason::Removed => "",
-                EffectEndReason::Expired => " (expired)",
-                EffectEndReason::ConcentrationReplaced => " (concentrating on something else)",
-                EffectEndReason::ConcentrationBroken => " (concentration broken)",
-                EffectEndReason::SourceRemoved => " (its source left)",
-                EffectEndReason::Undone => " (undone)",
-            };
-            format!("{} ends{why}", name(effect))
+            format!("{} ends{}", name(effect), ended_because(*reason))
         }
         CombatEvent::SpellCast {
             caster,
             spell,
             slot,
             targets,
-        } => {
-            let mut text = format!("{} casts {spell}", name(caster));
-            if !targets.is_empty() {
-                text += &format!(" on {}", list(targets));
-            }
-            match slot {
-                Some(SpellSlot::Level(level)) => {
-                    text += &format!(" ({} level)", crate::display::ordinal(*level));
-                }
-                Some(SpellSlot::Pact(_)) => text += " (pact slot)",
-                None => {}
-            }
-            text
-        }
+        } => spell_cast(caster, spell, *slot, targets, names),
         CombatEvent::FeatureUsed {
             combatant,
             feature,
@@ -220,10 +165,92 @@ pub fn describe(event: &CombatEvent, names: &Names) -> String {
     }
 }
 
+/// Damage taken, and how it leaves them: "Goblin takes 7 damage (0/7, down)".
+fn damaged(combatant: &Uuid, amount: u32, hp: HitPoints, names: &Names) -> String {
+    let down = match hp.current {
+        0 if !names.concealed.contains(combatant) => ", down",
+        _ => "",
+    };
+    format!(
+        "{} takes {amount} damage ({}{down})",
+        names.name(combatant),
+        names.hit_points(combatant, hp)
+    )
+}
+
+/// Who, by name: "Vex, Grog".
+fn listed(ids: &[Uuid], names: &Names) -> String {
+    ids.iter()
+        .map(|id| names.name(id))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// An effect put into play: who put it on whom, and for how long.
+fn effect_added(effect: &Effect, names: &Names) -> String {
+    let name = |id: &Uuid| names.name(id);
+    if effect.concentration && effect.source.is_some() {
+        // Following the cast that started it.
+        let source = effect.source.as_ref().map_or("someone", name);
+        return format!("  {source} concentrates on {}", effect.name);
+    }
+    let mut text = effect.name.clone();
+    if let Some(source) = &effect.source {
+        text = format!("{}: {text}", name(source));
+    }
+    if !effect.targets.is_empty() {
+        text += &format!(" on {}", listed(&effect.targets, names));
+    }
+    if effect.concentration {
+        text += " (concentration)";
+    }
+    if let Some(expiry) = effect.expires {
+        let turn = expiry
+            .at_turn_of
+            .map_or(String::new(), |id| format!("{}'s turn, ", name(&id)));
+        text += &format!(" until {turn}round {}", expiry.round);
+    }
+    text
+}
+
+/// Why an effect ended, in brackets, if it says more than that it did.
+fn ended_because(reason: EffectEndReason) -> &'static str {
+    match reason {
+        EffectEndReason::Removed => "",
+        EffectEndReason::Expired => " (expired)",
+        EffectEndReason::ConcentrationReplaced => " (concentrating on something else)",
+        EffectEndReason::ConcentrationBroken => " (concentration broken)",
+        EffectEndReason::SourceRemoved => " (its source left)",
+        EffectEndReason::Undone => " (undone)",
+    }
+}
+
+/// A spell cast: by whom, on whom, and with which slot.
+fn spell_cast(
+    caster: &Uuid,
+    spell: &str,
+    slot: Option<SpellSlot>,
+    targets: &[Uuid],
+    names: &Names,
+) -> String {
+    let mut text = format!("{} casts {spell}", names.name(caster));
+    if !targets.is_empty() {
+        text += &format!(" on {}", listed(targets, names));
+    }
+    match slot {
+        Some(SpellSlot::Level(level)) => {
+            text += &format!(" ({} level)", crate::display::ordinal(level));
+        }
+        Some(SpellSlot::Pact(_)) => text += " (pact slot)",
+        None => {}
+    }
+    text
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-    use edda_types::combat::{Combatant, Concealer, Effect, Expiry};
+    use edda_types::combat::{Combatant, Concealer, Expiry};
 
     use super::*;
 
@@ -336,7 +363,7 @@ mod tests {
             })
             .collect();
         let log: Vec<LoggedEvent> = if as_player {
-            let mut concealer = Concealer::new(&Default::default());
+            let mut concealer = Concealer::new(&edda_types::combat::CombatState::default());
             log.iter().map(|e| concealer.event(e)).collect()
         } else {
             log

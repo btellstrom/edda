@@ -385,7 +385,7 @@ impl CombatState {
                 }
                 self.sort();
             }
-            CombatEvent::Started => self.status = CombatStatus::Active,
+            CombatEvent::Started | CombatEvent::Resumed => self.status = CombatStatus::Active,
             CombatEvent::RoundStarted { round } => self.round = *round,
             CombatEvent::TurnStarted { combatant } => self.current_turn = Some(*combatant),
             CombatEvent::Damaged {
@@ -408,14 +408,14 @@ impl CombatState {
             }
             CombatEvent::EffectAdded { effect } => self.effects.push(effect.clone()),
             CombatEvent::EffectEnded { effect, .. } => self.effects.retain(|e| e.id != *effect),
-            CombatEvent::SpellCast { .. } | CombatEvent::FeatureUsed { .. } => {}
+            CombatEvent::SpellCast { .. }
+            | CombatEvent::FeatureUsed { .. }
+            | CombatEvent::Undone { .. } => {}
             CombatEvent::Paused => self.status = CombatStatus::Paused,
-            CombatEvent::Resumed => self.status = CombatStatus::Active,
             CombatEvent::Ended => {
                 self.status = CombatStatus::Ended;
                 self.current_turn = None;
             }
-            CombatEvent::Undone { .. } => {}
             CombatEvent::CombatantRestored { combatant } => {
                 match self.combatant_mut(combatant.id) {
                     Some(c) => *c = combatant.clone(),

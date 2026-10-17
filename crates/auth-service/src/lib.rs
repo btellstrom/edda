@@ -19,7 +19,7 @@ use tower_http::trace::TraceLayer;
 
 pub use store::Store;
 
-/// The service's OpenAPI description.
+/// The service's `OpenAPI` description.
 #[derive(utoipa::OpenApi)]
 #[openapi(
     paths(

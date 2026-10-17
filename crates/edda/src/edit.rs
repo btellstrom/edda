@@ -40,7 +40,7 @@ pub fn set_field(sheet: &mut CharacterSheet, field: Field, value: &str) -> Resul
     match field {
         Field::Name => sheet.name = value.to_string(),
         Field::Player => {
-            sheet.player_name = Some(value.to_string()).filter(|v| !v.trim().is_empty())
+            sheet.player_name = Some(value.to_string()).filter(|v| !v.trim().is_empty());
         }
         Field::Race => sheet.race = value.to_string(),
         Field::Background => sheet.background = value.to_string(),
@@ -259,7 +259,7 @@ pub fn resource(sheet: &mut CharacterSheet, command: &ResourceCommand) -> Result
             uses.used = uses.used.min(*max);
         }
         ResourceCommand::Recharge { name, recharge } => {
-            by_name(resources, name, "resource")?.recharge = (*recharge).into()
+            by_name(resources, name, "resource")?.recharge = (*recharge).into();
         }
         ResourceCommand::Remove { name } => {
             by_name(resources, name, "resource")?;

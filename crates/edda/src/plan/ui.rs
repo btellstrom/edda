@@ -175,7 +175,7 @@ fn draw_difficulty(frame: &mut Frame, screen: &Screen, area: Rect) {
 /// The XP compared with the thresholds, and how it was reached.
 fn xp_line(plan: &edda_types::encounter::EncounterPlan, d: &Difficulty) -> String {
     let base = plan.xp();
-    if d.edition == Edition::Rules2014 && d.multiplier != 1.0 {
+    if d.edition == Edition::Rules2014 && (d.multiplier - 1.0).abs() > f32::EPSILON {
         format!(
             "{} ({base} × {} for {} monsters)",
             d.xp,
@@ -369,7 +369,7 @@ mod tests {
             stat_blocks: HashMap::from([(goblin.id, goblin)]),
             prompt: Prompt::default(),
             status: None,
-            panel: Default::default(),
+            panel: crate::styled::PanelScroll::default(),
             me: "DM laptop".into(),
             edition: Edition::Rules2024,
         }

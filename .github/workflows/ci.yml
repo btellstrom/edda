@@ -74,6 +74,10 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cargo llvm-cov report --summary-only >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+      # Coverage may only go up: raise COVERAGE_FLOOR in the Makefile as it
+      # does, never lower it.
+      - name: Coverage floor
+        run: cargo llvm-cov report --fail-under-lines "$(make -s coverage-floor)"
       - uses: actions/upload-artifact@v4
         with:
           name: coverage

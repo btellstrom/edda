@@ -364,7 +364,7 @@ fn rename(args: &[&str], mut plan: EncounterPlan, ctx: &Context) -> Edited {
             Err(format!("there's already a plan called {name}")),
         );
     }
-    plan.name = name.clone();
+    plan.name.clone_from(&name);
     (format!("Rename to {name}"), Ok(Step::Save(plan)))
 }
 
@@ -468,11 +468,11 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
         "remove" | "count" if args.is_empty() => entries(),
         "open" | "delete" => named(0, plans()),
         "party" => {
-            let mut names = vec![("all".to_string(), "the whole party".to_string())];
+            let mut choices = vec![("all".to_string(), "the whole party".to_string())];
             if let Some(open) = ctx.current {
                 let in_party: Vec<Uuid> =
                     party(&open.plan, ctx.roster).iter().map(|c| c.id).collect();
-                names.extend(ctx.roster.iter().map(|c| {
+                choices.extend(ctx.roster.iter().map(|c| {
                     let state = if in_party.contains(&c.id) {
                         "in"
                     } else {
@@ -481,7 +481,7 @@ pub fn suggest(line: &str, ctx: &Context) -> Vec<Suggestion> {
                     (c.name.clone(), format!("level {} · {state}", c.level))
                 }));
             }
-            named(0, names)
+            named(0, choices)
         }
         _ => Vec::new(),
     }

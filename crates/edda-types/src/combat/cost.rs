@@ -104,14 +104,14 @@ mod tests {
     #[test]
     fn casts_and_feature_uses_cost_what_they_say_and_give_it_back() {
         let caster = Uuid::new_v4();
-        let cast = CombatCommand::CastSpell {
+        let bless = CombatCommand::CastSpell {
             caster,
             spell: "Bless".into(),
             slot: Some(SpellSlot::Level(2)),
             targets: vec![],
             concentration: None,
         };
-        let (who, cost) = cast.sheet_cost().unwrap();
+        let (who, cost) = bless.sheet_cost().unwrap();
         assert_eq!(who, caster);
         assert_eq!(cost.spend(), CharacterAction::ExpendSpellSlot { level: 2 });
         assert_eq!(

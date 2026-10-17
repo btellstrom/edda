@@ -1,4 +1,4 @@
-//! What every service's OpenAPI description shares: the token routes need,
+//! What every service's `OpenAPI` description shares: the token routes need,
 //! and the error responses any route may give.
 
 use utoipa::{

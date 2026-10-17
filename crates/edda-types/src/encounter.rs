@@ -77,8 +77,8 @@ impl EncounterPlan {
 pub fn xp_for_challenge(challenge: &str) -> u32 {
     const BY_CR: [u32; 31] = [
         10, 200, 450, 700, 1100, 1800, 2300, 2900, 3900, 5000, 5900, 7200, 8400, 10000, 11500,
-        13000, 15000, 18000, 20000, 22000, 25000, 33000, 41000, 50000, 62000, 75000, 90000, 105000,
-        120000, 135000, 155000,
+        13000, 15000, 18000, 20000, 22000, 25000, 33000, 41000, 50000, 62000, 75000, 90000,
+        105_000, 120_000, 135_000, 155_000,
     ];
     match challenge_value(challenge) {
         cr if cr < 0.0 => 0,
@@ -215,7 +215,9 @@ pub fn difficulty(plan: &EncounterPlan, levels: &[u8], edition: Edition) -> Diff
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
-        reason = "XP times a multiplier of at most 5 is positive and fits"
+        clippy::cast_precision_loss,
+        reason = "XP times a multiplier of at most 5 is positive, and far below \
+                  where f32 loses whole numbers"
     )]
     let xp = (plan.xp() as f32 * multiplier).round() as u32;
     let thresholds: Vec<_> = names.iter().copied().zip(totals).collect();
@@ -261,7 +263,7 @@ mod tests {
         assert_eq!(xp_for_challenge("1/4"), 50);
         assert_eq!(xp_for_challenge("1/2"), 100);
         assert_eq!(xp_for_challenge("5"), 1800);
-        assert_eq!(xp_for_challenge("30"), 155000);
+        assert_eq!(xp_for_challenge("30"), 155_000);
         assert_eq!(xp_for_challenge("lots"), 0);
     }
 

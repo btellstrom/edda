@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 pool,
                 &env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3002".into()),
             )
-            .await?
+            .await?;
         }
         Some(Command::Serve { bind }) => serve(pool, &bind).await?,
         Some(Command::NewCampaign { name, edition }) => {

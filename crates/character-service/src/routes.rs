@@ -30,12 +30,12 @@ pub struct Stale {
     pub current: Character,
 }
 
-/// Strong ETag for a character: its version, quoted per RFC 9110.
+/// Strong `ETag` for a character: its version, quoted per RFC 9110.
 pub fn etag(character: &Character) -> String {
     format!("\"{}\"", character.version)
 }
 
-/// A character response carrying its ETag, so clients can always pick up
+/// A character response carrying its `ETag`, so clients can always pick up
 /// the version from the header as well as the body.
 fn tagged(character: Character) -> impl IntoResponse {
     ([(header::ETAG, etag(&character))], Json(character))

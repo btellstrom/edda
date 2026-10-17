@@ -180,7 +180,7 @@ struct RateLimiter {
     windows: Arc<Mutex<HashMap<IpAddr, (Instant, u32)>>>,
 }
 
-const WINDOW: Duration = Duration::from_secs(60);
+const WINDOW: Duration = Duration::from_mins(1);
 /// Windows remembered before the finished ones are dropped.
 const REMEMBERED: usize = 10_000;
 

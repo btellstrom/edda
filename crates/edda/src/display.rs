@@ -41,7 +41,7 @@ pub fn list(characters: &[CharacterSummary]) -> String {
 }
 
 /// `label value` pairs, separated by `sep`.
-fn pairs(items: Vec<(String, Vec<Span<'static>>)>, sep: Span<'static>) -> Vec<Span<'static>> {
+fn pairs(items: Vec<(String, Vec<Span<'static>>)>, sep: &Span<'static>) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
     for (i, (label, value)) in items.into_iter().enumerate() {
         if i > 0 {
@@ -147,7 +147,7 @@ fn identity(doc: &mut Doc, character: &Character) {
     details.push(("XP".into(), vec![plain(s.experience_points.to_string())]));
     // The dots stay with what they follow, so a wrapped line never starts
     // with one.
-    let mut line = pairs(details, dim(format!("{KEEP}{KEEP}·  ")));
+    let mut line = pairs(details, &dim(format!("{KEEP}{KEEP}·  ")));
     line.push(dim(format!("{KEEP}{KEEP}·  v{}", character.version)));
     doc.line(line);
     doc.blank();
@@ -173,7 +173,7 @@ fn hit_points_line(doc: &mut Doc, s: &CharacterSheet) {
                 vec![plain((10 + s.skill_bonus(Skill::Perception)).to_string())],
             ),
         ],
-        plain("   "),
+        &plain("   "),
     ));
 }
 
@@ -212,7 +212,7 @@ fn abilities_and_saves(doc: &mut Doc, s: &CharacterSheet) {
                 )
             })
             .collect(),
-        plain("   "),
+        &plain("   "),
     ));
     let mut saves = Vec::new();
     for (i, &a) in Ability::ALL.iter().enumerate() {
@@ -358,7 +358,7 @@ fn spellcasting(doc: &mut Doc, s: &CharacterSheet) {
                         vec![strong(format!("{:+}", s.spell_attack_bonus(ability)))],
                     ),
                 ],
-                plain("   "),
+                &plain("   "),
             ),
         ));
     }
@@ -554,7 +554,7 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
                 vec![plain(format!("{:+}", m.initiative_modifier()))],
             ),
         ],
-        plain("   "),
+        &plain("   "),
     ));
     doc.line(pairs(
         Ability::ALL
@@ -566,11 +566,42 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
                 )
             })
             .collect(),
-        plain("  "),
+        &plain("  "),
     ));
     doc.blank();
 
-    let mut details: Vec<(&str, String)> = Vec::new();
+    for (label, value) in details(m) {
+        doc.line(vec![dim(format!("{label} ")), plain(value)]);
+    }
+    doc.line(pairs(
+        vec![
+            (
+                "CR".into(),
+                vec![
+                    strong(m.challenge.clone()),
+                    dim(format!(" ({} XP)", m.experience_points())),
+                ],
+            ),
+            (
+                "Proficiency".into(),
+                vec![plain(format!("{:+}", m.proficiency_bonus))],
+            ),
+        ],
+        &plain("   "),
+    ));
+
+    features(&mut doc, m);
+    if !m.notes.is_empty() {
+        doc.heading(Section::Notes.title());
+        notes(&mut doc, &m.notes);
+    }
+    doc.into_lines()
+}
+
+/// A stat block's lesser details: saves, skills, damage and condition
+/// immunities, senses and languages, those it has.
+fn details(m: &MonsterSheet) -> Vec<(&'static str, String)> {
+    let mut details: Vec<(&'static str, String)> = Vec::new();
     if !m.saving_throws.is_empty() {
         let saves: Vec<_> = m
             .saving_throws
@@ -603,26 +634,11 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
     if !m.languages.is_empty() {
         details.push(("Languages", m.languages.clone()));
     }
-    for (label, value) in details {
-        doc.line(vec![dim(format!("{label} ")), plain(value)]);
-    }
-    doc.line(pairs(
-        vec![
-            (
-                "CR".into(),
-                vec![
-                    strong(m.challenge.clone()),
-                    dim(format!(" ({} XP)", m.experience_points())),
-                ],
-            ),
-            (
-                "Proficiency".into(),
-                vec![plain(format!("{:+}", m.proficiency_bonus))],
-            ),
-        ],
-        plain("   "),
-    ));
+    details
+}
 
+/// A stat block's traits and actions, section by section.
+fn features(doc: &mut Doc, m: &MonsterSheet) {
     for (section, features) in [
         (Section::Traits, &m.traits),
         (Section::Actions, &m.actions),
@@ -646,11 +662,6 @@ pub fn monster(m: &MonsterSheet, width: usize, detail: Detail) -> Vec<Line<'stat
             }
         }
     }
-    if !m.notes.is_empty() {
-        doc.heading(Section::Notes.title());
-        notes(&mut doc, &m.notes);
-    }
-    doc.into_lines()
 }
 
 /// A spell as the books lay it out, `width` columns wide.

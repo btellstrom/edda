@@ -304,6 +304,10 @@ mod tests {
         }
 
         /// Runs `command` as `actor`; returns its command id.
+        #[expect(
+            clippy::needless_pass_by_value,
+            reason = "tests read better passing commands by value"
+        )]
         fn run(&mut self, actor: &str, command: CombatCommand) -> Uuid {
             let events = decide(&self.state(), &command, &mut NoDice).unwrap();
             let id = Uuid::new_v4();

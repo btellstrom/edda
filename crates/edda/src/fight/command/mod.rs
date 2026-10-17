@@ -214,13 +214,14 @@ pub fn parse(line: &str, ctx: &Context) -> Parsed {
     let (who, rest) = match words.split_first() {
         None => return parsed,
         Some((first, rest)) => match first.parse::<usize>() {
-            Ok(n) => match ctx.numbered(n) {
-                Some(c) => (Some(c), rest),
-                None => {
+            Ok(n) => {
+                if let Some(c) = ctx.numbered(n) {
+                    (Some(c), rest)
+                } else {
                     parsed.plan = Err(format!("there's no number {n}"));
                     return parsed;
                 }
-            },
+            }
             Err(_) => (None, &words[..]),
         },
     };

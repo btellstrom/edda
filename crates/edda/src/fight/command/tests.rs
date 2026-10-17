@@ -82,7 +82,7 @@ fn world() -> World {
     vex.resources.push(Resource {
         name: "Favored Foe".into(),
         uses: Pool::new(3),
-        recharge: Default::default(),
+        recharge: edda_types::Recharge::default(),
         notes: String::new(),
     });
     let vex = character(vex);

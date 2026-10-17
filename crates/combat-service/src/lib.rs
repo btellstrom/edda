@@ -20,7 +20,7 @@ use edda_server::{Limits, openapi::Conventions};
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 
-/// The service's OpenAPI description.
+/// The service's `OpenAPI` description.
 #[derive(utoipa::OpenApi)]
 #[openapi(
     paths(

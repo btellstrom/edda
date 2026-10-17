@@ -1,6 +1,6 @@
 //! `edda auth ...`
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
 use edda_auth::pairing::PairingCode;
@@ -319,20 +319,20 @@ fn campaign_list(identity: &Identity) -> Result<String> {
         .map(|p| p.campaign.name.chars().count())
         .max()
         .unwrap_or(0);
-    Ok(profiles
-        .iter()
-        .map(|p| {
-            let marker = if current == Some(p.campaign.id) {
-                "*"
-            } else {
-                " "
-            };
-            format!(
-                "{marker} {:<width$}  {}  {} rules  {}\n",
-                p.campaign.name, p.campaign.id, p.campaign.edition, p.auth_server
-            )
-        })
-        .collect())
+    let mut table = String::new();
+    for p in &profiles {
+        let marker = if current == Some(p.campaign.id) {
+            "*"
+        } else {
+            " "
+        };
+        writeln!(
+            table,
+            "{marker} {:<width$}  {}  {} rules  {}",
+            p.campaign.name, p.campaign.id, p.campaign.edition, p.auth_server
+        )?;
+    }
+    Ok(table)
 }
 
 fn find_device<'a>(devices: &'a [Device], query: &str) -> Result<&'a DeviceCert> {

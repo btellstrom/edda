@@ -12,11 +12,11 @@ const REAL: [&str; 4] = ["auth", "characters", "combats", "monsters"];
 
 /// The test database `name`, shared by whichever tests use it.
 pub async fn database_url(name: &str) -> String {
+    static CHECKED: OnceCell<()> = OnceCell::const_new();
     let server = std::env::var("TEST_POSTGRES_URL").expect(
         "set TEST_POSTGRES_URL to a throwaway Postgres (`make test` starts one and sets it)",
     );
     let server = server.trim_end_matches('/').to_string();
-    static CHECKED: OnceCell<()> = OnceCell::const_new();
     CHECKED.get_or_init(|| refuse_a_real_stack(&server)).await;
     format!("{server}/{name}")
 }

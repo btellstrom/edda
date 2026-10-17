@@ -22,7 +22,7 @@ async fn server() -> Client {
             campaign: uuid::Uuid::new_v4(),
             role: Principal::Dm,
             name: "DM".into(),
-            edition: Default::default(),
+            edition: edda_types::Edition::default(),
             expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
         })
         .unwrap();

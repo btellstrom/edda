@@ -238,7 +238,7 @@ fn dm_only(claims: &Claims) -> Result<(), ApiError> {
     }
 }
 
-/// `/spells` for the OpenAPI description, as the handlers are generic:
+/// `/spells` for the `OpenAPI` description, as the handlers are generic:
 /// these are only described, never called.
 #[allow(dead_code)]
 pub(crate) mod spells {
@@ -309,7 +309,7 @@ pub(crate) mod spells {
     pub fn remove() {}
 }
 
-/// `/conditions` for the OpenAPI description, as the handlers are generic:
+/// `/conditions` for the `OpenAPI` description, as the handlers are generic:
 /// these are only described, never called.
 #[allow(dead_code)]
 pub(crate) mod conditions {
