@@ -109,10 +109,12 @@ impl<S: Send + Sync> FromRequestParts<S> for Authenticated {
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.strip_prefix("Bearer "))
             .ok_or(Unauthorized("a bearer token is required"))?;
-        verifier
+        let claims = verifier
             .verify(token.trim())
-            .map(Authenticated)
-            .map_err(|_| Unauthorized("invalid or expired token"))
+            .map_err(|_| Unauthorized("invalid or expired token"))?;
+        // Whose the request is, in the request's log span.
+        tracing::Span::current().record("campaign", tracing::field::display(claims.campaign));
+        Ok(Authenticated(claims))
     }
 }
 

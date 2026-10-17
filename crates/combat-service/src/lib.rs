@@ -18,7 +18,6 @@ use axum::{Extension, Router};
 use edda_auth::server::TokenVerifier;
 use edda_server::{Limits, openapi::Conventions};
 use sqlx::PgPool;
-use tower_http::trace::TraceLayer;
 
 /// The service's `OpenAPI` description.
 #[derive(utoipa::OpenApi)]
@@ -98,6 +97,5 @@ pub async fn app(
         .merge(encounters::router())
         .with_state(hub)
         .layer(Extension(Arc::new(verifier)))
-        .merge(ready)
-        .layer(TraceLayer::new_for_http()))
+        .merge(ready))
 }

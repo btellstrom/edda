@@ -17,7 +17,6 @@ use axum::{Extension, Router};
 use edda_auth::server::TokenVerifier;
 use edda_server::{Limits, openapi::Conventions};
 use sqlx::PgPool;
-use tower_http::trace::TraceLayer;
 
 pub use store::MonsterStore;
 
@@ -75,5 +74,4 @@ pub fn app(pool: PgPool, verifier: TokenVerifier, limits: Limits) -> Router {
         .layer(Extension(Arc::new(verifier)))
         .layer(Extension(Arc::new(limits)))
         .merge(ready)
-        .layer(TraceLayer::new_for_http())
 }

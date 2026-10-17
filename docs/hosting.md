@@ -54,6 +54,13 @@ no longer log in), characters, combats, plans and its own monsters.
 **If a campaign loses every DM device,** `podman compose exec auth
 auth-service setup-code <CAMPAIGN ID>` prints a new setup code for it.
 
+**Logs** go to the containers' output (`make logs`), a line a request
+with its method, path, status and time, and the campaign it was for.
+`LOG_FORMAT=json` makes each line a JSON object, for a log collector;
+`RUST_LOG` sets how much (`RUST_LOG=debug`). They never hold what was
+sent or asked, only whose it was. Every response carries an
+`x-request-id`, also in the logs, so a user's report can be found there.
+
 ## Letting players in: HTTPS
 
 To let players' devices in, put the stack behind HTTPS rather than

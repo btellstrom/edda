@@ -4,6 +4,7 @@
 //! descriptions.
 
 pub mod limits;
+pub mod observe;
 pub mod openapi;
 #[cfg(feature = "testing")]
 pub mod testing;
@@ -83,14 +84,14 @@ pub async fn ready(axum::extract::State(pool): axum::extract::State<PgPool>) -> 
 
 /// Logs to stderr: `crate_name`'s own messages, this crate's (serving,
 /// internal errors) and each request, at info, unless `RUST_LOG` says
-/// otherwise.
+/// otherwise. `LOG_FORMAT=json` writes a JSON object a line, for a log
+/// collector; see [`observe`].
 pub fn init_logging(crate_name: &str) {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            format!("{crate_name}=info,edda_server=info,tower_http=info").into()
-        }))
-        .init();
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| format!("{crate_name}=info,edda_server=info,tower_http=info").into());
+    let json = std::env::var("LOG_FORMAT").is_ok_and(|f| f == "json");
+    tracing::subscriber::set_global_default(observe::subscriber(json, filter, std::io::stderr))
+        .expect("logging is set up once");
 }
 
 /// A connection pool to the Postgres database at `url`, creating the
@@ -143,7 +144,7 @@ pub async fn serve(
     name: &str,
     limits: &Limits,
 ) -> Result<(), Box<dyn Error>> {
-    let app = limits.apply(app.layer(cors()?));
+    let app = observe::requests(limits.apply(app.layer(cors()?)), limits.trust_proxy);
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(%bind, limits = limits.enabled(), "{name} listening");
     // Each request knows its client's address, for the limits.
