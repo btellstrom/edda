@@ -222,6 +222,9 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
         );
         return;
     };
+    // Inside the borders.
+    let inner = usize::from(area.width.saturating_sub(2));
+    let height = usize::from(area.height.saturating_sub(2));
     let sheet = combatant.character_id.and_then(|id| app.sheets.get(&id));
     let monster = combatant.monster_id.and_then(|id| app.monsters.get(&id));
     let text = match (sheet, monster) {
@@ -238,11 +241,11 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
                 Line::from(format!("HP {}/{}{temp}", hp.current, hp.max)).bold(),
                 Line::raw(""),
             ];
-            lines.extend(
-                crate::display::monster(&monster.sheet)
-                    .lines()
-                    .map(|l| Line::raw(l.to_string())),
-            );
+            lines.extend(crate::display::monster(
+                &monster.sheet,
+                inner,
+                crate::display::Detail::Panel,
+            ));
             Text::from(lines)
         }
         (sheet, _) => match sheet {
@@ -251,7 +254,11 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
                 // catch up a moment later.
                 let mut character = character.clone();
                 character.sheet.hit_points = combatant.hit_points;
-                Text::from(crate::display::sheet(&character))
+                Text::from(crate::display::sheet(
+                    &character,
+                    inner,
+                    crate::display::Detail::Panel,
+                ))
             }
             None => {
                 let hp = combatant.hit_points;
@@ -276,6 +283,9 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
             }
         },
     };
+    // When it doesn't all fit, show the part the line needs: spells for a
+    // cast, a monster's actions for an attack.
+    let scroll = crate::styled::scroll_to(&text.lines, app.parsed().section, height);
     let turn = app.replica.state().current_turn == Some(combatant.id);
     let title = if turn {
         format!(" {} · their turn ", combatant.name)
@@ -284,6 +294,7 @@ fn draw_sheet(frame: &mut Frame, app: &App, area: Rect) {
     };
     frame.render_widget(
         Paragraph::new(text)
+            .scroll((u16::try_from(scroll).unwrap_or(u16::MAX), 0))
             .wrap(Wrap { trim: false })
             .block(Block::bordered().title(title)),
         area,

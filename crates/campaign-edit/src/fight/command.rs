@@ -56,6 +56,9 @@ pub struct Parsed {
     pub sentence: String,
     /// Ready to run, or what's missing or wrong.
     pub plan: Result<Vec<Step>, String>,
+    /// The heading of the actor's sheet that the line needs, such as
+    /// "Spellcasting" for a cast.
+    pub section: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -182,6 +185,7 @@ pub fn parse(line: &str, ctx: &Context) -> Parsed {
         actor: turn,
         sentence: String::new(),
         plan: Err("type an action; Tab completes".into()),
+        section: None,
     };
     let (who, rest) = match words.split_first() {
         None => return parsed,
@@ -209,10 +213,28 @@ pub fn parse(line: &str, ctx: &Context) -> Parsed {
         parsed.plan = Err(format!("\"{verb_word}\" isn't an action; Tab lists them"));
         return parsed;
     };
+    parsed.section = section(verb, actor);
     let (sentence, plan) = interpret(verb, actor, args, ctx);
     parsed.sentence = sentence;
     parsed.plan = plan.and_then(|steps| check(steps, ctx));
     parsed
+}
+
+/// The part of the actor's sheet that doing `verb` needs: a monster's
+/// actions for anything it does to others, a character's spells or
+/// features.
+fn section(verb: Verb, actor: Option<&Combatant>) -> Option<&'static str> {
+    let monster = actor.is_some_and(|a| a.monster_id.is_some());
+    match verb {
+        Verb::Damage | Verb::Heal | Verb::Temp | Verb::Cast | Verb::Effect | Verb::Use
+            if monster =>
+        {
+            Some("Actions")
+        }
+        Verb::Cast => Some("Spellcasting"),
+        Verb::Use => Some("Features"),
+        _ => None,
+    }
 }
 
 /// The verb a word names, also by a unique prefix.
@@ -1245,6 +1267,7 @@ mod tests {
         grog.initiative = Some(15);
         let mut goblin = Combatant::new("Goblin", 7);
         goblin.initiative = Some(10);
+        goblin.monster_id = Some(Uuid::new_v4());
         let mut state = CombatState::default();
         for e in [
             CombatEvent::CombatantAdded { combatant: vex_c },
@@ -1294,6 +1317,20 @@ mod tests {
                 .map(|s| s.line)
                 .collect()
         }
+    }
+
+    #[test]
+    fn lines_point_at_the_part_of_the_sheet_they_need() {
+        let w = world();
+        assert_eq!(w.parse("cast hunt").section, Some("Spellcasting"));
+        assert_eq!(w.parse("use fav").section, Some("Features"));
+        assert_eq!(w.parse("damage 3 7").section, None, "nothing on the sheet");
+        assert_eq!(
+            w.parse("3 damage 1 5").section,
+            Some("Actions"),
+            "a monster's"
+        );
+        assert_eq!(w.parse("next").section, None);
     }
 
     #[test]

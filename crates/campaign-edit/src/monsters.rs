@@ -22,7 +22,11 @@ pub async fn run(client: &MonsterClient, command: MonsterCommand) -> Result<()> 
         }
         MonsterCommand::Show { monster } => {
             let monster = find(client, &monster).await?;
-            println!("{}", display::monster(&monster.sheet));
+            crate::styled::print(&display::monster(
+                &monster.sheet,
+                crate::styled::print_width(),
+                display::Detail::Full,
+            ));
         }
         MonsterCommand::Add { file } => {
             for sheet in read(&file)? {

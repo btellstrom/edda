@@ -9,6 +9,7 @@ mod identity;
 mod monsters;
 mod parse;
 mod plan;
+mod styled;
 
 use std::process::ExitCode;
 
@@ -168,7 +169,11 @@ async fn character(client: &Client, args: Vec<String>) -> Result<()> {
             if json {
                 println!("{}", serde_json::to_string_pretty(&character)?);
             } else {
-                println!("{}", display::sheet(&character));
+                styled::print(&display::sheet(
+                    &character,
+                    styled::print_width(),
+                    display::Detail::Full,
+                ));
             }
         }
         C::Get { field } => println!("{}", edit::get_field(&client.get(id).await?.sheet, field)),

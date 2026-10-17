@@ -260,12 +260,11 @@ fn draw_stat_block(frame: &mut Frame, app: &App, area: Rect) {
     let (title, text) = match shown.and_then(|id| app.stat_blocks.get(&id)) {
         Some(monster) => (
             format!(" {} ", monster.sheet.name),
-            Text::from(
-                crate::display::monster(&monster.sheet)
-                    .lines()
-                    .map(|l| Line::raw(l.to_string()))
-                    .collect::<Vec<_>>(),
-            ),
+            Text::from(crate::display::monster(
+                &monster.sheet,
+                usize::from(area.width.saturating_sub(2)),
+                crate::display::Detail::Panel,
+            )),
         ),
         None => (
             " Stat block ".to_string(),
