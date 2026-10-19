@@ -1,0 +1,11 @@
+active: true
+derived: false
+header: |
+  Devices without passwords
+level: 1.6
+links: []
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Edda shall admit devices to a campaign and log them in without passwords, through keys held only on each device.

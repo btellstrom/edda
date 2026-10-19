@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Importing again
+justified_by:
+- item: importing_again_updates_and_campaigns_can_be_deleted
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: 5.4
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Importing into the shared library again shall update the entries with the same name, source and edition rather than add copies.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Campaigns are apart
+justified_by:
+- item: campaigns_only_see_their_own_characters
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: combats_are_private_to_their_campaign
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 6.5
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A device shall see nothing of another campaign: its characters and combats shall be answered as not found.

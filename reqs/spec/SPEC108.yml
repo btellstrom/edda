@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Features and rests
+justified_by:
+- item: tests::pool_never_overspends_or_overrestores
+  path: crates/edda-types/src/resources.rs
+  type: rust-fn
+- item: tests::recharge_rules
+  path: crates/edda-types/src/resources.rs
+  type: rust-fn
+- item: tests::short_rest_restores_short_rest_resources_and_pact_slots_only
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: tests::resources
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.8
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Class features shall never be spent below zero or restored above their maximum; a short rest shall restore short-rest features and pact slots only; a long rest shall restore everything but features recharged by hand, plus all spell slots and hit points.

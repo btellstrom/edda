@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  A fight from a plan
+justified_by:
+- item: a_fight_starts_from_a_plan_with_its_monsters_or_not_at_all
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::a_fight_needs_monsters
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 2.15
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A combat started from a plan shall hold the plan's monsters, or not be started at all if any of them is gone, saying which.

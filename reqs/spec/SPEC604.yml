@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The DM's library
+justified_by:
+- item: only_the_dm_changes_the_campaigns_monsters_spells_and_conditions
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: 6.4
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Only DM devices shall change a campaign's monsters, spells and conditions.

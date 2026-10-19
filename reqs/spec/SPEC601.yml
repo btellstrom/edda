@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Players' characters
+justified_by:
+- item: players_change_only_the_characters_their_device_plays
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 6.1
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A player's device shall change only the characters it plays; the DM shall choose who plays the rest; every device shall see every character.

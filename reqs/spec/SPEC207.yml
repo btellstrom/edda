@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Pausing and ending
+justified_by:
+- item: tests::paused_combat_only_resumes_or_ends
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: paused_combats_resume_days_later_on_any_instance
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::ended_combat_rejects_everything_and_ids_are_unique
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.7
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A paused combat shall accept only resume or end, and shall be resumable days later on any instance exactly where it stopped; an ended combat shall accept nothing but the undo of its ending.

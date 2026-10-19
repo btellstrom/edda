@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Turns and rounds
+justified_by:
+- item: tests::turns_advance_and_wrap_into_new_rounds
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: tests::combatants_can_join_mid_combat
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: tests::removing_the_current_combatant_passes_the_turn
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.3
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Turns shall advance through the initiative order and wrap into a new round; combatants shall be able to join mid-combat; removing the combatant whose turn it is shall pass the turn on.

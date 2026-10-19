@@ -1,0 +1,23 @@
+active: true
+derived: false
+header: |
+  Effect durations
+justified_by:
+- item: tests::effects_expire_at_the_start_of_the_sources_turn
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: |
+    tests::effects_without_a_source_or_targets_count_the_active_combatants_turns
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: tests::effects_of_departed_sources_expire_at_round_start
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.6
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An effect with a duration shall expire at the start of its source's turn after that many rounds; one without a source counts the turns of whoever was acting; one whose source has left expires at the start of a round.

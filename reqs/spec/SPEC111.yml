@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  No lost updates
+justified_by:
+- item: stale_put_cannot_undo_actions
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: put_requires_a_valid_if_match
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: stale_replace_reports_current_and_modify_merges
+  path: crates/edda-client/tests/client.rs
+  type: rust-fn
+level: 1.11
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Replacing a sheet shall require the version it was based on; a stale replace shall be refused with the current sheet, so that it can never undo another device's changes, and edda shall merge its edits onto the current sheet and retry.

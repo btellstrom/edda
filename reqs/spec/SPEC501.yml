@@ -1,0 +1,31 @@
+active: true
+derived: false
+header: |
+  Stat blocks
+justified_by:
+- item: tests::a_monster_needs_a_name_hit_points_and_sane_dice
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+- item: tests::json_needs_only_what_the_monster_has
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+- item: tests::hit_dice_parse_and_give_their_maximum
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+- item: tests::rolling_uses_each_die_and_the_bonus
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+- item: tests::files_hold_one_or_many_monsters_and_typos_are_caught
+  path: crates/edda/src/monsters.rs
+  type: rust-fn
+- item: tests::a_file_holds_a_list_or_just_one
+  path: crates/monster-service/src/main.rs
+  type: rust-fn
+level: 5.1
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A stat block shall need only a name, hit points and well-formed hit dice; unknown fields shall be refused; a file shall hold one stat block or a list; hit dice shall give their maximum and roll each die plus the bonus.

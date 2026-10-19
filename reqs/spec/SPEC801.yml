@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Deleting a campaign
+justified_by:
+- item: deleting_a_campaign_deletes_only_its_characters
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: deleting_a_campaign_locks_out_its_devices_and_leaves_others_alone
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+- item: deleting_a_campaign_deletes_its_combats_even_from_memory
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: importing_again_updates_and_campaigns_can_be_deleted
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: 8.1
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Deleting a campaign shall remove all of it from every service, its devices, characters, combats (from memory too), plans and own monsters, and nothing of any other campaign; it shall be safe to repeat.

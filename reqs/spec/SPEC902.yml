@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Names on the command line
+justified_by:
+- item: tests::exact_name_beats_prefix
+  path: crates/edda/src/parse.rs
+  type: rust-fn
+- item: tests::unique_prefixes_resolve
+  path: crates/edda/src/parse.rs
+  type: rust-fn
+- item: tests::ambiguous_and_missing_are_errors
+  path: crates/edda/src/parse.rs
+  type: rust-fn
+- item: tests::lenient_enum_parsing
+  path: crates/edda/src/parse.rs
+  type: rust-fn
+level: 9.2
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  edda shall find a character, monster or campaign by its exact name before a unique prefix, and refuse a name that is ambiguous or unknown.

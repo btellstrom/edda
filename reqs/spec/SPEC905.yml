@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  A closed pipe
+justified_by:
+- item: edda_stops_quietly_when_the_reader_has_gone
+  path: crates/edda/tests/broken_pipe.rs
+  type: rust-fn
+level: 9.5
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  edda shall stop quietly when whatever reads its output has gone.

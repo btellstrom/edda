@@ -1,0 +1,29 @@
+active: true
+derived: false
+header: |
+  The side panel
+justified_by:
+- item: show_keeps_a_description_of_anything_named
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+- item: lines_point_at_the_part_of_the_sheet_they_need
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+- item: tests::typing_a_cast_turns_the_panel_to_spellcasting_and_lists_spells
+  path: crates/edda/src/fight/ui.rs
+  type: rust-fn
+- item: tests::scrolling_brings_a_section_up_only_when_needed
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+- item: |
+    tests::panels_scroll_by_hand_within_bounds_until_they_show_something_else
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+level: 9.9
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The side panel shall open the acting combatant's sheet at the part the line needs, describe what the line is about, and keep what `show` put there, scrolling by hand within bounds.

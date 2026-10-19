@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Difficulty under 2014 rules
+justified_by:
+- item: tests::rules_2014_multiply_for_numbers_against_the_party_thresholds
+  path: crates/edda-types/src/encounter.rs
+  type: rust-fn
+level: 4.2
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Under the 2014 rules, an encounter's XP shall be multiplied for the number of monsters (adjusted for a party under three or over five) and compared with the party's Easy, Medium, Hard and Deadly thresholds.

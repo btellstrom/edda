@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Rate and size limits
+justified_by:
+- item: tests::limits_are_on_unless_turned_off_and_each_can_change
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+- item: tests::a_client_too_busy_or_too_big_is_turned_away
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+- item: tests::each_address_gets_its_requests_per_minute
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+- item: signing_in_is_limited_per_address_and_devices_per_campaign
+  path: crates/edda-client/tests/limits.rs
+  type: rust-fn
+level: 8.5
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Every service shall limit requests per client address, sign-ins more tightly, and the size of a request, on by default and each adjustable or all turned off.

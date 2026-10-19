@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Spells and conditions
+justified_by:
+- item: spells_and_conditions_are_kept_like_monsters
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+- item: tests::a_stored_entry_is_flat_json
+  path: crates/edda-types/src/rules_text.rs
+  type: rust-fn
+level: 5.5
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Spells and conditions shall be kept, shared and owned like monsters.

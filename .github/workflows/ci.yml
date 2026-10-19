@@ -1,5 +1,5 @@
 # Every push to master and every pull request. The same checks run locally
-# with `make check`, `make deny` and `make smoke`.
+# with `make check`, `make deny`, `make reqs` and `make smoke`.
 name: CI
 
 on:
@@ -95,6 +95,22 @@ jobs:
           tool: cargo-machete
       # Dependencies nothing uses.
       - run: cargo machete
+
+  requirements:
+    name: Requirements
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      # The requirements' text, links and review status (reqs/). Without
+      # --error-all, Doorstop only warns about unreviewed changes.
+      - run: uv run --locked doorstop --error-all
+      - run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install --locked --git https://github.com/btellstrom/emperor --rev 999c8d3327a77e037a316531720ce0302053a33a emperor
+      # The tests and scenarios justifying them, unchanged since they were
+      # accepted (emperor.lock).
+      - run: emperor check --format github
 
   smoke:
     name: End to end

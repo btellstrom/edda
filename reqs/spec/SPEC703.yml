@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Setup codes
+justified_by:
+- item: setup_codes_work_once_and_make_a_dm
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.3
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A campaign's setup code shall work once, and make the device that uses it a DM.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The log names the device
+justified_by:
+- item: the_log_names_the_device_not_whoever_the_client_claims
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.16
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The combat log shall name the device that sent each command, as its token says, whatever the client claims.

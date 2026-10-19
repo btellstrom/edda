@@ -1,0 +1,20 @@
+active: true
+derived: false
+header: |
+  Concentration
+justified_by:
+- item: tests::concentration_is_replaced_and_broken
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: |
+    tests::spells_and_features_are_recorded_and_concentration_comes_into_play
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.5
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Casting a concentration spell shall put it into play as an effect and end the caster's previous concentration; dropping to 0 hit points shall break concentration.

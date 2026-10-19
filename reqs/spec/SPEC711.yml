@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Pairing codes
+justified_by:
+- item: tests::the_same_code_gives_both_sides_a_working_channel
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+- item: tests::a_different_word_or_slot_gives_nothing
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+- item: tests::messages_cannot_be_tampered_with_reordered_or_reflected
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+- item: tests::codes_parse_forgivingly_and_reject_typos
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+level: 7.11
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Two devices using the same pairing code shall agree on a channel that cannot be tampered with, reordered or reflected; a different word or number shall give them nothing; codes shall be read forgivingly but typos refused.

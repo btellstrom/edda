@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Difficulty under 2024 rules
+justified_by:
+- item: tests::rules_2024_compare_plain_xp_with_the_party_budget
+  path: crates/edda-types/src/encounter.rs
+  type: rust-fn
+level: 4.3
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Under the 2024 rules, an encounter's plain XP shall be compared with the party's Low, Moderate and High budgets.

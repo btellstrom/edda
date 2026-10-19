@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Commands apply once, one at a time
+justified_by:
+- item: resent_commands_are_applied_once
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: concurrent_commands_are_serialized
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::already_applied_commands_are_dropped
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+level: 2.9
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Commands to one combat shall be applied one at a time, and a command resent with the same id shall be applied only once.

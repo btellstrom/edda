@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  The auth service is pinned
+justified_by:
+- item: devices_refuse_to_log_in_to_an_unexpected_server
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+- item: joiners_check_the_server_against_what_the_dm_knows
+  path: crates/edda-client/tests/pairing.rs
+  type: rust-fn
+level: 7.5
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A device shall refuse to log in to an auth service other than the one it first used, and a joining device shall check the server against what the DM's device knows.

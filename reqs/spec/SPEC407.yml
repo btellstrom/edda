@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Plans are kept in the campaign
+justified_by:
+- item: encounter_plans_are_kept_per_campaign_and_go_with_it
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 4.7
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Plans shall be kept per campaign, seen by every DM device, hidden from players, and deleted with the campaign.

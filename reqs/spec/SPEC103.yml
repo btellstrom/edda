@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Keeping characters
+justified_by:
+- item: full_crud_lifecycle
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: missing_characters_are_404
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: crud_and_actions_round_trip
+  path: crates/edda-client/tests/client.rs
+  type: rust-fn
+level: 1.3
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The character service shall create, list, return, replace and delete a campaign's characters, and answer 404 for a character that does not exist.

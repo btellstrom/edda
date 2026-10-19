@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Initiative
+justified_by:
+- item: tests::initiative_order_breaks_ties_by_modifier_then_join_order
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.2
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The initiative order shall break ties by initiative modifier, then by the order combatants joined; initiative rolled by the server shall use its own dice, which clients cannot predict.

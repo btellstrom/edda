@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Logging in
+justified_by:
+- item: only_known_devices_can_log_in_and_only_with_their_key
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+- item: challenges_can_be_answered_only_once
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.4
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Only a device on record shall log in, by signing a single-use challenge with its own key.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Configuration
+justified_by:
+- item: tests::a_direct_url_is_the_pooled_one_unless_given
+  path: crates/edda-server/src/lib.rs
+  type: rust-fn
+- item: tests::origins_are_a_list_or_any
+  path: crates/edda-server/src/lib.rs
+  type: rust-fn
+level: '8.10'
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A service shall connect for migrations and listening to a direct database address when one is given, and the pooled one otherwise, and allow web pages from the origins it is told to, or none.

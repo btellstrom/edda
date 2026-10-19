@@ -1,0 +1,15 @@
+active: true
+derived: false
+header: |
+  End to end
+justified_by:
+- path: tools/smoke-test.sh
+  type: file
+level: 8.11
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The compose stack, behind HTTPS, shall go through a campaign end to end with edda, and back up and restore what was lost.

@@ -1,0 +1,34 @@
+active: true
+derived: false
+header: |
+  Working through a dropped connection
+justified_by:
+- item: tests::own_commands_show_immediately_and_are_confirmed
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+- item: tests::pending_commands_are_replayed_after_other_players_actions
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+- item: tests::rejected_commands_roll_back
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+- item: tests::certainly_invalid_commands_fail_locally
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+- item: tests::dice_rolls_wait_for_the_server
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+- item: tests::gaps_and_duplicates_are_detected
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+- item: undos_reach_everyone_and_replicas_wait_for_them
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.11
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A client shall show its own commands at once, replay them on top of whatever others did first, roll back the ones the server refuses, and wait for the server only for dice it rolls and for undos.

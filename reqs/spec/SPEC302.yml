@@ -1,0 +1,28 @@
+active: true
+derived: false
+header: |
+  Undo keeps what others did
+justified_by:
+- item: tests::undoing_damage_keeps_damage_dealt_since
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+- item: tests::initiative_goes_back_unless_changed_since
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+- item: tests::undoing_a_turn_rewinds_round_turn_and_expiries
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+- item: tests::hit_points_of_someone_who_left_cant_be_put_back
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+- item: tests::an_ended_combat_only_undoes_its_ending
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.2
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Undoing a command shall keep the changes others made since: hit points move back only by what the command changed, initiative only if unchanged since, and round, turn and status only if nothing has moved them; otherwise the undo is refused.

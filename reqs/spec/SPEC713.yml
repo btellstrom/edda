@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  One guess
+justified_by:
+- item: a_wrong_guess_burns_the_code
+  path: crates/edda-client/tests/pairing.rs
+  type: rust-fn
+- item: a_code_admits_only_one_device
+  path: crates/edda-client/tests/pairing.rs
+  type: rust-fn
+level: 7.13
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A pairing code shall admit only one device, and a wrong guess shall burn it.

@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Editing a plan
+justified_by:
+- item: tests::adding_counts_and_merges_with_an_entry_of_the_same_monster
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+- item: tests::entries_are_changed_by_number
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+- item: tests::plans_are_made_opened_renamed_and_deleted_by_name
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+- item: tests::completion_offers_monsters_entries_plans_and_the_party
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 4.4
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  In the planning screen, adding a monster already in the plan shall add to its entry; entries shall be changed and removed by number; plans shall be made, opened, renamed and deleted by name.

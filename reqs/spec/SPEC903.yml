@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Tab completion
+justified_by:
+- item: tests::candidates_match_any_case_and_escape_spaces_for_bash
+  path: crates/edda/src/complete.rs
+  type: rust-fn
+level: 9.3
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Shell completion shall match names in any case and escape spaces for the shell.

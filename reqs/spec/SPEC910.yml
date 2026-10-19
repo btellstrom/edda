@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  The fight screen's layout
+justified_by:
+- item: tests::the_order_shows_whose_turn_it_is_and_how_everyone_stands
+  path: crates/edda/src/fight/ui.rs
+  type: rust-fn
+- item: tests::a_cramped_terminal_still_has_the_command_line
+  path: crates/edda/src/fight/ui.rs
+  type: rust-fn
+- item: tests::every_action_fits_with_two_rows_to_spare_when_there_is_room
+  path: crates/edda/src/fight/ui.rs
+  type: rust-fn
+- item: tests::the_log_reads_as_what_happened
+  path: crates/edda/src/fight/log.rs
+  type: rust-fn
+level: '9.10'
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The fight screen shall show whose turn it is and how everyone stands, the log as it happened, and keep its command line even in a cramped terminal.

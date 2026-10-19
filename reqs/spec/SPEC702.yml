@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Certificates
+justified_by:
+- item: tests::tampering_with_any_field_breaks_the_signature
+  path: crates/edda-auth/src/cert.rs
+  type: rust-fn
+- item: tests::certificates_survive_json
+  path: crates/edda-auth/src/cert.rs
+  type: rust-fn
+- item: tests::the_device_table_checks_every_certificate_here
+  path: crates/edda/src/auth.rs
+  type: rust-fn
+level: 7.2
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A device certificate shall be broken by tampering with any of its fields, and edda shall check every certificate in a campaign's device list itself.

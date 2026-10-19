@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Campaign quotas
+justified_by:
+- item: tests::quotas_say_when_a_campaign_is_full
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+- item: a_campaign_keeps_only_as_many_characters_as_its_limit
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: a_campaign_keeps_only_so_many_combats_events_and_watchers
+  path: crates/edda-client/tests/limits.rs
+  type: rust-fn
+- item: a_campaign_keeps_only_as_many_of_its_own_as_its_limits
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: 8.6
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A campaign shall keep no more characters, devices, monsters, spells, conditions, combats, plans, events or watchers than its limits, and a full campaign shall be told which limit it reached.
