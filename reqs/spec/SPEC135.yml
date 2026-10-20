@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Third casters in a multiclass
+  Pact Magic
 justified_by:
-- item: tests::multiclass_casters_share_one_pool_from_their_combined_level
+- item: tests::warlock_pact_magic_stays_separate
   path: crates/edda-types/src/slots.rs
   type: rust-fn
 level: 1.35
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A third caster's levels shall count a third towards the combined caster level, rounded down.
+  Warlock levels shall give Pact Magic slots of their own, kept apart from the shared pool and not counted towards it.

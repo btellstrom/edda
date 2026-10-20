@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Classes stack
+  Removing a class one doesn't have
 justified_by:
 - item: tests::classes_stack_and_remove
   path: crates/edda/src/edit.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Adding levels of a class the character has shall add them to that class.
+  Removing a class the character does not have shall be refused.

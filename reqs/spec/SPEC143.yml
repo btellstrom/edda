@@ -1,9 +1,12 @@
 active: true
 derived: false
 header: |
-  Prepared spells
+  No slot left
 justified_by:
-- item: tests::cantrips_and_rituals_are_free
+- item: tests::casting_spends_slots_until_exhausted
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: tests::upcasting_and_pact_slots
   path: crates/edda-types/src/action.rs
   type: rust-fn
 level: 1.43
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Casting a levelled spell the character has not prepared shall be refused, unless it is cast as a ritual.
+  A cast with no slot left of the level it needs shall be refused.

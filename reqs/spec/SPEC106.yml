@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Ability scores
+  Level cap
 justified_by:
 - item: tests::validation_rejects_bad_sheets
   path: crates/edda-types/src/character.rs
-  type: rust-fn
-- item: rejects_invalid_sheets
-  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.6
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A sheet with an ability score outside 1 to 30 shall be invalid.
+  A sheet whose class levels add up to more than 20 shall be invalid.

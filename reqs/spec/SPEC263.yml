@@ -1,19 +1,22 @@
 active: true
 derived: false
 header: |
-  Slots spent in a combat
+  The log names the device
 justified_by:
-- item: casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
+- item: the_log_names_the_device_not_whoever_the_client_claims
   path: crates/edda-client/tests/combat.rs
   type: rust-fn
-- item: tests::casts_and_feature_uses_cost_what_they_say_and_give_it_back
-  path: crates/edda-types/src/combat/cost.rs
+- item: full_encounter_with_complete_log
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: changes_are_pushed_to_every_connected_client
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.63
 links:
-- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
 normative: true
 ref: ''
 reviewed: null
 text: |
-  Casting a spell with a slot in a combat shall spend the slot on the caster's sheet, once however often the command is sent.
+  Each event in a combat's log shall name the device that sent its command, as the device's token says, whatever the client claims.

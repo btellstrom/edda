@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Stat block files
+  Hit dice give a maximum
 justified_by:
-- item: tests::files_hold_one_or_many_monsters_and_typos_are_caught
-  path: crates/edda/src/monsters.rs
-  type: rust-fn
-- item: tests::a_file_holds_a_list_or_just_one
-  path: crates/monster-service/src/main.rs
+- item: tests::hit_dice_parse_and_give_their_maximum
+  path: crates/edda-types/src/monster.rs
   type: rust-fn
 level: 5.8
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A stat block file shall hold either one stat block or a list of them.
+  Hit dice shall give a maximum of their number times their sides plus their bonus, and never less than 1.

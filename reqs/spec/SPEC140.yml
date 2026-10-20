@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Casting with Pact Magic
+  Cantrips are free
 justified_by:
-- item: tests::upcasting_and_pact_slots
+- item: tests::cantrips_and_rituals_are_free
   path: crates/edda-types/src/action.rs
-  type: rust-fn
-- item: actions_spend_and_recover_resources
-  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: '1.40'
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Casting a spell with Pact Magic shall spend a pact slot.
+  Casting a cantrip shall spend nothing.

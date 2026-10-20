@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  In log order
+  Whichever instance
 justified_by:
 - item: instances_share_combats
   path: crates/edda-client/tests/combat.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Changes to a combat shall reach each connected device in the order of the log.
+  A change made on one instance of the combat service shall reach the devices connected to every other.

@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Lowering the maximum
+  Removing a class
 justified_by:
-- item: tests::max_hp_keeps_full_health_full
+- item: tests::classes_stack_and_remove
   path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.73
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Lowering a character's maximum hit points below their hit points shall lower their hit points to the new maximum.
+  Removing a class shall take it off the sheet, matching its name in any case.

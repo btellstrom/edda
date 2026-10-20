@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Single-use challenges
+  Joiners check the server
 justified_by:
-- item: challenges_can_be_answered_only_once
-  path: crates/edda-client/tests/auth.rs
+- item: joiners_check_the_server_against_what_the_dm_knows
+  path: crates/edda-client/tests/pairing.rs
   type: rust-fn
 level: '7.10'
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A login challenge shall be answerable only once.
+  A joining device shall check the server against what the DM's device knows of it.

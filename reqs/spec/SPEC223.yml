@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Healing stops at the maximum
+  Down at 0
 justified_by:
 - item: tests::damage_hits_temporary_hp_first_and_heal_caps_at_max
   path: crates/edda-types/src/combat/rules.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Healing shall never raise hit points above the maximum.
+  Damage shall never take hit points below 0, and a combatant at 0 hit points shall be down.

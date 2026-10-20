@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Failed actions can be retried
+  A replace needs a version
 justified_by:
-- item: an_action_with_an_idempotency_key_is_applied_once
+- item: put_requires_a_valid_if_match
   path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.59
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An action that was refused shall be applied when sent again with the same idempotency key.
+  A PUT of a character without If-Match shall be answered with 428.

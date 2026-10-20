@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  With its own key
+  The auth service is pinned
 justified_by:
-- item: only_known_devices_can_log_in_and_only_with_their_key
+- item: devices_refuse_to_log_in_to_an_unexpected_server
   path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: 7.9
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device shall log in only by signing a challenge with its own key.
+  A device shall refuse to log in to an auth service other than the one it first used.

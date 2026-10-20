@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  A safe channel
+  Typos in codes
 justified_by:
-- item: tests::messages_cannot_be_tampered_with_reordered_or_reflected
+- item: tests::codes_parse_forgivingly_and_reject_typos
   path: crates/edda-auth/src/pairing.rs
   type: rust-fn
 level: 7.26
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A message on a pairing channel that is changed, reordered or sent back to its sender shall be refused.
+  A pairing code with a word that isn't in the word list shall be refused, naming the word.

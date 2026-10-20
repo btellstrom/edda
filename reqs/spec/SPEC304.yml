@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  The server undoes
+  Undoing damage
 justified_by:
-- item: tests::decide_leaves_undo_to_the_server
+- item: tests::undoing_damage_keeps_damage_dealt_since
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
 level: 3.4
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An undo's outcome shall be worked out by the server only.
+  Undoing a change to hit points shall move them back by what that change did, keeping the changes made since.

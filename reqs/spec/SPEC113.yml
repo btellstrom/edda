@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Sheet files
+  Errors name the sheet
 justified_by:
 - item: tests::files_hold_one_or_many_sheets_each_checked
   path: crates/edda/src/editor.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A sheet file read by edda shall hold either one sheet or a list of sheets.
+  An error in a file of several sheets shall name the sheet it is in, by its name or its position.

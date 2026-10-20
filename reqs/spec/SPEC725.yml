@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  A wrong word or number
+  Codes read forgivingly
 justified_by:
-- item: tests::a_different_word_or_slot_gives_nothing
+- item: tests::codes_parse_forgivingly_and_reject_typos
   path: crates/edda-auth/src/pairing.rs
   type: rust-fn
 level: 7.25
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Two devices using pairing codes that differ in their word or their number shall agree on nothing.
+  A pairing code shall be read in any case, with spaces in place of its hyphens.

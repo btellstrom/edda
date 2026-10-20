@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  One device per code
+  Several campaigns
 justified_by:
-- item: a_code_admits_only_one_device
-  path: crates/edda-client/tests/pairing.rs
+- item: tests::joining_adds_a_campaign_and_switches_to_it
+  path: crates/edda/src/identity.rs
   type: rust-fn
 level: 7.33
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A pairing code shall admit one device only.
+  A device shall be able to be in several campaigns.

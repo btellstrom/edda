@@ -1,16 +1,10 @@
 active: true
 derived: false
 header: |
-  Characters that don't exist
+  Ability modifiers
 justified_by:
-- item: missing_characters_are_404
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: full_crud_lifecycle
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: crud_and_actions_round_trip
-  path: crates/edda-client/tests/client.rs
+- item: tests::modifiers_round_down
+  path: crates/edda-types/src/character.rs
   type: rust-fn
 level: 1.21
 links:
@@ -19,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A GET, PUT or DELETE of a character that does not exist shall be answered with 404.
+  An ability's modifier shall be (score − 10) / 2, rounded down.

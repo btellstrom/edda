@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Several campaigns
+  Choosing a campaign
 justified_by:
-- item: tests::joining_adds_a_campaign_and_switches_to_it
+- item: tests::names_must_pick_one_campaign
   path: crates/edda/src/identity.rs
   type: rust-fn
 level: 7.35
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device shall be able to be in several campaigns.
+  A campaign shall be chosen by its name or a prefix of its id, and a choice that fits more than one shall be refused.

@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Setup codes make a DM
+  With its own key
 justified_by:
-- item: setup_codes_work_once_and_make_a_dm
+- item: only_known_devices_can_log_in_and_only_with_their_key
   path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: 7.7
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The device admitted with a setup code shall be a DM device.
+  A device shall log in only by signing a challenge with its own key.

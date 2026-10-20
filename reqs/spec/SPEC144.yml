@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  No slot left
+  Failed actions change nothing
 justified_by:
-- item: tests::casting_spends_slots_until_exhausted
+- item: tests::failed_actions_leave_sheet_unchanged
   path: crates/edda-types/src/action.rs
   type: rust-fn
-- item: tests::upcasting_and_pact_slots
-  path: crates/edda-types/src/action.rs
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.44
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A cast with no slot left of the level it needs shall be refused.
+  An action on a sheet that is refused shall leave the sheet unchanged.

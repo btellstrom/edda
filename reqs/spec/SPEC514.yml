@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  The shared library stays
+  The campaign's own first
 justified_by:
-- item: campaigns_keep_their_own_monsters_and_cannot_change_shared_ones
-  path: crates/monster-service/tests/api.rs
+- item: tests::names_pick_one_monster_preferring_the_campaigns_own
+  path: crates/edda/src/monsters.rs
+  type: rust-fn
+- item: tests::names_are_found_in_any_case_the_campaigns_own_first
+  path: crates/edda-types/src/rules_text.rs
   type: rust-fn
 level: 5.14
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A campaign shall not change a shared monster.
+  A name shall find the campaign's own monster before a shared one.

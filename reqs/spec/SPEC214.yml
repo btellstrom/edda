@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Starting
+  Next turn
 justified_by:
 - item: tests::turns_advance_and_wrap_into_new_rounds
   path: crates/edda-types/src/combat/rules.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Starting a combat shall begin round 1 with the turn of the first in the initiative order.
+  Ending a turn shall pass it to the next in the initiative order.

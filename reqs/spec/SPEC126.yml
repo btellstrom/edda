@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Spell attack bonus
+  Slots are worked out
 justified_by:
-- item: tests::proficiency_scales_with_level
-  path: crates/edda-types/src/character.rs
+- item: spell_slots_follow_the_classes_under_the_campaigns_edition
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: tests::spent_slots_stay_spent_up_to_the_new_number
+  path: crates/edda-types/src/slots.rs
   type: rust-fn
 level: 1.26
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A spell attack bonus shall be the proficiency bonus + the spellcasting ability's modifier.
+  The character service shall work out a sheet's spell slots from its classes under its campaign's edition, ignoring slots given by hand.

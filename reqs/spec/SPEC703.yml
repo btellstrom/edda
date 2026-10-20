@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Tampered certificates
+  edda checks the device list
 justified_by:
-- item: tests::tampering_with_any_field_breaks_the_signature
-  path: crates/edda-auth/src/cert.rs
+- item: tests::the_device_table_checks_every_certificate_here
+  path: crates/edda/src/auth.rs
   type: rust-fn
 level: 7.3
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device certificate with any field changed shall fail its signature check.
+  edda shall check the signature of every certificate in a campaign's device list itself.

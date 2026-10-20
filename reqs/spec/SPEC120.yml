@@ -1,8 +1,11 @@
 active: true
 derived: false
 header: |
-  Deleting a character
+  Characters that don't exist
 justified_by:
+- item: missing_characters_are_404
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
 - item: full_crud_lifecycle
   path: crates/character-service/tests/api.rs
   type: rust-fn
@@ -16,4 +19,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A DELETE of a character shall remove it and answer 204.
+  A GET, PUT or DELETE of a character that does not exist shall be answered with 404.

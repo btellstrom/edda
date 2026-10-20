@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  A short rest restores short-rest features
+  What a short rest leaves
 justified_by:
 - item: tests::recharge_rules
   path: crates/edda-types/src/resources.rs
@@ -19,4 +19,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A short rest shall restore the uses of features that recharge on a short rest.
+  A short rest shall leave spent the uses of features that recharge on a long rest, and the spell slots outside Pact Magic.

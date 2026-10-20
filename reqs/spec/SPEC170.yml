@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Hit points that aren't numbers
+  Wounds stay
 justified_by:
-- item: tests::hp_accepts_relative_changes
+- item: tests::max_hp_keeps_full_health_full
   path: crates/edda/src/edit.rs
   type: rust-fn
 level: '1.70'
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  `edda set hp` with anything but a number or a signed number shall be refused.
+  Raising the maximum hit points of a wounded character shall leave their hit points as they were.

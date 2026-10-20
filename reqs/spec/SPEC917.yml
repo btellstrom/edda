@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  A closed pipe
+  Features on oneself
 justified_by:
-- item: edda_stops_quietly_when_the_reader_has_gone
-  path: crates/edda/tests/broken_pipe.rs
+- item: features_are_used_on_oneself_only
+  path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.17
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall stop quietly when whatever reads its output has gone.
+  A feature used from the fight screen shall be used by the one acting, on themselves.

@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Effects, initiative and joining
+  What only others may do
 justified_by:
-- item: effects_initiative_and_joining
+- item: a_player_is_told_before_sending_what_only_others_may_do
   path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.23
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The fight screen's line shall put down effects, set initiative and add combatants.
+  The fight screen shall tell a player before sending when a command is one only others may give.

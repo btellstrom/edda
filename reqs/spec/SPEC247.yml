@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Unknown combats
+  Hit points back to the sheet
 justified_by:
-- item: unknown_combats_are_not_found
+- item: hit_points_are_written_back_to_character_sheets
   path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::only_changes_after_the_sync_point_count_and_the_latest_wins
+  path: crates/combat-service/src/sync.rs
   type: rust-fn
 level: 2.47
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A combat that does not exist in the campaign shall be answered with 404.
+  A character's hit points shall be written back to their sheet after each change to them in a combat.

@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Broken concentration comes back
+  Undoing a cast
 justified_by:
-- item: tests::concentration_broken_by_damage_comes_back_unless_replaced
+- item: tests::undoing_a_cast_ends_its_effect_and_restores_the_one_it_replaced
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
 level: 3.12
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing damage that broke concentration shall bring the effect back, unless its source has concentrated on something else since.
+  Undoing a cast shall end the effect it put into play and bring back the concentration effect it replaced.

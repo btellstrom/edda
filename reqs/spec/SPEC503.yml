@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Stat blocks as JSON
+  Names
 justified_by:
-- item: tests::json_needs_only_what_the_monster_has
+- item: tests::a_monster_needs_a_name_hit_points_and_sane_dice
   path: crates/edda-types/src/monster.rs
   type: rust-fn
 level: 5.3
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A stat block shall read back from its JSON as it was.
+  A stat block without a name shall be invalid.

@@ -1,9 +1,12 @@
 active: true
 derived: false
 header: |
-  Idempotency keys
+  Versions as ETags
 justified_by:
-- item: an_action_with_an_idempotency_key_is_applied_once
+- item: stale_put_cannot_undo_actions
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: full_crud_lifecycle
   path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.58
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An action sent again with the same idempotency key shall be applied only once.
+  Creating or replacing a character shall answer with the character's version as its ETag.

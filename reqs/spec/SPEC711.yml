@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  The auth service is pinned
+  Routes need a token
 justified_by:
-- item: devices_refuse_to_log_in_to_an_unexpected_server
-  path: crates/edda-client/tests/auth.rs
+- item: requests_need_a_valid_token
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 7.11
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device shall refuse to log in to an auth service other than the one it first used.
+  Every route but health and signing in shall need a token.

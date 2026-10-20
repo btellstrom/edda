@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Applied before the reconnect
+  No uses left in a combat
 justified_by:
-- item: tests::already_applied_commands_are_dropped
-  path: crates/edda-client/src/combat.rs
+- item: casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.56
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A client told a command was already applied shall stop counting it as unconfirmed.
+  Using a feature in a combat with too few uses left on the sheet shall be refused.

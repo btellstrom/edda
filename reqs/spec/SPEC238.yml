@@ -1,11 +1,8 @@
 active: true
 derived: false
 header: |
-  Every change to every device
+  In log order
 justified_by:
-- item: changes_are_pushed_to_every_connected_client
-  path: crates/edda-client/tests/combat.rs
-  type: rust-fn
 - item: instances_share_combats
   path: crates/edda-client/tests/combat.rs
   type: rust-fn
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Every change to a combat shall be pushed to every device connected to it.
+  Changes to a combat shall reach each connected device in the order of the log.

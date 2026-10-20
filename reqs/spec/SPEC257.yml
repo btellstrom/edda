@@ -1,13 +1,16 @@
 active: true
 derived: false
 header: |
-  Hit points back to the sheet
+  Monsters numbered on
 justified_by:
-- item: hit_points_are_written_back_to_character_sheets
-  path: crates/edda-client/tests/combat.rs
+- item: tests::monster_names_number_on_from_those_in_the_fight
+  path: crates/edda-types/src/combat/monsters.rs
   type: rust-fn
-- item: tests::only_changes_after_the_sync_point_count_and_the_latest_wins
-  path: crates/combat-service/src/sync.rs
+- item: tests::monsters_join_numbered_at_their_maximum_or_rolled
+  path: crates/edda-types/src/combat/monsters.rs
+  type: rust-fn
+- item: monsters_are_added_numbered_and_rolled_by_the_server
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.57
 links:
@@ -16,4 +19,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A character's hit points shall be written back to their sheet after each change to them in a combat.
+  Monsters added to a combat shall be numbered on from those of the same name already in it.

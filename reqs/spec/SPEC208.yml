@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Ties by joining
+  No initiative, no place
 justified_by:
 - item: tests::initiative_order_breaks_ties_by_modifier_then_join_order
   path: crates/edda-types/src/combat/rules.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Of combatants tied on initiative and modifier, the one who joined first shall go first.
+  A combatant without initiative shall have no place in the initiative order.

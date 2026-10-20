@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Hit points stay in bounds
+  Full health stays full
 justified_by:
-- item: tests::hp_accepts_relative_changes
+- item: tests::max_hp_keeps_full_health_full
   path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.69
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Hit points set on the command line shall be kept between 0 and the character's maximum.
+  Changing the maximum hit points of a character at full health shall keep them at full health.

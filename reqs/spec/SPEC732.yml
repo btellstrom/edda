@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  The hosting device
+  One guess
 justified_by:
-- item: only_the_hosting_dm_device_controls_a_pairing
+- item: a_wrong_guess_burns_the_code
   path: crates/edda-client/tests/pairing.rs
   type: rust-fn
 level: 7.32
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Only the DM device hosting a pairing shall control it.
+  A wrong guess at a pairing code shall end the pairing.

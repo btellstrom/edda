@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  A short rest restores pact slots
+  A long rest restores features
 justified_by:
+- item: tests::recharge_rules
+  path: crates/edda-types/src/resources.rs
+  type: rust-fn
 - item: tests::short_rest_restores_short_rest_resources_and_pact_slots_only
   path: crates/edda-types/src/action.rs
-  type: rust-fn
-- item: actions_spend_and_recover_resources
-  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.51
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A short rest shall restore Pact Magic slots.
+  A long rest shall restore the uses of every feature that recharges on a short or a long rest.

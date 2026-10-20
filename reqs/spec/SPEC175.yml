@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Removing a class
+  Items stack
 justified_by:
-- item: tests::classes_stack_and_remove
+- item: tests::items_stack_and_partially_remove
   path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.75
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Removing a class shall take it off the sheet, matching its name in any case.
+  Adding an item the character has shall add to its quantity.

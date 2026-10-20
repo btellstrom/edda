@@ -12,7 +12,7 @@ Feature: Who may do what
     When the player playing Vex runs "edda grog"
     Then Grog's sheet is shown
 
-  @justifies:SPEC604 @justifies:SPEC930
+  @justifies:SPEC604 @justifies:SPEC923
   Scenario: PE2 A player damages only their own combatants
     Given a started combat with Vex, Grog and Goblin 1
     When the player playing Vex enters "2 damage 3 5"

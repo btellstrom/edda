@@ -1,9 +1,12 @@
 active: true
 derived: false
 header: |
-  Refusals to their sender
+  One command at a time
 justified_by:
-- item: changes_are_pushed_to_every_connected_client
+- item: concurrent_commands_are_serialized
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: instances_share_combats
   path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.42
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A refused command shall be reported to the device that sent it only.
+  Commands to one combat shall be applied one at a time, however many instances they arrive at.

@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Rolls given by players
+  Starting needs initiative
 justified_by:
-- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+- item: tests::turns_advance_and_wrap_into_new_rounds
   path: crates/edda-types/src/combat/rules.rs
-  type: rust-fn
-- item: full_encounter_with_complete_log
-  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.12
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A d20 roll given for a combatant shall be from 1 to 20, and add the combatant's initiative modifier.
+  A combat in which nobody has initiative shall not start.

@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Changing hit points
+  Hit points that aren't numbers
 justified_by:
 - item: tests::hp_accepts_relative_changes
   path: crates/edda/src/edit.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  `edda set hp` with a signed number shall add it to the character's hit points.
+  `edda set hp` with anything but a number or a signed number shall be refused.

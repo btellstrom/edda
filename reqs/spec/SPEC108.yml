@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  One feature, one name
+  Nothing overspent
 justified_by:
 - item: tests::validation_rejects_bad_sheets
   path: crates/edda-types/src/character.rs
-  type: rust-fn
-- item: tests::resources
-  path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.8
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A sheet with two class features of the same name, ignoring case, shall be invalid.
+  A sheet with more of a pool used than the pool holds shall be invalid.

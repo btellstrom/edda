@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Homebrew spells
+  The SRD 5.1 monsters
 justified_by:
-- item: tests::a_stored_entry_is_flat_json
-  path: crates/edda-types/src/rules_text.rs
+- item: srd_5_1_monsters_load
+  path: crates/edda-types/tests/srd.rs
   type: rust-fn
 level: '5.20'
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A spell given without a source shall be Homebrew, and one with a level above 9 shall be invalid.
+  The SRD 5.1 monsters fetched by `make srd` shall all load and be valid.

@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Undoing a turn
+  A combat that moved on
 justified_by:
 - item: tests::undoing_a_turn_rewinds_round_turn_and_expiries
   path: crates/edda-types/src/combat/undo.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing the end of a turn shall put back the round, the turn and the effects that ended with it.
+  Undoing a command whose round, turn or status has been moved since shall be refused.

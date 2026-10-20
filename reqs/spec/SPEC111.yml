@@ -1,9 +1,12 @@
 active: true
 derived: false
 header: |
-  Checked before sending
+  Unknown fields
 justified_by:
-- item: tests::shared_validation_runs
+- item: tests::typos_are_caught
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+- item: tests::files_hold_one_or_many_sheets_each_checked
   path: crates/edda/src/editor.rs
   type: rust-fn
 level: 1.11
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall check a sheet against the character service's validation rules before sending it.
+  edda shall refuse a sheet with a field it does not know, naming the field by its path within the sheet.

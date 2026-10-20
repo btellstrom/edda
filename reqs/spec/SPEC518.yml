@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Spells
+  Conditions
 justified_by:
 - item: spells_and_conditions_are_kept_like_monsters
   path: crates/monster-service/tests/api.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Spells shall be shared by edition and kept by campaigns like monsters.
+  Conditions shall be shared by edition and kept by campaigns like monsters.

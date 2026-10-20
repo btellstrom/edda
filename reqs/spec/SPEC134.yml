@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Half casters in a multiclass
+  Third casters in a multiclass
 justified_by:
 - item: tests::multiclass_casters_share_one_pool_from_their_combined_level
   path: crates/edda-types/src/slots.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A half caster's levels shall count half towards the combined caster level, rounded down under the 2014 rules and up under the 2024 rules.
+  A third caster's levels shall count a third towards the combined caster level, rounded down.

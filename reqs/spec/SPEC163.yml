@@ -1,16 +1,13 @@
 active: true
 derived: false
 header: |
-  Stale replaces
+  Refused replaces change nothing
 justified_by:
-- item: stale_put_cannot_undo_actions
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
 - item: put_requires_a_valid_if_match
   path: crates/character-service/tests/api.rs
   type: rust-fn
-- item: stale_replace_reports_current_and_modify_merges
-  path: crates/edda-client/tests/client.rs
+- item: stale_put_cannot_undo_actions
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.63
 links:
@@ -19,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A PUT of a character whose If-Match is not its current version shall be answered with 412, the current character and its ETag.
+  A refused PUT of a character shall leave it unchanged.

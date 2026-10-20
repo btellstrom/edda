@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Who acts
+  Effects from the line
 justified_by:
-- item: the_turn_holder_acts_unless_someone_else_is_named
+- item: effects_need_no_target_and_last_for_rounds_of_whoever_put_them_down
   path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.19
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The combatant whose turn it is shall act unless the line names someone else.
+  An effect typed in the fight screen shall need no target, and last rounds of whoever put it down.

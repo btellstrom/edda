@@ -1,11 +1,8 @@
 active: true
 derived: false
 header: |
-  Unknown fields
+  Sheet files
 justified_by:
-- item: tests::typos_are_caught
-  path: crates/edda/src/editor.rs
-  type: rust-fn
 - item: tests::files_hold_one_or_many_sheets_each_checked
   path: crates/edda/src/editor.rs
   type: rust-fn
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall refuse a sheet with a field it does not know, naming the field by its path within the sheet.
+  A sheet file read by edda shall hold either one sheet or a list of sheets.

@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Missed events
+  Features used in a combat
 justified_by:
-- item: tests::gaps_and_duplicates_are_detected
-  path: crates/edda-client/src/combat.rs
+- item: casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::casts_and_feature_uses_cost_what_they_say_and_give_it_back
+  path: crates/edda-types/src/combat/cost.rs
   type: rust-fn
 level: 2.55
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A client that receives an event after a gap shall fetch the combat's state again.
+  Using a feature in a combat shall spend its uses on the combatant's sheet.

@@ -1,9 +1,12 @@
 active: true
 derived: false
 header: |
-  Names
+  Hit dice
 justified_by:
 - item: tests::a_monster_needs_a_name_hit_points_and_sane_dice
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+- item: tests::hit_dice_parse_and_give_their_maximum
   path: crates/edda-types/src/monster.rs
   type: rust-fn
 level: 5.4
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A stat block without a name shall be invalid.
+  A stat block whose hit dice are given but malformed shall be invalid.

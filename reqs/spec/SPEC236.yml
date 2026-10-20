@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  Ended combats
+  The state first
 justified_by:
-- item: tests::ended_combat_rejects_everything_and_ids_are_unique
-  path: crates/edda-types/src/combat/rules.rs
+- item: changes_are_pushed_to_every_connected_client
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
-- item: tests::an_ended_combat_only_undoes_its_ending
-  path: crates/edda-types/src/combat/undo.rs
+- item: instances_share_combats
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.36
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An ended combat shall refuse every command but to undo its ending.
+  A device connecting to a combat shall first be sent the combat's current state.

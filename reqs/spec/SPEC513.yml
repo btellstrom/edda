@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Kept to the campaign
+  The shared library stays
 justified_by:
 - item: campaigns_keep_their_own_monsters_and_cannot_change_shared_ones
   path: crates/monster-service/tests/api.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A campaign's own monsters shall be seen by no other campaign.
+  A campaign shall not change a shared monster.

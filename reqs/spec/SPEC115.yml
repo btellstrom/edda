@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Reading what edda shows
+  Creating a character
 justified_by:
-- item: tests::files_hold_one_or_many_sheets_each_checked
-  path: crates/edda/src/editor.rs
+- item: full_crud_lifecycle
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: crud_and_actions_round_trip
+  path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.15
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall read a sheet as `edda show --json` prints it.
+  A POST to /characters shall create the character and answer 201 with it.

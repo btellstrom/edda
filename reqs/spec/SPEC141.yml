@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Cantrips are free
+  Rituals are free
 justified_by:
 - item: tests::cantrips_and_rituals_are_free
   path: crates/edda-types/src/action.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Casting a cantrip shall spend nothing.
+  Casting a spell as a ritual shall spend nothing.

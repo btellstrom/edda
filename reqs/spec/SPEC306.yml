@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Hit points of those who left
+  Undoing initiative
 justified_by:
-- item: tests::hit_points_of_someone_who_left_cant_be_put_back
+- item: tests::initiative_goes_back_unless_changed_since
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
 level: 3.6
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing a change to the hit points of a combatant who has left shall be refused.
+  Undoing a change to initiative shall put it back only if it has not changed since, and be refused otherwise.

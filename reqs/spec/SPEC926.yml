@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Names to numbers
+  The initiative order on screen
 justified_by:
-- item: suggestions_complete_actions_names_and_numbers
-  path: crates/edda/src/fight/command/tests.rs
+- item: tests::the_order_shows_whose_turn_it_is_and_how_everyone_stands
+  path: crates/edda/src/fight/ui.rs
   type: rust-fn
 level: 9.26
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A combatant's name typed where a combatant goes shall complete to their number.
+  The fight screen shall show whose turn it is and how everyone stands.

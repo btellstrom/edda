@@ -1,12 +1,15 @@
 active: true
 derived: false
 header: |
-  Round trip through JSON
+  Blank names
 justified_by:
-- item: tests::character_round_trips_through_json
+- item: tests::validation_rejects_bad_sheets
   path: crates/edda-types/src/character.rs
   type: rust-fn
-- item: spell_slots_survive_the_round_trip
+- item: tests::shared_validation_runs
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+- item: invalid_edits_are_rejected
   path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.4
@@ -16,4 +19,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A character, spell slots included, shall read back from its JSON exactly as it was written.
+  A sheet whose name is blank shall be invalid.

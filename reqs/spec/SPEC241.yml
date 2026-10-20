@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Changes over HTTP
+  Refusals to their sender
 justified_by:
 - item: changes_are_pushed_to_every_connected_client
   path: crates/edda-client/tests/combat.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A change sent over HTTP shall reach the devices connected over WebSocket.
+  A refused command shall be reported to the device that sent it only.

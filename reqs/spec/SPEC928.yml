@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Editing the line
+  A cramped fight screen
 justified_by:
-- item: tests::keys_edit_the_line_and_ask_to_run_or_leave
-  path: crates/edda/src/prompt.rs
+- item: tests::a_cramped_terminal_still_has_the_command_line
+  path: crates/edda/src/fight/ui.rs
   type: rust-fn
 level: 9.28
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The fight screen's keys shall edit the line, run it, or leave the screen.
+  The fight screen shall keep its command line in a terminal too small for the rest.

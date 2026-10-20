@@ -1,11 +1,14 @@
 active: true
 derived: false
 header: |
-  Casts and uses are logged
+  Combatants that aren't there
 justified_by:
 - item: |
     tests::spells_and_features_are_recorded_and_concentration_comes_into_play
   path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: changes_are_pushed_to_every_connected_client
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.28
 links:
@@ -14,4 +17,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Casting a spell or using a feature in a combat shall be recorded in its log, with the spell or feature and its targets.
+  A command naming a combatant who is not in the combat shall be refused.

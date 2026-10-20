@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Keys as text
+  Tampered certificates
 justified_by:
-- item: tests::keys_round_trip_through_text_and_seed
-  path: crates/edda-auth/src/keys.rs
+- item: tests::tampering_with_any_field_breaks_the_signature
+  path: crates/edda-auth/src/cert.rs
   type: rust-fn
 level: 7.2
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A key shall read back from its text form and its seed as it was.
+  A device certificate with any field changed shall fail its signature check.

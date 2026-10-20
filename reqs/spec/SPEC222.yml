@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Temporary hit points first
+  Healing stops at the maximum
 justified_by:
 - item: tests::damage_hits_temporary_hp_first_and_heal_caps_at_max
   path: crates/edda-types/src/combat/rules.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Damage shall take temporary hit points before hit points.
+  Healing shall never raise hit points above the maximum.

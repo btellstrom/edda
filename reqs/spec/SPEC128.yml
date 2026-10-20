@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  One caster's table
+  Classes without spells
 justified_by:
 - item: tests::single_class_casters_use_their_own_table
   path: crates/edda-types/src/slots.rs
-  type: rust-fn
-- item: spell_slots_survive_the_round_trip
-  path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.28
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A character with one spellcasting class shall have the spell slots of that class's table at their level.
+  A class or subclass without spellcasting, a homebrew one included, shall give no spell slots.

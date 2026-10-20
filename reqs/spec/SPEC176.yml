@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Removing a class one doesn't have
+  Removing items
 justified_by:
-- item: tests::classes_stack_and_remove
+- item: tests::items_stack_and_partially_remove
   path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.76
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Removing a class the character does not have shall be refused.
+  Removing an item shall take away the quantity given, or the whole item when no quantity is given, matching its name in any case.

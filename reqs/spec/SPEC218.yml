@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Starting once
+  Joining mid-combat
 justified_by:
-- item: tests::turns_advance_and_wrap_into_new_rounds
+- item: tests::combatants_can_join_mid_combat
   path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
 level: 2.18
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A combat that has started shall refuse to start again.
+  A combatant who joins a started combat shall take their place in the initiative order.

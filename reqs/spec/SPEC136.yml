@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Pact Magic
+  Spent slots stay spent
 justified_by:
-- item: tests::warlock_pact_magic_stays_separate
+- item: tests::spent_slots_stay_spent_up_to_the_new_number
   path: crates/edda-types/src/slots.rs
+  type: rust-fn
+- item: spell_slots_follow_the_classes_under_the_campaigns_edition
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.36
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Warlock levels shall give Pact Magic slots of their own, kept apart from the shared pool and not counted towards it.
+  When a character's slots are worked out again, the slots already spent shall stay spent, up to the new number of slots.

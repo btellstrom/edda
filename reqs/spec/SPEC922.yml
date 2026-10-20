@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Features on oneself
+  Refused before sending
 justified_by:
-- item: features_are_used_on_oneself_only
+- item: certainly_refused_commands_are_caught_before_sending
   path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.22
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A feature used from the fight screen shall be used by the one acting, on themselves.
+  The fight screen shall say before sending when a command would certainly be refused.

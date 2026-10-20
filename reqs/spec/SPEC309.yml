@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  A combat that moved on
+  Undoing an addition
 justified_by:
-- item: tests::undoing_a_turn_rewinds_round_turn_and_expiries
+- item: tests::undoing_an_addition_takes_it_out_again
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
 level: 3.9
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing a command whose round, turn or status has been moved since shall be refused.
+  Undoing a command that added a combatant or an effect shall take it out again.

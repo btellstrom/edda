@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  The shared library by edition
+  A campaign's own monsters
 justified_by:
-- item: campaigns_see_the_shared_monsters_of_their_edition
+- item: campaigns_keep_their_own_monsters_and_cannot_change_shared_ones
   path: crates/monster-service/tests/api.rs
   type: rust-fn
 level: 5.11
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A campaign shall see the shared monsters of its own edition only.
+  A campaign shall keep monsters of its own.

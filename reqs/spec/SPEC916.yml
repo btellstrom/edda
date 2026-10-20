@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Colour
+  Casting from the line
 justified_by:
-- item: tests::colour_is_only_added_when_wanted
-  path: crates/edda/src/styled.rs
+- item: casting_names_the_slot_and_concentration_becomes_an_effect
+  path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.16
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall add colour only when it is wanted.
+  A cast typed in the fight screen shall name the slot it spends, and a concentration spell shall become an effect.

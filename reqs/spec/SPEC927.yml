@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  The highlighted suggestion
+  The log on screen
 justified_by:
-- item: tests::the_highlight_stays_on_the_suggestions_and_tab_takes_it
-  path: crates/edda/src/prompt.rs
+- item: tests::the_log_reads_as_what_happened
+  path: crates/edda/src/fight/log.rs
   type: rust-fn
 level: 9.27
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The highlight shall stay on the suggestions while they change, and Tab shall take the highlighted one.
+  The fight screen shall show the log as sentences of what happened.

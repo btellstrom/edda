@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Undoing damage
+  Hit points of those who left
 justified_by:
-- item: tests::undoing_damage_keeps_damage_dealt_since
+- item: tests::hit_points_of_someone_who_left_cant_be_put_back
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
 level: 3.5
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing a change to hit points shall move them back by what that change did, keeping the changes made since.
+  Undoing a change to the hit points of a combatant who has left shall be refused.

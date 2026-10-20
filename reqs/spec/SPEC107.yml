@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Level cap
+  One feature, one name
 justified_by:
 - item: tests::validation_rejects_bad_sheets
   path: crates/edda-types/src/character.rs
+  type: rust-fn
+- item: tests::resources
+  path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.7
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A sheet whose class levels add up to more than 20 shall be invalid.
+  A sheet with two class features of the same name, ignoring case, shall be invalid.

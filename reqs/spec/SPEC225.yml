@@ -1,8 +1,11 @@
 active: true
 derived: false
 header: |
-  Concentration comes into play
+  One concentration at a time
 justified_by:
+- item: tests::concentration_is_replaced_and_broken
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
 - item: |
     tests::spells_and_features_are_recorded_and_concentration_comes_into_play
   path: crates/edda-types/src/combat/rules.rs
@@ -14,4 +17,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Casting a spell with concentration shall put it into play as an effect with the caster as its source.
+  A combatant's new concentration effect shall end the one they were concentrating on.

@@ -1,9 +1,10 @@
 active: true
 derived: false
 header: |
-  Undoing an addition
+  Undoing a removal
 justified_by:
-- item: tests::undoing_an_addition_takes_it_out_again
+- item: |
+    tests::undoing_a_removal_brings_back_the_combatant_their_effects_and_turn
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
 level: '3.10'
@@ -13,4 +14,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing a command that added a combatant or an effect shall take it out again.
+  Undoing the removal of a combatant shall bring them back with their effects and their turn.

@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Dice on one line
+  A closed pipe
 justified_by:
-- item: tests::dice_stay_on_one_line
-  path: crates/edda/src/display.rs
+- item: edda_stops_quietly_when_the_reader_has_gone
+  path: crates/edda/tests/broken_pipe.rs
   type: rust-fn
 level: 9.12
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall never break a dice expression across lines.
+  edda shall stop quietly when whatever reads its output has gone.

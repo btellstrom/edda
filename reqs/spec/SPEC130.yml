@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Half casters by edition
+  Artificers
 justified_by:
 - item: tests::the_editions_differ_on_when_half_casters_start
   path: crates/edda-types/src/slots.rs
-  type: rust-fn
-- item: spell_slots_follow_the_classes_under_the_campaigns_edition
-  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: '1.30'
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A Paladin or Ranger shall get spell slots from level 2 under the 2014 rules and from level 1 under the 2024 rules.
+  An Artificer shall get spell slots from level 1 under either edition.

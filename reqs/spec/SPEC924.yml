@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Effects from the line
+  What `show` shows
 justified_by:
-- item: effects_need_no_target_and_last_for_rounds_of_whoever_put_them_down
+- item: show_keeps_a_description_of_anything_named
   path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.24
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An effect typed in the fight screen shall need no target, and last rounds of whoever put it down.
+  The side panel shall keep what `show` put there until the line needs it for something else.

@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Routes need a token
+  Tokens expire
 justified_by:
-- item: requests_need_a_valid_token
-  path: crates/character-service/tests/api.rs
+- item: tests::tokens_verify_only_with_the_right_key_and_until_they_expire
+  path: crates/edda-auth/src/server.rs
   type: rust-fn
 level: 7.13
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Every route but health and signing in shall need a token.
+  A token shall be valid only until it expires.

@@ -1,9 +1,12 @@
 active: true
 derived: false
 header: |
-  Artificers
+  Third casters
 justified_by:
 - item: tests::the_editions_differ_on_when_half_casters_start
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+- item: tests::single_class_casters_use_their_own_table
   path: crates/edda-types/src/slots.rs
   type: rust-fn
 level: 1.31
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An Artificer shall get spell slots from level 1 under either edition.
+  An Eldritch Knight or Arcane Trickster shall get spell slots from level 3.

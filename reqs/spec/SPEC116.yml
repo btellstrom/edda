@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Creating a character
+  Listing characters
 justified_by:
 - item: full_crud_lifecycle
   path: crates/character-service/tests/api.rs
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A POST to /characters shall create the character and answer 201 with it.
+  A GET of /characters shall list the campaign's characters, each with its total level.

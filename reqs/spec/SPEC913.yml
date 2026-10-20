@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Names as written
+  The shape of a line
 justified_by:
-- item: tests::names_render_nicely
-  path: crates/edda/src/display.rs
+- item: lines_say_what_they_are_about
+  path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.13
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall show skills by their names as written and levels as ordinals.
+  A line in the fight screen shall read `[WHO] ACTION [ARGS]`.

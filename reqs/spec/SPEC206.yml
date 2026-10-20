@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Initiative order
+  Ties by modifier
 justified_by:
 - item: tests::initiative_order_breaks_ties_by_modifier_then_join_order
   path: crates/edda-types/src/combat/rules.rs
-  type: rust-fn
-- item: full_encounter_with_complete_log
-  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.6
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The initiative order shall run from the highest initiative to the lowest.
+  Of combatants tied on initiative, the one with the higher initiative modifier shall go first.

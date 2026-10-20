@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Joining changes no sheet
+  A plan with a monster gone
 justified_by:
-- item: tests::only_changes_after_the_sync_point_count_and_the_latest_wins
-  path: crates/combat-service/src/sync.rs
+- item: a_fight_starts_from_a_plan_with_its_monsters_or_not_at_all
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::a_fight_needs_monsters
+  path: crates/edda/src/plan/command.rs
   type: rust-fn
 level: 2.62
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A character joining a combat shall not change their sheet's hit points.
+  A combat from a plan with a monster no longer in the library shall not be started, and the monster shall be named.

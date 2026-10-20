@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Typos in codes
+  Pairing with a spoken code
 justified_by:
-- item: tests::codes_parse_forgivingly_and_reject_typos
-  path: crates/edda-auth/src/pairing.rs
+- item: a_spoken_code_pairs_a_device
+  path: crates/edda-client/tests/pairing.rs
+  type: rust-fn
+- item: a_dm_can_pair_their_own_second_device
+  path: crates/edda-client/tests/pairing.rs
   type: rust-fn
 level: 7.28
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A pairing code with a word that isn't in the word list shall be refused, naming the word.
+  A code read out from a DM's device shall pair a new device once the DM approves it.

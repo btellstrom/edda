@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Malformed codes
+  Declining
 justified_by:
-- item: tests::codes_parse_forgivingly_and_reject_typos
-  path: crates/edda-auth/src/pairing.rs
+- item: the_dm_can_decline
+  path: crates/edda-client/tests/pairing.rs
   type: rust-fn
 level: 7.29
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A pairing code that isn't a number and two words shall be refused.
+  A DM shall be able to decline a device that asks to pair.

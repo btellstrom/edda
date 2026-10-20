@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Recovering a campaign
+  A shared channel
 justified_by:
-- item: an_admin_can_recover_a_campaign_with_a_new_setup_code
-  path: crates/edda-client/tests/auth.rs
+- item: tests::the_same_code_gives_both_sides_a_working_channel
+  path: crates/edda-auth/src/pairing.rs
   type: rust-fn
 level: 7.22
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Whoever runs the servers shall be able to give a campaign a new setup code.
+  Two devices using the same pairing code shall agree on a channel between them.

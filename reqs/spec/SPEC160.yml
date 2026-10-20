@@ -1,12 +1,9 @@
 active: true
 derived: false
 header: |
-  Versions as ETags
+  Malformed versions
 justified_by:
-- item: stale_put_cannot_undo_actions
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: full_crud_lifecycle
+- item: put_requires_a_valid_if_match
   path: crates/character-service/tests/api.rs
   type: rust-fn
 level: '1.60'
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Creating or replacing a character shall answer with the character's version as its ETag.
+  A PUT of a character whose If-Match is neither one version number in double quotes nor `*` shall be answered with 400.

@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  The SRD 5.2 monsters
+  The SRD's spells and conditions
 justified_by:
-- item: srd_5_2_monsters_load
+- item: srd_spells_and_conditions_load
   path: crates/edda-types/tests/srd.rs
   type: rust-fn
 level: 5.22
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The SRD 5.2 monsters fetched by `make srd` shall all load and be valid.
+  The SRD spells and conditions fetched by `make srd` shall all load and be valid.

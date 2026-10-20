@@ -1,13 +1,16 @@
 active: true
 derived: false
 header: |
-  Spent slots stay spent
+  Casting spends a slot
 justified_by:
-- item: tests::spent_slots_stay_spent_up_to_the_new_number
-  path: crates/edda-types/src/slots.rs
+- item: tests::casting_spends_slots_until_exhausted
+  path: crates/edda-types/src/action.rs
   type: rust-fn
-- item: spell_slots_follow_the_classes_under_the_campaigns_edition
+- item: actions_spend_and_recover_resources
   path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: spell_slots_survive_the_round_trip
+  path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.37
 links:
@@ -16,4 +19,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  When a character's slots are worked out again, the slots already spent shall stay spent, up to the new number of slots.
+  Casting a levelled spell shall spend a slot of the spell's level.

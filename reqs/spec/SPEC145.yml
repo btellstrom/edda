@@ -1,11 +1,8 @@
 active: true
 derived: false
 header: |
-  Failed actions change nothing
+  Why an action is refused
 justified_by:
-- item: tests::failed_actions_leave_sheet_unchanged
-  path: crates/edda-types/src/action.rs
-  type: rust-fn
 - item: actions_spend_and_recover_resources
   path: crates/character-service/tests/api.rs
   type: rust-fn
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An action on a sheet that is refused shall leave the sheet unchanged.
+  The character service shall answer an action that finds too few uses or slots left with 409, and an action that cannot apply to the sheet with 422.

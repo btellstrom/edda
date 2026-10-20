@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Headings
+  Saying what a line does
 justified_by:
-- item: tests::headings_are_rules_across_the_width
-  path: crates/edda/src/styled.rs
+- item: the_sentence_fills_in_as_you_type
+  path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.15
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall draw a heading as a rule across the width.
+  The fight screen shall say in words who does what to whom as a line is typed.

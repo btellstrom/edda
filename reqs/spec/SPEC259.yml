@@ -1,7 +1,20 @@
 active: true
 derived: false
 header: |
-  Retried until taken
+  Rolled hit points
+justified_by:
+- item: tests::monsters_join_numbered_at_their_maximum_or_rolled
+  path: crates/edda-types/src/combat/monsters.rs
+  type: rust-fn
+- item: tests::rolling_needs_dice_and_some_must_be_added
+  path: crates/edda-types/src/combat/monsters.rs
+  type: rust-fn
+- item: monsters_are_added_numbered_and_rolled_by_the_server
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: adding_monsters_says_who_joins_and_leaves_the_rest_to_the_server
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
 level: 2.59
 links:
 - NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
@@ -9,4 +22,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Hit points that the character service does not take shall be written back again until it does.
+  A monster whose hit points are to be rolled shall join with hit points the server rolls from its hit dice.

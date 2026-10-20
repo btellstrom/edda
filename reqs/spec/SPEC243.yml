@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  One command at a time
+  A command applies once
 justified_by:
-- item: concurrent_commands_are_serialized
+- item: resent_commands_are_applied_once
   path: crates/edda-client/tests/combat.rs
   type: rust-fn
 - item: instances_share_combats
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Commands to one combat shall be applied one at a time, however many instances they arrive at.
+  A command sent again with the same id shall be applied only once, on any instance.

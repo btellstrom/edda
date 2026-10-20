@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Only DMs admit devices
+  Revoked devices
 justified_by:
-- item: only_dms_admit_devices_and_only_with_their_own_signature
+- item: revoked_devices_are_locked_out_but_the_last_dm_stays
   path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: 7.16
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Only a DM device shall admit a device.
+  A revoked device shall no longer log in.

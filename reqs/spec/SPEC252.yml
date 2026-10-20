@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Dice wait for the server
+  No slot in a combat
 justified_by:
-- item: tests::dice_rolls_wait_for_the_server
-  path: crates/edda-client/src/combat.rs
+- item: casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.52
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A client shall wait for the server's outcome of a command that needs the server's dice.
+  A cast in a combat with no slot of its level left on the sheet shall be refused.

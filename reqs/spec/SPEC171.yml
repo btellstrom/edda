@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Full health stays full
+  Lowering the maximum
 justified_by:
 - item: tests::max_hp_keeps_full_health_full
   path: crates/edda/src/edit.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Changing the maximum hit points of a character at full health shall keep them at full health.
+  Lowering a character's maximum hit points below their hit points shall lower their hit points to the new maximum.

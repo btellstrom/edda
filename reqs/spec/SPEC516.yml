@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Names in any case
+  Importing again
 justified_by:
-- item: tests::names_are_found_in_any_case_the_campaigns_own_first
-  path: crates/edda-types/src/rules_text.rs
+- item: importing_again_updates_and_campaigns_can_be_deleted
+  path: crates/monster-service/tests/api.rs
   type: rust-fn
 level: 5.16
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A monster, spell or condition shall be found by its name in any case.
+  Importing into the shared library again shall update the entries of the same name, source and edition instead of adding copies.

@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Spell save DC
+  Spell attack bonus
 justified_by:
 - item: tests::proficiency_scales_with_level
   path: crates/edda-types/src/character.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A spell save DC shall be 8 + the proficiency bonus + the spellcasting ability's modifier.
+  A spell attack bonus shall be the proficiency bonus + the spellcasting ability's modifier.

@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Effects whose source has left
+  Paused combats wait
 justified_by:
-- item: tests::effects_of_departed_sources_expire_at_round_start
+- item: tests::paused_combat_only_resumes_or_ends
   path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: paused_combats_resume_days_later_on_any_instance
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.32
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An effect whose source has left the combat, and that is not concentration, shall end at the start of the next round.
+  A paused combat shall refuse every command but to resume or to end it.

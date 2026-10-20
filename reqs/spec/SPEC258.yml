@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Undone hit points too
+  Monsters at their maximum
 justified_by:
-- item: hit_points_are_written_back_to_character_sheets
-  path: crates/edda-client/tests/combat.rs
+- item: tests::monsters_join_numbered_at_their_maximum_or_rolled
+  path: crates/edda-types/src/combat/monsters.rs
   type: rust-fn
 level: 2.58
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing a change to a character's hit points in a combat shall be written back to their sheet.
+  A monster shall join a combat at its maximum hit points unless its hit points are to be rolled.

@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Items stack
+  Proficiencies once
 justified_by:
-- item: tests::items_stack_and_partially_remove
+- item: tests::proficiencies_are_deduplicated
   path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.77
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Adding an item the character has shall add to its quantity.
+  Adding a skill or saving throw proficiency the character has, in any case or spelling edda reads, shall leave a single one.

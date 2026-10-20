@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  Third casters
+  One pool for multiclass casters
 justified_by:
-- item: tests::the_editions_differ_on_when_half_casters_start
+- item: tests::multiclass_casters_share_one_pool_from_their_combined_level
   path: crates/edda-types/src/slots.rs
   type: rust-fn
-- item: tests::single_class_casters_use_their_own_table
-  path: crates/edda-types/src/slots.rs
+- item: spell_slots_follow_the_classes_under_the_campaigns_edition
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.32
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An Eldritch Knight or Arcane Trickster shall get spell slots from level 3.
+  A character with more than one spellcasting class shall have one pool of spell slots, from the multiclass table at their combined caster level.

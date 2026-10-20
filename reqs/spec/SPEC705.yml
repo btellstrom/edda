@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  edda checks the device list
+  Setup codes make a DM
 justified_by:
-- item: tests::the_device_table_checks_every_certificate_here
-  path: crates/edda/src/auth.rs
+- item: setup_codes_work_once_and_make_a_dm
+  path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: 7.5
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall check the signature of every certificate in a campaign's device list itself.
+  The device admitted with a setup code shall be a DM device.

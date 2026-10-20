@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Wounds stay
+  Classes stack
 justified_by:
-- item: tests::max_hp_keeps_full_health_full
+- item: tests::classes_stack_and_remove
   path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.72
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Raising the maximum hit points of a wounded character shall leave their hit points as they were.
+  Adding levels of a class the character has shall add them to that class.

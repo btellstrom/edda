@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Rolling hit dice
+  The shared library by edition
 justified_by:
-- item: tests::rolling_uses_each_die_and_the_bonus
-  path: crates/edda-types/src/monster.rs
+- item: campaigns_see_the_shared_monsters_of_their_edition
+  path: crates/monster-service/tests/api.rs
   type: rust-fn
 level: '5.10'
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Rolling hit dice shall roll each die and add the bonus.
+  A campaign shall see the shared monsters of its own edition only.

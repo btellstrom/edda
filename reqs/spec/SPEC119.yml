@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Replacing a character
+  Deleting a character
 justified_by:
 - item: full_crud_lifecycle
   path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: crud_and_actions_round_trip
+  path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.19
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A PUT of a character shall replace its sheet, add one to its version, and keep the time it was created.
+  A DELETE of a character shall remove it and answer 204.

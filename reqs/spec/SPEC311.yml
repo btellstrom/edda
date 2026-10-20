@@ -1,10 +1,9 @@
 active: true
 derived: false
 header: |
-  Undoing a removal
+  Broken concentration comes back
 justified_by:
-- item: |
-    tests::undoing_a_removal_brings_back_the_combatant_their_effects_and_turn
+- item: tests::concentration_broken_by_damage_comes_back_unless_replaced
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
 level: 3.11
@@ -14,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing the removal of a combatant shall bring them back with their effects and their turn.
+  Undoing damage that broke concentration shall bring the effect back, unless its source has concentrated on something else since.

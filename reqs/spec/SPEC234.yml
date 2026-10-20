@@ -1,11 +1,8 @@
 active: true
 derived: false
 header: |
-  Resuming
+  Paused through restarts
 justified_by:
-- item: tests::paused_combat_only_resumes_or_ends
-  path: crates/edda-types/src/combat/rules.rs
-  type: rust-fn
 - item: paused_combats_resume_days_later_on_any_instance
   path: crates/edda-client/tests/combat.rs
   type: rust-fn
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Resuming a paused combat shall carry on at the round and turn where it was paused.
+  A paused combat shall be resumable on any instance of the combat service, after every instance has restarted.

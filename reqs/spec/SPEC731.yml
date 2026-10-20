@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Declining
+  One device per code
 justified_by:
-- item: the_dm_can_decline
+- item: a_code_admits_only_one_device
   path: crates/edda-client/tests/pairing.rs
   type: rust-fn
 level: 7.31
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A DM shall be able to decline a device that asks to pair.
+  A pairing code shall admit one device only.

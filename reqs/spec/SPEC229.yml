@@ -1,14 +1,10 @@
 active: true
 derived: false
 header: |
-  Combatants that aren't there
+  Effects last rounds of their source
 justified_by:
-- item: |
-    tests::spells_and_features_are_recorded_and_concentration_comes_into_play
+- item: tests::effects_expire_at_the_start_of_the_sources_turn
   path: crates/edda-types/src/combat/rules.rs
-  type: rust-fn
-- item: changes_are_pushed_to_every_connected_client
-  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.29
 links:
@@ -17,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A command naming a combatant who is not in the combat shall be refused.
+  An effect lasting a number of rounds shall end at the start of its source's turn once that many rounds have passed.

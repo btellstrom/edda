@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Rolling back refusals
+  Leaving keeps the damage
 justified_by:
-- item: tests::rejected_commands_roll_back
-  path: crates/edda-client/src/combat.rs
+- item: tests::only_changes_after_the_sync_point_count_and_the_latest_wins
+  path: crates/combat-service/src/sync.rs
   type: rust-fn
 level: '2.50'
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A client shall take back the outcome of its commands the server refuses.
+  A character who leaves a combat shall keep on their sheet the damage taken before leaving.

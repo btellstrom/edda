@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  Typos in stat blocks
+  Stat block files
 justified_by:
 - item: tests::files_hold_one_or_many_monsters_and_typos_are_caught
   path: crates/edda/src/monsters.rs
+  type: rust-fn
+- item: tests::a_file_holds_a_list_or_just_one
+  path: crates/monster-service/src/main.rs
   type: rust-fn
 level: 5.7
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall refuse a stat block with a field it does not know.
+  A stat block file shall hold either one stat block or a list of them.

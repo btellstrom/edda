@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Errors name the sheet
+  Reading what edda shows
 justified_by:
 - item: tests::files_hold_one_or_many_sheets_each_checked
   path: crates/edda/src/editor.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An error in a file of several sheets shall name the sheet it is in, by its name or its position.
+  edda shall read a sheet as `edda show --json` prints it.

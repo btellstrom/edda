@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  The shape of a line
+  Effects, initiative and joining
 justified_by:
-- item: lines_say_what_they_are_about
+- item: effects_initiative_and_joining
   path: crates/edda/src/fight/command/tests.rs
   type: rust-fn
 level: 9.18
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A line in the fight screen shall read `[WHO] ACTION [ARGS]`.
+  The fight screen's line shall put down effects, set initiative and add combatants.

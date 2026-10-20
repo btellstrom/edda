@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Setting hit points
+  Hit points stay in bounds
 justified_by:
 - item: tests::hp_accepts_relative_changes
   path: crates/edda/src/edit.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  `edda set hp` with a plain number shall set the character's hit points to it.
+  Hit points set on the command line shall be kept between 0 and the character's maximum.

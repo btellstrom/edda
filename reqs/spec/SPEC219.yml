@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Joining mid-combat
+  Leaving on one's turn
 justified_by:
-- item: tests::combatants_can_join_mid_combat
+- item: tests::removing_the_current_combatant_passes_the_turn
   path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
 level: 2.19
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A combatant who joins a started combat shall take their place in the initiative order.
+  Removing the combatant whose turn it is shall pass the turn to the next in the order, starting a new round only if they were the last.

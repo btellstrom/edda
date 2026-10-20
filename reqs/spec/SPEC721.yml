@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  The last DM device
+  Services log in
 justified_by:
-- item: revoked_devices_are_locked_out_but_the_last_dm_stays
+- item: services_can_log_in_to_any_campaign
   path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: 7.21
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Revoking a campaign's last DM device shall be refused.
+  A registered service shall be able to log in to any campaign.

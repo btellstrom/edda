@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Hit dice give a maximum
+  Rolling hit dice
 justified_by:
-- item: tests::hit_dice_parse_and_give_their_maximum
+- item: tests::rolling_uses_each_die_and_the_bonus
   path: crates/edda-types/src/monster.rs
   type: rust-fn
 level: 5.9
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Hit dice shall give a maximum of their number times their sides plus their bonus, and never less than 1.
+  Rolling hit dice shall roll each die and add the bonus.

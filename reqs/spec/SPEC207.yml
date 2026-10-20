@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Ties by modifier
+  Ties by joining
 justified_by:
 - item: tests::initiative_order_breaks_ties_by_modifier_then_join_order
   path: crates/edda-types/src/combat/rules.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Of combatants tied on initiative, the one with the higher initiative modifier shall go first.
+  Of combatants tied on initiative and modifier, the one who joined first shall go first.

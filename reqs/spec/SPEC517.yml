@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Importing again
+  Spells
 justified_by:
-- item: importing_again_updates_and_campaigns_can_be_deleted
+- item: spells_and_conditions_are_kept_like_monsters
   path: crates/monster-service/tests/api.rs
   type: rust-fn
 level: 5.17
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Importing into the shared library again shall update the entries of the same name, source and edition instead of adding copies.
+  Spells shall be shared by edition and kept by campaigns like monsters.

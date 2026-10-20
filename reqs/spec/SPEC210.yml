@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  The server's dice
+  Rolling for everyone
 justified_by:
-- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
-  path: crates/edda-types/src/combat/rules.rs
-  type: rust-fn
 - item: full_encounter_with_complete_log
   path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+  path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
 level: '2.10'
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Initiative rolled for a combatant shall be a d20 from the server's dice plus the combatant's initiative modifier.
+  Rolling initiative for all shall roll for each combatant who has no initiative yet.

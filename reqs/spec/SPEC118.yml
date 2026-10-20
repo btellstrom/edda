@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Fetching a character
+  Replacing a character
 justified_by:
 - item: full_crud_lifecycle
   path: crates/character-service/tests/api.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A GET of a character shall answer the character as it was stored.
+  A PUT of a character shall replace its sheet, add one to its version, and keep the time it was created.

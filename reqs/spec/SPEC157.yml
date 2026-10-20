@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Actions are atomic
+  Failed actions can be retried
 justified_by:
-- item: concurrent_actions_never_overspend
+- item: an_action_with_an_idempotency_key_is_applied_once
   path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.57
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Each action on a sheet shall be applied atomically, so that two devices can never both spend the last slot or use.
+  An action that was refused shall be applied when sent again with the same idempotency key.

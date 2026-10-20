@@ -1,10 +1,19 @@
 active: true
 derived: false
 header: |
-  Why an action is refused
+  Uses run out
 justified_by:
+- item: tests::pool_never_overspends_or_overrestores
+  path: crates/edda-types/src/resources.rs
+  type: rust-fn
+- item: tests::short_rest_restores_short_rest_resources_and_pact_slots_only
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
 - item: actions_spend_and_recover_resources
   path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: crud_and_actions_round_trip
+  path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.46
 links:
@@ -13,4 +22,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The character service shall answer an action that finds too few uses or slots left with 409, and an action that cannot apply to the sheet with 422.
+  Using a feature with too few uses left shall be refused.

@@ -1,9 +1,10 @@
 active: true
 derived: false
 header: |
-  Effects last rounds of their source
+  Effects without a source
 justified_by:
-- item: tests::effects_expire_at_the_start_of_the_sources_turn
+- item: |
+    tests::effects_without_a_source_or_targets_count_the_active_combatants_turns
   path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
 level: '2.30'
@@ -13,4 +14,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An effect lasting a number of rounds shall end at the start of its source's turn once that many rounds have passed.
+  An effect without a source shall count its rounds from the turn of whoever was acting when it was put down.

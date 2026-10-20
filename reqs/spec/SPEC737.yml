@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Choosing a campaign
+  Older profiles
 justified_by:
-- item: tests::names_must_pick_one_campaign
+- item: tests::a_profile_from_before_several_campaigns_carries_over
   path: crates/edda/src/identity.rs
   type: rust-fn
 level: 7.37
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A campaign shall be chosen by its name or a prefix of its id, and a choice that fits more than one shall be refused.
+  A device's profile from before it could be in several campaigns shall carry over as its one campaign.

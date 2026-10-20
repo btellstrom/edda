@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Certificates as JSON
+  Setup codes work once
 justified_by:
-- item: tests::certificates_survive_json
-  path: crates/edda-auth/src/cert.rs
+- item: setup_codes_work_once_and_make_a_dm
+  path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: 7.4
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device certificate shall read back from its JSON as it was.
+  A campaign's setup code shall admit one device only.

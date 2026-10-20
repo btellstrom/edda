@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  Listing characters
+  Fetching a character
 justified_by:
+- item: tests::character_round_trips_through_json
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
 - item: full_crud_lifecycle
   path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: crud_and_actions_round_trip
-  path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.17
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A GET of /characters shall list the campaign's characters, each with its total level.
+  A GET of a character shall answer the character as it was stored.

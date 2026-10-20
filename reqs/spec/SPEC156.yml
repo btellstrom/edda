@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Features recharged by hand
+  Idempotency keys
 justified_by:
-- item: tests::recharge_rules
-  path: crates/edda-types/src/resources.rs
+- item: an_action_with_an_idempotency_key_is_applied_once
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.56
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  No rest shall restore the uses of a feature that recharges by hand.
+  An action sent again with the same idempotency key shall be applied only once.

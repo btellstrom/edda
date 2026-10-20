@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Proficiency bonus
+  Skills and saving throws
 justified_by:
 - item: tests::proficiency_scales_with_level
   path: crates/edda-types/src/character.rs
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The proficiency bonus shall be 2 + (total level − 1) / 4, rounded down, a character without classes counting as level 1.
+  A skill or saving throw the character is proficient in shall add the proficiency bonus to the ability's modifier.

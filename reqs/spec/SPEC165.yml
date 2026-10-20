@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Refused replaces change nothing
+  Setting hit points
 justified_by:
-- item: put_requires_a_valid_if_match
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: stale_put_cannot_undo_actions
-  path: crates/character-service/tests/api.rs
+- item: tests::hp_accepts_relative_changes
+  path: crates/edda/src/edit.rs
   type: rust-fn
 level: 1.65
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A refused PUT of a character shall leave it unchanged.
+  `edda set hp` with a plain number shall set the character's hit points to it.

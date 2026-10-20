@@ -1,12 +1,9 @@
 active: true
 derived: false
 header: |
-  Own commands at once
+  Undone hit points too
 justified_by:
-- item: tests::own_commands_show_immediately_and_are_confirmed
-  path: crates/edda-client/src/combat.rs
-  type: rust-fn
-- item: changes_are_pushed_to_every_connected_client
+- item: hit_points_are_written_back_to_character_sheets
   path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.48
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A client shall show the outcome of its own commands before the server confirms them.
+  Undoing a change to a character's hit points in a combat shall be written back to their sheet.
