@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  A campaign's own quotas
+justified_by:
+- item: tests::a_campaigns_own_quotas_replace_only_what_they_set
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+- item: a_campaign_keeps_what_its_settings_say_and_can_be_made_read_only
+  path: crates/edda-client/tests/admin.rs
+  type: rust-fn
+level: 8.14
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A campaign's own quotas shall replace only the limits they set.

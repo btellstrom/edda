@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  Modifiers and proficiency
+  Round trip through JSON
 justified_by:
-- item: tests::modifiers_round_down
+- item: tests::character_round_trips_through_json
   path: crates/edda-types/src/character.rs
   type: rust-fn
-- item: tests::proficiency_scales_with_level
-  path: crates/edda-types/src/character.rs
+- item: spell_slots_survive_the_round_trip
+  path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.4
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Ability modifiers shall round down, and the proficiency bonus shall follow the character's total level.
+  A character, spell slots included, shall read back from its JSON exactly as it was written.

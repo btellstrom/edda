@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Effects, initiative and joining
+justified_by:
+- item: effects_initiative_and_joining
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.23
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The fight screen's line shall put down effects, set initiative and add combatants.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  A direct database address
+justified_by:
+- item: tests::a_direct_url_is_the_pooled_one_unless_given
+  path: crates/edda-server/src/lib.rs
+  type: rust-fn
+level: 8.38
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A service shall migrate and listen through the direct database address when given one, and the pooled one otherwise.

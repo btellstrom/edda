@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The shape of a line
+justified_by:
+- item: lines_say_what_they_are_about
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.18
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A line in the fight screen shall read `[WHO] ACTION [ARGS]`.

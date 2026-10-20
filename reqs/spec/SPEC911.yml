@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Pools as pips
+justified_by:
+- item: tests::pools_render_as_pips
+  path: crates/edda/src/display.rs
+  type: rust-fn
+level: 9.11
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  edda shall show pools of uses and slots as pips.

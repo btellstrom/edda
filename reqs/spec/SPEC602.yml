@@ -1,19 +1,10 @@
 active: true
 derived: false
 header: |
-  Players in a fight
+  Who plays whom
 justified_by:
-- item: tests::players_change_only_their_own_combatants
-  path: crates/edda-types/src/combat/permission.rs
-  type: rust-fn
-- item: tests::players_concentrate_on_anyone_but_only_for_themselves
-  path: crates/edda-types/src/combat/permission.rs
-  type: rust-fn
-- item: tests::players_end_only_their_own_turn_and_the_dm_runs_the_rest
-  path: crates/edda-types/src/combat/permission.rs
-  type: rust-fn
-- item: players_change_only_their_own_combatants_and_end_only_their_own_turn
-  path: crates/edda-client/tests/combat.rs
+- item: players_change_only_the_characters_their_device_plays
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 6.2
 links:
@@ -22,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  In a fight, a player shall change only their own combatants, use only their own features, end only their own turn, and name others only in their own concentration; everything else shall be the DM's.
+  Only a DM device shall choose which device plays a character.

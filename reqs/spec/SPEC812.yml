@@ -1,10 +1,11 @@
 active: true
 derived: false
 header: |
-  On Kubernetes
+  Deleting through the admin API
 justified_by:
-- path: tools/kind-test.sh
-  type: file
+- item: a_campaign_is_created_set_up_and_deleted_through_the_admin_api
+  path: crates/edda-client/tests/admin.rs
+  type: rust-fn
 level: 8.12
 links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
@@ -12,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The Helm chart shall install the services, with the admin API and a shared token key, so that a campaign made through the admin API can be played with edda.
+  The admin API shall delete a campaign from every service.

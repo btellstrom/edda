@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Leaving on one's turn
+justified_by:
+- item: tests::removing_the_current_combatant_passes_the_turn
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: '2.20'
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Removing the combatant whose turn it is shall pass the turn to the next in the order, starting a new round only if they were the last.

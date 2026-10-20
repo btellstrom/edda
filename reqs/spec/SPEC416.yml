@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The campaign's plans
+justified_by:
+- item: tests::the_open_plan_its_difficulty_and_the_plans_are_shown
+  path: crates/edda/src/plan/ui.rs
+  type: rust-fn
+level: 4.16
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The planning screen shall list the campaign's plans.

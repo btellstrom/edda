@@ -1,25 +1,13 @@
 active: true
 derived: false
 header: |
-  Sheet validation
+  Defaults
 justified_by:
-- item: rejects_invalid_sheets
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: tests::validation_rejects_bad_sheets
+- item: tests::minimal_json_fills_defaults
   path: crates/edda-types/src/character.rs
   type: rust-fn
-- item: invalid_edits_are_rejected
-  path: crates/edda-client/tests/client.rs
-  type: rust-fn
-- item: tests::typos_are_caught
-  path: crates/edda/src/editor.rs
-  type: rust-fn
-- item: tests::files_hold_one_or_many_sheets_each_checked
-  path: crates/edda/src/editor.rs
-  type: rust-fn
-- item: tests::shared_validation_runs
-  path: crates/edda/src/editor.rs
+- item: full_crud_lifecycle
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 1.2
 links:
@@ -28,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The character service shall refuse an invalid sheet, or one with unknown fields, saying what is wrong, and edda shall run the same validation before sending.
+  A field a sheet leaves out shall take its default: 10 for each ability score and for armor class, and 1 for the quantity of an item.

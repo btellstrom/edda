@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Tokens
+  Setup codes work once
 justified_by:
-- item: tests::tokens_verify_only_with_the_right_key_and_until_they_expire
-  path: crates/edda-auth/src/server.rs
-  type: rust-fn
-- item: requests_need_a_valid_token
-  path: crates/character-service/tests/api.rs
+- item: setup_codes_work_once_and_make_a_dm
+  path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: 7.6
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Every route but health and signing in shall need a token, valid only with the auth service's key and only until it expires.
+  A campaign's setup code shall admit one device only.

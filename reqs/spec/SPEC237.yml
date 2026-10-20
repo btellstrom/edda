@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  The state first
+justified_by:
+- item: changes_are_pushed_to_every_connected_client
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: instances_share_combats
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.37
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A device connecting to a combat shall first be sent the combat's current state.

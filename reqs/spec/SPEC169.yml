@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Hit points stay in bounds
+justified_by:
+- item: tests::hp_accepts_relative_changes
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.69
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Hit points set on the command line shall be kept between 0 and the character's maximum.

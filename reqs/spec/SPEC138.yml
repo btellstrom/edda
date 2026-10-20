@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Casting spends a slot
+justified_by:
+- item: tests::casting_spends_slots_until_exhausted
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: spell_slots_survive_the_round_trip
+  path: crates/edda-client/tests/client.rs
+  type: rust-fn
+level: 1.38
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Casting a levelled spell shall spend a slot of the spell's level.

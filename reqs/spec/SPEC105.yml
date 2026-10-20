@@ -1,24 +1,15 @@
 active: true
 derived: false
 header: |
-  Spell slots from classes
+  Blank names
 justified_by:
-- item: tests::single_class_casters_use_their_own_table
-  path: crates/edda-types/src/slots.rs
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
   type: rust-fn
-- item: tests::the_editions_differ_on_when_half_casters_start
-  path: crates/edda-types/src/slots.rs
+- item: tests::shared_validation_runs
+  path: crates/edda/src/editor.rs
   type: rust-fn
-- item: tests::multiclass_casters_share_one_pool_from_their_combined_level
-  path: crates/edda-types/src/slots.rs
-  type: rust-fn
-- item: tests::warlock_pact_magic_stays_separate
-  path: crates/edda-types/src/slots.rs
-  type: rust-fn
-- item: spell_slots_follow_the_classes_under_the_campaigns_edition
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: spell_slots_survive_the_round_trip
+- item: invalid_edits_are_rejected
   path: crates/edda-client/tests/client.rs
   type: rust-fn
 level: 1.5
@@ -28,4 +19,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A character's spell slots shall follow from their classes under the campaign's edition: a single caster's own table, one shared multiclass pool from the combined caster level, and Warlock Pact Magic kept separate.
+  A sheet whose name is blank shall be invalid.

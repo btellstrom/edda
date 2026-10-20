@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Artificers
+justified_by:
+- item: tests::the_editions_differ_on_when_half_casters_start
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+level: 1.31
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An Artificer shall get spell slots from level 1 under either edition.

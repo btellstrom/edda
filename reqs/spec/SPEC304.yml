@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The server undoes
+justified_by:
+- item: tests::decide_leaves_undo_to_the_server
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.4
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An undo's outcome shall be worked out by the server only.

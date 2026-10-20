@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Measuring combat connections
+justified_by:
+- item: tests::open_websockets_are_counted_by_account_while_they_last
+  path: crates/combat-service/src/routes.rs
+  type: rust-fn
+level: 8.37
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The combat service shall measure its open connections by account while they last.

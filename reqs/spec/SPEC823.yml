@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Devices per campaign
+justified_by:
+- item: signing_in_is_limited_per_address_and_devices_per_campaign
+  path: crates/edda-client/tests/limits.rs
+  type: rust-fn
+level: 8.23
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A campaign shall admit no more devices than its limit.

@@ -1,22 +1,13 @@
 active: true
 derived: false
 header: |
-  Editing from the command line
+  Unknown fields
 justified_by:
-- item: tests::max_hp_keeps_full_health_full
-  path: crates/edda/src/edit.rs
+- item: tests::typos_are_caught
+  path: crates/edda/src/editor.rs
   type: rust-fn
-- item: tests::hp_accepts_relative_changes
-  path: crates/edda/src/edit.rs
-  type: rust-fn
-- item: tests::classes_stack_and_remove
-  path: crates/edda/src/edit.rs
-  type: rust-fn
-- item: tests::items_stack_and_partially_remove
-  path: crates/edda/src/edit.rs
-  type: rust-fn
-- item: tests::proficiencies_are_deduplicated
-  path: crates/edda/src/edit.rs
+- item: tests::files_hold_one_or_many_sheets_each_checked
+  path: crates/edda/src/editor.rs
   type: rust-fn
 level: 1.12
 links:
@@ -25,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda's sheet commands shall change hit points by absolute or relative amounts, keep a character at full health when their maximum changes, stack and remove classes and items, and keep proficiencies free of duplicates.
+  edda shall refuse a sheet with a field it does not know, naming the field by its path within the sheet.

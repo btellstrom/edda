@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Effects without a source
+justified_by:
+- item: |
+    tests::effects_without_a_source_or_targets_count_the_active_combatants_turns
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.31
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An effect without a source shall count its rounds from the turn of whoever was acting when it was put down.

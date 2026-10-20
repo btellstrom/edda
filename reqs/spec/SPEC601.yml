@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A player's device shall change only the characters it plays; the DM shall choose who plays the rest; every device shall see every character.
+  A player's device shall change only the characters it plays.

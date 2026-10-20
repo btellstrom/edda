@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Services log in
+  Single-use challenges
 justified_by:
-- item: services_can_log_in_to_any_campaign
+- item: challenges_can_be_answered_only_once
   path: crates/edda-client/tests/auth.rs
   type: rust-fn
 level: '7.10'
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A registered service shall be able to log in to any campaign.
+  A login challenge shall be answerable only once.

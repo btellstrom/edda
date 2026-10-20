@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Players' effects
+justified_by:
+- item: tests::players_change_only_their_own_combatants
+  path: crates/edda-types/src/combat/permission.rs
+  type: rust-fn
+level: 6.6
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A player's device shall put down only effects whose source is one of its combatants or none.

@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  The party
+  2024: budgets
 justified_by:
-- item: tests::the_party_is_everyone_unless_someone_sits_out
-  path: crates/edda/src/plan/command.rs
+- item: tests::rules_2024_compare_plain_xp_with_the_party_budget
+  path: crates/edda-types/src/encounter.rs
   type: rust-fn
 level: 4.5
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A plan's difficulty shall be worked out for every character in the campaign but those set to sit out, each at their own level.
+  Under the 2024 rules, an encounter's difficulty shall be the highest of the party's Low, Moderate and High budgets its experience points reach, without a multiplier.

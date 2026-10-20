@@ -1,0 +1,26 @@
+active: true
+derived: false
+header: |
+  How hurt a monster looks
+justified_by:
+- item: |
+    tests::players_see_how_hurt_monsters_look_and_everything_about_the_party
+  path: crates/edda-types/src/combat/view.rs
+  type: rust-fn
+- item: players_see_only_how_hurt_monsters_look
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::a_player_reads_how_hurt_a_monster_looks_not_its_numbers
+  path: crates/edda/src/fight/log.rs
+  type: rust-fn
+- item: tests::a_player_sees_monsters_only_by_how_hurt_they_look
+  path: crates/edda/src/fight/ui.rs
+  type: rust-fn
+level: '6.10'
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A player's device shall be told only how hurt a monster looks: unhurt, hurt, bloodied or down.

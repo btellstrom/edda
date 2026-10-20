@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Declining
+justified_by:
+- item: the_dm_can_decline
+  path: crates/edda-client/tests/pairing.rs
+  type: rust-fn
+level: 7.31
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A DM shall be able to decline a device that asks to pair.

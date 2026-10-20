@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Effects from the line
+justified_by:
+- item: effects_need_no_target_and_last_for_rounds_of_whoever_put_them_down
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.24
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An effect typed in the fight screen shall need no target, and last rounds of whoever put it down.

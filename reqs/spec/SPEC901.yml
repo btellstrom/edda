@@ -6,9 +6,6 @@ justified_by:
 - item: docs_describe_the_services_as_they_are
   path: crates/edda-client/tests/openapi.rs
   type: rust-fn
-- item: every_route_says_what_it_answers
-  path: crates/edda-client/tests/openapi.rs
-  type: rust-fn
 level: 9.1
 links:
 - NEED008: svIafaXqqk_eyW972-xiIYpbBc07b91WILtv9vtnDPE=
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  `docs/openapi.json` shall describe every route and type of the services as they are, including what each route answers.
+  `docs/openapi.json` shall describe every route and type of the services as they are.

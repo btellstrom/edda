@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Actions are atomic
+justified_by:
+- item: concurrent_actions_never_overspend
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.57
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Each action on a sheet shall be applied atomically, so that two devices can never both spend the last slot or use.

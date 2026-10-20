@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Exporting a campaign
+justified_by:
+- item: a_campaign_moves_whole_from_one_server_to_another
+  path: crates/edda-client/tests/moving.rs
+  type: rust-fn
+level: 8.15
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A campaign shall be exportable whole.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Refused replaces change nothing
+justified_by:
+- item: put_requires_a_valid_if_match
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: stale_put_cannot_undo_actions
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.65
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A refused PUT of a character shall leave it unchanged.

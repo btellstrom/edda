@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Dice on one line
+justified_by:
+- item: tests::dice_stay_on_one_line
+  path: crates/edda/src/display.rs
+  type: rust-fn
+level: 9.12
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  edda shall never break a dice expression across lines.

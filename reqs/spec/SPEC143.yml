@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Prepared spells
+justified_by:
+- item: tests::cantrips_and_rituals_are_free
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+level: 1.43
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Casting a levelled spell the character has not prepared shall be refused, unless it is cast as a ritual.

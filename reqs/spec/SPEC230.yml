@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Effects last rounds of their source
+justified_by:
+- item: tests::effects_expire_at_the_start_of_the_sources_turn
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: '2.30'
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An effect lasting a number of rounds shall end at the start of its source's turn once that many rounds have passed.

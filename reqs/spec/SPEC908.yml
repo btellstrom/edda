@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Refused before sending
+  Completion escapes spaces
 justified_by:
-- item: certainly_refused_commands_are_caught_before_sending
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: a_player_is_told_before_sending_what_only_others_may_do
-  path: crates/edda/src/fight/command/tests.rs
+- item: tests::candidates_match_any_case_and_escape_spaces_for_bash
+  path: crates/edda/src/complete.rs
   type: rust-fn
 level: 9.8
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The fight screen shall say before sending when a command would certainly be refused, including what only others may do.
+  Shell completion shall escape the spaces in a name.

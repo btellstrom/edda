@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  A safe channel
+justified_by:
+- item: tests::messages_cannot_be_tampered_with_reordered_or_reflected
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+level: 7.26
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A message on a pairing channel that is changed, reordered or sent back to its sender shall be refused.

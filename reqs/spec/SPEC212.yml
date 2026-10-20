@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  Hit points back to the sheets
+  Rolls given by players
 justified_by:
-- item: hit_points_are_written_back_to_character_sheets
-  path: crates/edda-client/tests/combat.rs
+- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+  path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
-- item: tests::only_changes_after_the_sync_point_count_and_the_latest_wins
-  path: crates/combat-service/src/sync.rs
+- item: full_encounter_with_complete_log
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 2.12
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The hit points of a combatant who is a character shall be written back to their sheet after every change, undos included, retried until the character service takes them, and never going backwards.
+  A d20 roll given for a combatant shall be from 1 to 20, and add the combatant's initiative modifier.

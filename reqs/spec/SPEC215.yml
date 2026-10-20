@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  A fight from a plan
+  Next turn
 justified_by:
-- item: a_fight_starts_from_a_plan_with_its_monsters_or_not_at_all
-  path: crates/edda-client/tests/combat.rs
-  type: rust-fn
-- item: tests::a_fight_needs_monsters
-  path: crates/edda/src/plan/command.rs
+- item: tests::turns_advance_and_wrap_into_new_rounds
+  path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
 level: 2.15
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A combat started from a plan shall hold the plan's monsters, or not be started at all if any of them is gone, saying which.
+  Ending a turn shall pass it to the next in the initiative order.

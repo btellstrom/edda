@@ -1,16 +1,10 @@
 active: true
 derived: false
 header: |
-  Logs and traces
+  The admin API's settings
 justified_by:
-- item: tests::requests_are_logged_with_whose_they_are_and_never_what_was_asked
-  path: crates/edda-server/src/observe.rs
-  type: rust-fn
-- item: tests::without_a_trusted_proxy_clients_cant_say_whose_they_are
-  path: crates/edda-server/src/observe.rs
-  type: rust-fn
-- item: tests::spans_go_to_the_collector_as_traces
-  path: crates/edda-server/src/observe.rs
+- item: tests::it_takes_both_settings_or_neither
+  path: crates/edda-server/src/admin.rs
   type: rust-fn
 level: 8.8
 links:
@@ -19,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A service shall log each request with whose it was and never what was sent or asked, believe a client's forwarded address only behind a trusted proxy, and send traces to a collector when given one.
+  A service shall serve its admin API only when given both an address and a token for it.

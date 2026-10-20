@@ -1,10 +1,11 @@
 active: true
 derived: false
 header: |
-  End to end
+  A setup code from the admin API
 justified_by:
-- path: tools/smoke-test.sh
-  type: file
+- item: a_campaign_is_created_set_up_and_deleted_through_the_admin_api
+  path: crates/edda-client/tests/admin.rs
+  type: rust-fn
 level: 8.11
 links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
@@ -12,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The compose stack, behind HTTPS, shall go through a campaign end to end with edda, and back up and restore what was lost.
+  The admin API shall give a campaign a setup code.

@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Damage and healing
+  Commands as JSON
 justified_by:
-- item: tests::damage_hits_temporary_hp_first_and_heal_caps_at_max
+- item: tests::json_shapes
   path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
 level: 2.4
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Damage shall reduce temporary hit points first, and healing shall never raise hit points above the maximum.
+  A combat command shall be a JSON object naming its kind in `type`.

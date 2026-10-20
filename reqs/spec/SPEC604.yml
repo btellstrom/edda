@@ -1,10 +1,13 @@
 active: true
 derived: false
 header: |
-  The DM's library
+  Players' combatants
 justified_by:
-- item: only_the_dm_changes_the_campaigns_monsters_spells_and_conditions
-  path: crates/monster-service/tests/api.rs
+- item: tests::players_change_only_their_own_combatants
+  path: crates/edda-types/src/combat/permission.rs
+  type: rust-fn
+- item: players_change_only_their_own_combatants_and_end_only_their_own_turn
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 6.4
 links:
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Only DM devices shall change a campaign's monsters, spells and conditions.
+  In a combat, a player's device shall change only the combatants it plays.

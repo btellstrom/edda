@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  One guess
+  Routes need a token
 justified_by:
-- item: a_wrong_guess_burns_the_code
-  path: crates/edda-client/tests/pairing.rs
-  type: rust-fn
-- item: a_code_admits_only_one_device
-  path: crates/edda-client/tests/pairing.rs
+- item: requests_need_a_valid_token
+  path: crates/character-service/tests/api.rs
   type: rust-fn
 level: 7.13
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A pairing code shall admit only one device, and a wrong guess shall burn it.
+  Every route but health and signing in shall need a token.

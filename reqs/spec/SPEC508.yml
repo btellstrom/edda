@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Stat block files
+justified_by:
+- item: tests::files_hold_one_or_many_monsters_and_typos_are_caught
+  path: crates/edda/src/monsters.rs
+  type: rust-fn
+- item: tests::a_file_holds_a_list_or_just_one
+  path: crates/monster-service/src/main.rs
+  type: rust-fn
+level: 5.8
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A stat block file shall hold either one stat block or a list of them.

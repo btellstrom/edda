@@ -1,16 +1,10 @@
 active: true
 derived: false
 header: |
-  Features and rests
+  One feature, one name
 justified_by:
-- item: tests::pool_never_overspends_or_overrestores
-  path: crates/edda-types/src/resources.rs
-  type: rust-fn
-- item: tests::recharge_rules
-  path: crates/edda-types/src/resources.rs
-  type: rust-fn
-- item: tests::short_rest_restores_short_rest_resources_and_pact_slots_only
-  path: crates/edda-types/src/action.rs
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
   type: rust-fn
 - item: tests::resources
   path: crates/edda/src/edit.rs
@@ -22,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Class features shall never be spent below zero or restored above their maximum; a short rest shall restore short-rest features and pact slots only; a long rest shall restore everything but features recharged by hand, plus all spell slots and hit points.
+  A sheet with two class features of the same name, ignoring case, shall be invalid.

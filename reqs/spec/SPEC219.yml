@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Joining mid-combat
+justified_by:
+- item: tests::combatants_can_join_mid_combat
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.19
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A combatant who joins a started combat shall take their place in the initiative order.

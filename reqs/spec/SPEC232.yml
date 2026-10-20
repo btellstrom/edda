@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Effects whose source has left
+justified_by:
+- item: tests::effects_of_departed_sources_expire_at_round_start
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.32
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An effect whose source has left the combat, and that is not concentration, shall end at the start of the next round.

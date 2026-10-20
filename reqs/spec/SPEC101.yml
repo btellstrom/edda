@@ -1,16 +1,10 @@
 active: true
 derived: false
 header: |
-  Sheet defaults
+  A name is enough
 justified_by:
 - item: tests::minimal_json_fills_defaults
   path: crates/edda-types/src/character.rs
-  type: rust-fn
-- item: tests::character_round_trips_through_json
-  path: crates/edda-types/src/character.rs
-  type: rust-fn
-- item: tests::omitted_empty_values_are_fine
-  path: crates/edda/src/editor.rs
   type: rust-fn
 level: 1.1
 links:
@@ -19,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A character sheet shall need only a name; every other field shall get a default, and a sheet shall round-trip through JSON unchanged.
+  A character sheet that gives only a name shall be valid.

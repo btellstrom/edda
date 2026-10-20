@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Certain refusals stay local
+justified_by:
+- item: tests::certainly_invalid_commands_fail_locally
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+level: 2.51
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A client shall refuse, without sending it, a command that would certainly be refused.

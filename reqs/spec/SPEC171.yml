@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Full health stays full
+justified_by:
+- item: tests::max_hp_keeps_full_health_full
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.71
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Changing the maximum hit points of a character at full health shall keep them at full health.

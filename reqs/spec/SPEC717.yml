@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Admitted with one's own signature
+justified_by:
+- item: only_dms_admit_devices_and_only_with_their_own_signature
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.17
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A DM device shall admit a device only with a certificate it signed itself.

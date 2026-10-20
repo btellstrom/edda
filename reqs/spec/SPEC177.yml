@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Items stack
+justified_by:
+- item: tests::items_stack_and_partially_remove
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.77
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Adding an item the character has shall add to its quantity.

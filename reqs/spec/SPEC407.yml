@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Plans are kept in the campaign
+  Each at their level
 justified_by:
-- item: encounter_plans_are_kept_per_campaign_and_go_with_it
-  path: crates/edda-client/tests/combat.rs
+- item: tests::the_party_is_everyone_unless_someone_sits_out
+  path: crates/edda/src/plan/command.rs
   type: rust-fn
 level: 4.7
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Plans shall be kept per campaign, seen by every DM device, hidden from players, and deleted with the campaign.
+  Each character in the party shall count at their own level.

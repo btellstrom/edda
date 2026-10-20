@@ -1,25 +1,10 @@
 active: true
 derived: false
 header: |
-  Casting spends slots
+  Level cap
 justified_by:
-- item: tests::casting_spends_slots_until_exhausted
-  path: crates/edda-types/src/action.rs
-  type: rust-fn
-- item: tests::cantrips_and_rituals_are_free
-  path: crates/edda-types/src/action.rs
-  type: rust-fn
-- item: tests::upcasting_and_pact_slots
-  path: crates/edda-types/src/action.rs
-  type: rust-fn
-- item: tests::failed_actions_leave_sheet_unchanged
-  path: crates/edda-types/src/action.rs
-  type: rust-fn
-- item: tests::action_json_shape
-  path: crates/edda-types/src/action.rs
-  type: rust-fn
-- item: actions_spend_and_recover_resources
-  path: crates/character-service/tests/api.rs
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
   type: rust-fn
 level: 1.7
 links:
@@ -28,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Casting a levelled spell shall spend a slot of its level, or the level it is cast at, or a pact slot; cantrips and rituals shall be free; and a cast without a slot left shall be refused leaving the sheet unchanged.
+  A sheet whose class levels add up to more than 20 shall be invalid.

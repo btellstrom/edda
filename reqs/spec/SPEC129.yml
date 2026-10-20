@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Classes without spells
+justified_by:
+- item: tests::single_class_casters_use_their_own_table
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+level: 1.29
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A class or subclass without spellcasting, a homebrew one included, shall give no spell slots.

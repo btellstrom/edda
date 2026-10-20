@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Which limit
+justified_by:
+- item: tests::quotas_say_when_a_campaign_is_full
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+level: 8.29
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A campaign that reaches a limit shall be told which.

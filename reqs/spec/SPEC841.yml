@@ -1,0 +1,15 @@
+active: true
+derived: false
+header: |
+  Backups
+justified_by:
+- path: tools/smoke-test.sh
+  type: file
+level: 8.41
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A backup of the compose stack shall restore what was lost since.

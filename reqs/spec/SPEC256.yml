@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Applied before the reconnect
+justified_by:
+- item: tests::already_applied_commands_are_dropped
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+level: 2.56
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A client told a command was already applied shall stop counting it as unconfirmed.

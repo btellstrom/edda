@@ -1,0 +1,15 @@
+active: true
+derived: false
+header: |
+  The Helm chart
+justified_by:
+- path: tools/kind-test.sh
+  type: file
+level: 8.42
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The Helm chart shall install the services with the admin API and a token key they share.

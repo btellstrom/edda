@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  The shared library by edition
+  Homebrew stat blocks
 justified_by:
-- item: campaigns_see_the_shared_monsters_of_their_edition
-  path: crates/monster-service/tests/api.rs
+- item: tests::json_needs_only_what_the_monster_has
+  path: crates/edda-types/src/monster.rs
   type: rust-fn
 level: 5.2
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A campaign shall see the shared monsters of its own edition only.
+  A stat block given without a source shall be Homebrew, and suit either edition.

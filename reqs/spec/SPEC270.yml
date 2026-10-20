@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Monsters at their maximum
+justified_by:
+- item: tests::monsters_join_numbered_at_their_maximum_or_rolled
+  path: crates/edda-types/src/combat/monsters.rs
+  type: rust-fn
+level: '2.70'
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A monster shall join a combat at its maximum hit points unless its hit points are to be rolled.

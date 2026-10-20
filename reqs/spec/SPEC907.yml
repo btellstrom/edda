@@ -1,22 +1,10 @@
 active: true
 derived: false
 header: |
-  Completing a line
+  Completion in any case
 justified_by:
-- item: suggestions_complete_actions_names_and_numbers
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: effects_complete_their_name_and_every_target_including_the_first
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: tests::the_highlight_stays_on_the_suggestions_and_tab_takes_it
-  path: crates/edda/src/prompt.rs
-  type: rust-fn
-- item: tests::a_line_splits_into_what_is_done_and_what_is_being_typed
-  path: crates/edda/src/prompt.rs
-  type: rust-fn
-- item: tests::keys_edit_the_line_and_ask_to_run_or_leave
-  path: crates/edda/src/prompt.rs
+- item: tests::candidates_match_any_case_and_escape_spaces_for_bash
+  path: crates/edda/src/complete.rs
   type: rust-fn
 level: 9.7
 links:
@@ -25,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Tab shall complete actions, spells, features, effects, monsters and combatants, a name where a combatant goes completing to their number.
+  Shell completion shall match names in any case.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Requests per address
+justified_by:
+- item: tests::each_address_gets_its_requests_per_minute
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+- item: tests::a_client_too_busy_or_too_big_is_turned_away
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+level: 8.18
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Every service shall limit the requests each client address makes in a minute.

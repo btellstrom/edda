@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Concentration breaks at 0
+justified_by:
+- item: tests::concentration_is_replaced_and_broken
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.27
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A combatant dropping to 0 hit points shall end their concentration effect, and none of their other effects.

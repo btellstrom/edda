@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  Campaigns are apart
+  Players' spells
 justified_by:
-- item: campaigns_only_see_their_own_characters
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: combats_are_private_to_their_campaign
-  path: crates/edda-client/tests/combat.rs
+- item: tests::players_change_only_their_own_combatants
+  path: crates/edda-types/src/combat/permission.rs
   type: rust-fn
 level: 6.5
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device shall see nothing of another campaign: its characters and combats shall be answered as not found.
+  A player's spell shall target only the combatants their device plays, but for concentration.

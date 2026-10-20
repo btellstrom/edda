@@ -1,16 +1,10 @@
 active: true
 derived: false
 header: |
-  Keeping characters
+  Fields left empty
 justified_by:
-- item: full_crud_lifecycle
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: missing_characters_are_404
-  path: crates/character-service/tests/api.rs
-  type: rust-fn
-- item: crud_and_actions_round_trip
-  path: crates/edda-client/tests/client.rs
+- item: tests::omitted_empty_values_are_fine
+  path: crates/edda/src/editor.rs
   type: rust-fn
 level: 1.3
 links:
@@ -19,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  The character service shall create, list, return, replace and delete a campaign's characters, and answer 404 for a character that does not exist.
+  edda shall read a field given as null as one left out.

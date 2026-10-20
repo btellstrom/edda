@@ -1,37 +1,10 @@
 active: true
 derived: false
 header: |
-  Showing sheets and stat blocks
+  Prefixes
 justified_by:
-- item: tests::the_panel_finds_every_section_a_sheet_draws
-  path: crates/edda/src/display.rs
-  type: rust-fn
-- item: tests::a_stat_block_shows_what_a_fight_needs
-  path: crates/edda/src/display.rs
-  type: rust-fn
-- item: tests::pools_render_as_pips
-  path: crates/edda/src/display.rs
-  type: rust-fn
-- item: tests::dice_stay_on_one_line
-  path: crates/edda/src/display.rs
-  type: rust-fn
-- item: tests::names_render_nicely
-  path: crates/edda/src/display.rs
-  type: rust-fn
-- item: tests::wrapped_entries_keep_their_indent
-  path: crates/edda/src/styled.rs
-  type: rust-fn
-- item: tests::rows_wrap_under_their_value
-  path: crates/edda/src/styled.rs
-  type: rust-fn
-- item: tests::headings_are_rules_across_the_width
-  path: crates/edda/src/styled.rs
-  type: rust-fn
-- item: tests::colour_is_only_added_when_wanted
-  path: crates/edda/src/styled.rs
-  type: rust-fn
-- item: tests::a_word_too_long_for_the_line_still_appears
-  path: crates/edda/src/styled.rs
+- item: tests::unique_prefixes_resolve
+  path: crates/edda/src/parse.rs
   type: rust-fn
 level: 9.4
 links:
@@ -40,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  edda shall show every section of a sheet, a stat block with what a fight needs, pools as pips, and wrap text to the terminal's width, in colour only when wanted.
+  edda shall take a prefix that fits one name only as that name.

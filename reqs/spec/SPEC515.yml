@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  The campaign's own first
+justified_by:
+- item: tests::names_pick_one_monster_preferring_the_campaigns_own
+  path: crates/edda/src/monsters.rs
+  type: rust-fn
+- item: tests::names_are_found_in_any_case_the_campaigns_own_first
+  path: crates/edda-types/src/rules_text.rs
+  type: rust-fn
+level: 5.15
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A name shall find the campaign's own monster before a shared one.

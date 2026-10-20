@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Limits by default
+justified_by:
+- item: tests::limits_are_on_unless_turned_off_and_each_can_change
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+level: 8.21
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Rate and size limits shall be on by default, each adjustable, and all able to be turned off.

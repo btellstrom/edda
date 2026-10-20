@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The SRD 5.2 monsters
+justified_by:
+- item: srd_5_2_monsters_load
+  path: crates/edda-types/tests/srd.rs
+  type: rust-fn
+level: 5.22
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The SRD 5.2 monsters fetched by `make srd` shall all load and be valid.

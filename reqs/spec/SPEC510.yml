@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Rolling hit dice
+justified_by:
+- item: tests::rolling_uses_each_die_and_the_bonus
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+level: '5.10'
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Rolling hit dice shall roll each die and add the bonus.

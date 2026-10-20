@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Refusals to their sender
+justified_by:
+- item: changes_are_pushed_to_every_connected_client
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.42
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A refused command shall be reported to the device that sent it only.

@@ -1,20 +1,16 @@
 active: true
 derived: false
 header: |
-  Undo puts things back
+  Only one's own
 justified_by:
-- item: |
-    tests::undoing_a_removal_brings_back_the_combatant_their_effects_and_turn
+- item: tests::undo_steps_back_through_ones_own_commands_only
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
-- item: tests::undoing_an_addition_takes_it_out_again
+- item: tests::a_specific_command_can_be_undone_if_it_is_ones_own
   path: crates/edda-types/src/combat/undo.rs
   type: rust-fn
-- item: tests::concentration_broken_by_damage_comes_back_unless_replaced
-  path: crates/edda-types/src/combat/undo.rs
-  type: rust-fn
-- item: tests::undoing_a_cast_ends_its_effect_and_restores_the_one_it_replaced
-  path: crates/edda-types/src/combat/undo.rs
+- item: undo_takes_back_only_the_devices_own_commands
+  path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: 3.3
 links:
@@ -23,4 +19,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Undoing a command shall take out the combatants and effects it added and bring back those it removed or ended, a concentration effect only if its source has not concentrated on something else since.
+  An undo shall never take back another device's command.

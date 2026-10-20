@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Uses run out
+justified_by:
+- item: tests::pool_never_overspends_or_overrestores
+  path: crates/edda-types/src/resources.rs
+  type: rust-fn
+- item: tests::short_rest_restores_short_rest_resources_and_pact_slots_only
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: crud_and_actions_round_trip
+  path: crates/edda-client/tests/client.rs
+  type: rust-fn
+level: 1.48
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Using a feature with too few uses left shall be refused.

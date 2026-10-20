@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  At least one monster
+justified_by:
+- item: tests::rolling_needs_dice_and_some_must_be_added
+  path: crates/edda-types/src/combat/monsters.rs
+  type: rust-fn
+level: 2.72
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Adding no monsters to a combat shall be refused.

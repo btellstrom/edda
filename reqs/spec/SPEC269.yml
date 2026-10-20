@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Monsters numbered on
+justified_by:
+- item: tests::monster_names_number_on_from_those_in_the_fight
+  path: crates/edda-types/src/combat/monsters.rs
+  type: rust-fn
+- item: tests::monsters_join_numbered_at_their_maximum_or_rolled
+  path: crates/edda-types/src/combat/monsters.rs
+  type: rust-fn
+- item: monsters_are_added_numbered_and_rolled_by_the_server
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.69
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Monsters added to a combat shall be numbered on from those of the same name already in it.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Ability modifiers
+justified_by:
+- item: tests::modifiers_round_down
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+level: 1.22
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An ability's modifier shall be (score − 10) / 2, rounded down.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The last DM device
+justified_by:
+- item: revoked_devices_are_locked_out_but_the_last_dm_stays
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.21
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Revoking a campaign's last DM device shall be refused.

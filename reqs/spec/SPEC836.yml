@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Measuring database connections
+justified_by:
+- item: tests::requests_refusals_and_connections_are_measured
+  path: crates/edda-server/src/measure.rs
+  type: rust-fn
+level: 8.36
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A service given a metrics address shall measure its database connections.

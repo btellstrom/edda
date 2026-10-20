@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Undoing a removal
+justified_by:
+- item: |
+    tests::undoing_a_removal_brings_back_the_combatant_their_effects_and_turn
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.11
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Undoing the removal of a combatant shall bring them back with their effects and their turn.

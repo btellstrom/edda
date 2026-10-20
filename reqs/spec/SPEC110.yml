@@ -1,9 +1,9 @@
 active: true
 derived: false
 header: |
-  Actions apply once
+  Invalid sheets refused
 justified_by:
-- item: an_action_with_an_idempotency_key_is_applied_once
+- item: rejects_invalid_sheets
   path: crates/character-service/tests/api.rs
   type: rust-fn
 level: '1.10'
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  An action sent with an idempotency key shall be applied at most once for that key.
+  The character service shall answer an invalid sheet with 422 and an error naming what is wrong.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Malformed versions
+justified_by:
+- item: put_requires_a_valid_if_match
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.62
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A PUT of a character whose If-Match is neither one version number in double quotes nor `*` shall be answered with 400.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The highlighted suggestion
+justified_by:
+- item: tests::the_highlight_stays_on_the_suggestions_and_tab_takes_it
+  path: crates/edda/src/prompt.rs
+  type: rust-fn
+level: 9.27
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The highlight shall stay on the suggestions while they change, and Tab shall take the highlighted one.

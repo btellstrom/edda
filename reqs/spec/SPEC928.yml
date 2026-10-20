@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Editing the line
+justified_by:
+- item: tests::keys_edit_the_line_and_ask_to_run_or_leave
+  path: crates/edda/src/prompt.rs
+  type: rust-fn
+level: 9.28
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The fight screen's keys shall edit the line, run it, or leave the screen.

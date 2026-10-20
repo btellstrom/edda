@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Several campaigns
+justified_by:
+- item: tests::joining_adds_a_campaign_and_switches_to_it
+  path: crates/edda/src/identity.rs
+  type: rust-fn
+level: 7.35
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A device shall be able to be in several campaigns.

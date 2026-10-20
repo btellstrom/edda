@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Malformed codes
+justified_by:
+- item: tests::codes_parse_forgivingly_and_reject_typos
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+level: 7.29
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A pairing code that isn't a number and two words shall be refused.

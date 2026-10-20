@@ -1,16 +1,10 @@
 active: true
 derived: false
 header: |
-  Certificates
+  Keys as text
 justified_by:
-- item: tests::tampering_with_any_field_breaks_the_signature
-  path: crates/edda-auth/src/cert.rs
-  type: rust-fn
-- item: tests::certificates_survive_json
-  path: crates/edda-auth/src/cert.rs
-  type: rust-fn
-- item: tests::the_device_table_checks_every_certificate_here
-  path: crates/edda/src/auth.rs
+- item: tests::keys_round_trip_through_text_and_seed
+  path: crates/edda-auth/src/keys.rs
   type: rust-fn
 level: 7.2
 links:
@@ -19,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device certificate shall be broken by tampering with any of its fields, and edda shall check every certificate in a campaign's device list itself.
+  A key shall read back from its text form and its seed as it was.

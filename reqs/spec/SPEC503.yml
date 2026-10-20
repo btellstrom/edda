@@ -1,16 +1,10 @@
 active: true
 derived: false
 header: |
-  A campaign's own
+  Stat blocks as JSON
 justified_by:
-- item: campaigns_keep_their_own_monsters_and_cannot_change_shared_ones
-  path: crates/monster-service/tests/api.rs
-  type: rust-fn
-- item: tests::names_pick_one_monster_preferring_the_campaigns_own
-  path: crates/edda/src/monsters.rs
-  type: rust-fn
-- item: tests::names_are_found_in_any_case_the_campaigns_own_first
-  path: crates/edda-types/src/rules_text.rs
+- item: tests::json_needs_only_what_the_monster_has
+  path: crates/edda-types/src/monster.rs
   type: rust-fn
 level: 5.3
 links:
@@ -19,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A campaign shall keep monsters of its own, which no other campaign sees; it shall not change shared ones; and a name shall find the campaign's own before a shared one, in any case.
+  A stat block shall read back from its JSON as it was.

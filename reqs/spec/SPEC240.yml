@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Whichever instance
+justified_by:
+- item: instances_share_combats
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: '2.40'
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A change made on one instance of the combat service shall reach the devices connected to every other.

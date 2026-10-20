@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Errors name the sheet
+justified_by:
+- item: tests::files_hold_one_or_many_sheets_each_checked
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+level: 1.14
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  An error in a file of several sheets shall name the sheet it is in, by its name or its position.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Dice wait for the server
+justified_by:
+- item: tests::dice_rolls_wait_for_the_server
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+level: 2.52
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A client shall wait for the server's outcome of a command that needs the server's dice.

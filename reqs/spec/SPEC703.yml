@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Setup codes
+  Tampered certificates
 justified_by:
-- item: setup_codes_work_once_and_make_a_dm
-  path: crates/edda-client/tests/auth.rs
+- item: tests::tampering_with_any_field_breaks_the_signature
+  path: crates/edda-auth/src/cert.rs
   type: rust-fn
 level: 7.3
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A campaign's setup code shall work once, and make the device that uses it a DM.
+  A device certificate with any field changed shall fail its signature check.

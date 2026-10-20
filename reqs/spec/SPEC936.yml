@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The log on screen
+justified_by:
+- item: tests::the_log_reads_as_what_happened
+  path: crates/edda/src/fight/log.rs
+  type: rust-fn
+level: 9.36
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The fight screen shall show the log as sentences of what happened.

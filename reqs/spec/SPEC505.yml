@@ -1,13 +1,13 @@
 active: true
 derived: false
 header: |
-  Spells and conditions
+  Hit dice
 justified_by:
-- item: spells_and_conditions_are_kept_like_monsters
-  path: crates/monster-service/tests/api.rs
+- item: tests::a_monster_needs_a_name_hit_points_and_sane_dice
+  path: crates/edda-types/src/monster.rs
   type: rust-fn
-- item: tests::a_stored_entry_is_flat_json
-  path: crates/edda-types/src/rules_text.rs
+- item: tests::hit_dice_parse_and_give_their_maximum
+  path: crates/edda-types/src/monster.rs
   type: rust-fn
 level: 5.5
 links:
@@ -16,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Spells and conditions shall be kept, shared and owned like monsters.
+  A stat block whose hit dice are given but malformed shall be invalid.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Proficiency bonus
+justified_by:
+- item: tests::proficiency_scales_with_level
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+level: 1.23
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The proficiency bonus shall be 2 + (total level − 1) / 4, rounded down, a character without classes counting as level 1.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  A short rest restores pact slots
+justified_by:
+- item: tests::short_rest_restores_short_rest_resources_and_pact_slots_only
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.51
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A short rest shall restore Pact Magic slots.

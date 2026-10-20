@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Headings
+justified_by:
+- item: tests::headings_are_rules_across_the_width
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+level: 9.15
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  edda shall draw a heading as a rule across the width.

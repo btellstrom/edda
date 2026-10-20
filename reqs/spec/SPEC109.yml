@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Actions are atomic
+  Nothing overspent
 justified_by:
-- item: concurrent_actions_never_overspend
-  path: crates/character-service/tests/api.rs
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
   type: rust-fn
 level: 1.9
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Each in-play action on a sheet shall be applied atomically, so that two devices can never both spend the last slot or use.
+  A sheet with more of a pool used than the pool holds shall be invalid.

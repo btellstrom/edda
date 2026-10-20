@@ -1,28 +1,10 @@
 active: true
 derived: false
 header: |
-  The fight screen's command line
+  Abilities and skills
 justified_by:
-- item: lines_say_what_they_are_about
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: the_turn_holder_acts_unless_someone_else_is_named
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: the_sentence_fills_in_as_you_type
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: casting_names_the_slot_and_concentration_becomes_an_effect
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: features_are_used_on_oneself_only
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: effects_initiative_and_joining
-  path: crates/edda/src/fight/command/tests.rs
-  type: rust-fn
-- item: effects_need_no_target_and_last_for_rounds_of_whoever_put_them_down
-  path: crates/edda/src/fight/command/tests.rs
+- item: tests::lenient_enum_parsing
+  path: crates/edda/src/parse.rs
   type: rust-fn
 level: 9.6
 links:
@@ -31,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A fight screen line shall read `[WHO] ACTION [ARGS]`, the turn holder acting unless someone else is named, and say in words who does what to whom as it is typed.
+  edda shall read an ability by its name or abbreviation and a skill by its name, in any case and with spaces or hyphens.

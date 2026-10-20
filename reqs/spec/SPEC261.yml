@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Leaving keeps the damage
+justified_by:
+- item: tests::only_changes_after_the_sync_point_count_and_the_latest_wins
+  path: crates/combat-service/src/sync.rs
+  type: rust-fn
+level: 2.61
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A character who leaves a combat shall keep on their sheet the damage taken before leaving.

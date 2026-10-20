@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Old events
+justified_by:
+- item: tests::gaps_and_duplicates_are_detected
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+level: 2.54
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A client shall ignore an event it already has.

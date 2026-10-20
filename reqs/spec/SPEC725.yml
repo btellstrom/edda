@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  A wrong word or number
+justified_by:
+- item: tests::a_different_word_or_slot_gives_nothing
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+level: 7.25
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Two devices using pairing codes that differ in their word or their number shall agree on nothing.

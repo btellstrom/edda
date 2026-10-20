@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The hosting device
+justified_by:
+- item: only_the_hosting_dm_device_controls_a_pairing
+  path: crates/edda-client/tests/pairing.rs
+  type: rust-fn
+level: 7.32
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Only the DM device hosting a pairing shall control it.

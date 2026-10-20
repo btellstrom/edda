@@ -1,28 +1,13 @@
 active: true
 derived: false
 header: |
-  Working through a dropped connection
+  Rolling for everyone
 justified_by:
-- item: tests::own_commands_show_immediately_and_are_confirmed
-  path: crates/edda-client/src/combat.rs
-  type: rust-fn
-- item: tests::pending_commands_are_replayed_after_other_players_actions
-  path: crates/edda-client/src/combat.rs
-  type: rust-fn
-- item: tests::rejected_commands_roll_back
-  path: crates/edda-client/src/combat.rs
-  type: rust-fn
-- item: tests::certainly_invalid_commands_fail_locally
-  path: crates/edda-client/src/combat.rs
-  type: rust-fn
-- item: tests::dice_rolls_wait_for_the_server
-  path: crates/edda-client/src/combat.rs
-  type: rust-fn
-- item: tests::gaps_and_duplicates_are_detected
-  path: crates/edda-client/src/combat.rs
-  type: rust-fn
-- item: undos_reach_everyone_and_replicas_wait_for_them
+- item: full_encounter_with_complete_log
   path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+  path: crates/edda-types/src/combat/rules.rs
   type: rust-fn
 level: 2.11
 links:
@@ -31,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A client shall show its own commands at once, replay them on top of whatever others did first, roll back the ones the server refuses, and wait for the server only for dice it rolls and for undos.
+  Rolling initiative for all shall roll for each combatant who has no initiative yet.

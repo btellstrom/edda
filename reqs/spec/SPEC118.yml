@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Fetching a character
+justified_by:
+- item: full_crud_lifecycle
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.18
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A GET of a character shall answer the character as it was stored.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Names to numbers
+justified_by:
+- item: suggestions_complete_actions_names_and_numbers
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.26
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A combatant's name typed where a combatant goes shall complete to their number.

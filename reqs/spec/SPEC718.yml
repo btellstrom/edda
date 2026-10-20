@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Revoked devices
+justified_by:
+- item: revoked_devices_are_locked_out_but_the_last_dm_stays
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.18
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A revoked device shall no longer log in.

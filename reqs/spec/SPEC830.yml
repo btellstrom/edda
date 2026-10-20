@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Readiness
+justified_by:
+- item: it_is_ready_while_it_can_reach_its_database
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: tests::it_is_not_ready_while_its_database_cant_be_reached
+  path: crates/edda-server/src/lib.rs
+  type: rust-fn
+level: '8.30'
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Every service shall say it is ready only while it can reach its database.

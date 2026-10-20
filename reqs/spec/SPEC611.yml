@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Bloodied
+justified_by:
+- item: tests::bloodied_is_half_or_fewer
+  path: crates/edda-types/src/combat/view.rs
+  type: rust-fn
+level: 6.11
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A monster with half its maximum hit points or fewer, but more than 0, shall look bloodied.

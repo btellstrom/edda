@@ -1,13 +1,10 @@
 active: true
 derived: false
 header: |
-  The auth service is pinned
+  edda checks the device list
 justified_by:
-- item: devices_refuse_to_log_in_to_an_unexpected_server
-  path: crates/edda-client/tests/auth.rs
-  type: rust-fn
-- item: joiners_check_the_server_against_what_the_dm_knows
-  path: crates/edda-client/tests/pairing.rs
+- item: tests::the_device_table_checks_every_certificate_here
+  path: crates/edda/src/auth.rs
   type: rust-fn
 level: 7.5
 links:
@@ -16,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A device shall refuse to log in to an auth service other than the one it first used, and a joining device shall check the server against what the DM's device knows.
+  edda shall check the signature of every certificate in a campaign's device list itself.

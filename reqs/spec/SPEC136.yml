@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Pact Magic
+justified_by:
+- item: tests::warlock_pact_magic_stays_separate
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+level: 1.36
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Warlock levels shall give Pact Magic slots of their own, kept apart from the shared pool and not counted towards it.

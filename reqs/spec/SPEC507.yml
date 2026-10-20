@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Typos in stat blocks
+justified_by:
+- item: tests::files_hold_one_or_many_monsters_and_typos_are_caught
+  path: crates/edda/src/monsters.rs
+  type: rust-fn
+level: 5.7
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  edda shall refuse a stat block with a field it does not know.

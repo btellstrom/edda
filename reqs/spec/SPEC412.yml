@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Renaming a plan
+justified_by:
+- item: tests::plans_are_made_opened_renamed_and_deleted_by_name
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 4.12
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A plan shall be renamed by its name.

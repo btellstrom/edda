@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Scrolling by hand
+justified_by:
+- item: |
+    tests::panels_scroll_by_hand_within_bounds_until_they_show_something_else
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+level: 9.34
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  The side panel shall scroll by hand within its bounds until it shows something else.

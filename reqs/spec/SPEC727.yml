@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Codes read forgivingly
+justified_by:
+- item: tests::codes_parse_forgivingly_and_reject_typos
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+level: 7.27
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A pairing code shall be read in any case, with spaces in place of its hyphens.

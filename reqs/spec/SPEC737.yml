@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Choosing a campaign
+justified_by:
+- item: tests::names_must_pick_one_campaign
+  path: crates/edda/src/identity.rs
+  type: rust-fn
+level: 7.37
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A campaign shall be chosen by its name or a prefix of its id, and a choice that fits more than one shall be refused.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Homebrew spells
+justified_by:
+- item: tests::a_stored_entry_is_flat_json
+  path: crates/edda-types/src/rules_text.rs
+  type: rust-fn
+level: '5.20'
+links:
+- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  A spell given without a source shall be Homebrew, and one with a level above 9 shall be invalid.

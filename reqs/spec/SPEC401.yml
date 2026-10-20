@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A monster without its own XP shall be worth its challenge rating's experience points.
+  A monster without experience points of its own shall be worth those of its challenge rating.

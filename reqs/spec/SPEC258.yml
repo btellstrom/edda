@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Undone hit points too
+justified_by:
+- item: hit_points_are_written_back_to_character_sheets
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.58
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Undoing a change to a character's hit points in a combat shall be written back to their sheet.

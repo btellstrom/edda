@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Retried until taken
+level: 2.59
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  Hit points that the character service does not take shall be written back again until it does.

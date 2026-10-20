@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Wrapping
+justified_by:
+- item: tests::wrapped_entries_keep_their_indent
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+- item: tests::rows_wrap_under_their_value
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+- item: tests::a_word_too_long_for_the_line_still_appears
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+level: 9.14
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: null
+text: |
+  edda shall wrap text to the terminal's width, under the indent or the value it continues, a word too long for a line still shown.

@@ -1,10 +1,10 @@
 active: true
 derived: false
 header: |
-  Tab completion
+  Exact names first
 justified_by:
-- item: tests::candidates_match_any_case_and_escape_spaces_for_bash
-  path: crates/edda/src/complete.rs
+- item: tests::exact_name_beats_prefix
+  path: crates/edda/src/parse.rs
   type: rust-fn
 level: 9.3
 links:
@@ -13,4 +13,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Shell completion shall match names in any case and escape spaces for the shell.
+  edda shall take an exact name over a prefix of another.

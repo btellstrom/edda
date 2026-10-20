@@ -1,9 +1,12 @@
 active: true
 derived: false
 header: |
-  Unknown combats
+  The server's dice
 justified_by:
-- item: unknown_combats_are_not_found
+- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: full_encounter_with_complete_log
   path: crates/edda-client/tests/combat.rs
   type: rust-fn
 level: '2.10'
@@ -13,4 +16,4 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  A combat that does not exist in the campaign shall be answered with 404.
+  Initiative rolled for a combatant shall be a d20 from the server's dice plus the combatant's initiative modifier.
