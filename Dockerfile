@@ -1,7 +1,7 @@
 # One image with all four services; compose.yaml picks which one each
 # container runs. Works with `docker build` and `podman build`.
 
-FROM docker.io/library/rust:1.97-slim-trixie AS build
+FROM docker.io/library/rust:1.98-slim-trixie AS build
 WORKDIR /src
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
