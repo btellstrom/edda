@@ -23,7 +23,7 @@ jobs:
     name: Format and lints
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # rustup reads rust-toolchain.toml and installs that Rust.
       - run: rustup show active-toolchain
       - uses: Swatinem/rust-cache@v2
@@ -50,7 +50,7 @@ jobs:
     env:
       TEST_POSTGRES_URL: postgres://postgres:postgres@localhost:5432
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup show active-toolchain && rustup component add llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
@@ -87,7 +87,7 @@ jobs:
     name: Dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Licences, security advisories, yanked crates and sources (deny.toml).
       - uses: EmbarkStudios/cargo-deny-action@v2
       - uses: taiki-e/install-action@v2
@@ -101,7 +101,7 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup show active-toolchain
       - uses: Swatinem/rust-cache@v2
       - uses: ./.github/actions/srd
@@ -115,7 +115,7 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup show active-toolchain
       - uses: Swatinem/rust-cache@v2
       # kind only; the test makes its own cluster. Helm and kubectl are on
