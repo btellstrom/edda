@@ -36,7 +36,7 @@ jobs:
           mkdir site
           cp -r target/doc site/rust
           cp docs/site/* docs/openapi.json site/
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
