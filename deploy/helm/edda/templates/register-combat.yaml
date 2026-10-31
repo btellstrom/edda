@@ -31,7 +31,10 @@ spec:
           command:
             - sh
             - -c
-            - auth-service add-service combat-service "$(combat-service public-key)"
+            - |
+              set -e
+              key=$(combat-service public-key)
+              auth-service add-service combat-service "$key"
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           env:

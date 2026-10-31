@@ -67,7 +67,10 @@ services:
     command:
       - sh
       - -c
-      - auth-service add-service combat-service "$$(combat-service public-key)"
+      - |
+        set -e
+        key=$$(combat-service public-key)
+        auth-service add-service combat-service "$$key"
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/auth
       SERVICE_KEY_FILE: /data/combat-service.key

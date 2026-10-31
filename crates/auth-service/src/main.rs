@@ -46,7 +46,12 @@ enum Command {
     /// in the other services: `make delete-campaign` removes everything.
     DeleteCampaign { campaign: Uuid },
     /// Let a service log in to any campaign with this key.
-    AddService { name: String, public_key: PublicKey },
+    AddService {
+        name: String,
+        /// Base64url, so it may start with '-', which isn't a flag here.
+        #[arg(allow_hyphen_values = true)]
+        public_key: PublicKey,
+    },
     /// Write a new key for signing tokens to FILE, for `TOKEN_KEY_FILE`: one
     /// key that several auth services sign with, so a campaign's devices
     /// can log in on any of them.
@@ -145,4 +150,30 @@ async fn print_setup_code(
     println!("DM setup code (valid for 24 hours, works once):\n\n    {code}\n");
     println!("On the DM's device:  edda auth setup {code} --name \"<device name>\"");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_service_takes_a_key_starting_with_a_hyphen() {
+        // About one key in 64 starts with '-'.
+        let key = (0..=u8::MAX)
+            .map(|i| DeviceKey::from_seed([i; 32]).public())
+            .find(|key| key.to_string().starts_with('-'))
+            .expect("a seed whose key starts with '-'");
+        let cli = Cli::try_parse_from([
+            "auth-service",
+            "add-service",
+            "combat-service",
+            &key.to_string(),
+        ])
+        .expect("parses");
+        let Some(Command::AddService { name, public_key }) = cli.command else {
+            panic!("not add-service");
+        };
+        assert_eq!(name, "combat-service");
+        assert_eq!(public_key, key);
+    }
 }
