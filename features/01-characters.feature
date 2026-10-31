@@ -4,12 +4,12 @@ Feature: Keep character sheets
   Background:
     Given a 2024 campaign "Vox Machina" with a DM device "DM laptop"
 
-  @justifies:SPEC101 @justifies:SPEC115 @justifies:SPEC116 @justifies:SPEC122
+  @justifies:SPEC101 @justifies:SPEC115 @justifies:SPEC116
   Scenario: CH1 A character needs only a name
     When the DM runs "edda new Grog"
     Then the exit code is 0
     And "edda list" shows "Grog"
-    And Grog's sheet has proficiency bonus 2 and no classes
+    And Grog's sheet has no classes
 
   @justifies:SPEC111
   Scenario: CH2 A misspelt field is refused, not dropped

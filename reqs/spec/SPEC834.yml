@@ -11,6 +11,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: cnL4R9dNKBR-i3xFW9RFKBDgCKvBVsdcoUiGNoGxS7Y=
 text: |
   A service given a trace collector shall send it its spans.

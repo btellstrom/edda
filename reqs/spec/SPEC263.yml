@@ -17,6 +17,6 @@ links:
 - NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
 normative: true
 ref: ''
-reviewed: null
+reviewed: pONCp9uDatfwz4tMoPetgXRTWch2arFCvvjt6DSBJ6w=
 text: |
   Each event in a combat's log shall name the device that sent its command, as the device's token says, whatever the client claims.

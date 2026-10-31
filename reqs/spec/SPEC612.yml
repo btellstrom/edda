@@ -15,6 +15,6 @@ links:
 - NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
 normative: true
 ref: ''
-reviewed: null
+reviewed: JJYwKyZgKtENljeQOKH6BA1UaN_5V_5mPceSJvZlIu4=
 text: |
   A player's device shall never be sent a monster's hit points, armor class or stat block, in snapshots, the log or live events.

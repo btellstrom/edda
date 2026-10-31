@@ -14,6 +14,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: 1D2lEZpbalRmMJft4suqWtE8bbDchq_TUW7eJ-bUnTQ=
 text: |
   Every service shall say it is ready only while it can reach its database.

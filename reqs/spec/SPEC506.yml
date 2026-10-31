@@ -8,9 +8,9 @@ justified_by:
   type: rust-fn
 level: 5.6
 links:
-- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
 normative: true
 ref: ''
-reviewed: null
+reviewed: ujxOElhA4XOAhZ0jm8AdLuUUKSw1mk4GjsA9CRKiGAY=
 text: |
   edda shall refuse a stat block with a field it does not know.

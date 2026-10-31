@@ -14,6 +14,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: JdmM6gjp2zIT0UhYDptcdode5hr9QASjkR_gsybfXRI=
 text: |
   A GET of /characters shall list the campaign's characters, each with its total level.

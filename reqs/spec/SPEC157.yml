@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: JHeIy3msg639DQgERT4cxJ6CILjJ4aERXQ4uaueN4DE=
 text: |
   An action that was refused shall be applied when sent again with the same idempotency key.

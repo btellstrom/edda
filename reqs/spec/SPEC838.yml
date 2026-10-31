@@ -11,6 +11,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: rieSISDs5kD3Ci6BuZJCd0xn2qGUw_W33PT8rQLxQi4=
 text: |
   A service shall migrate and listen through the direct database address when given one, and the pooled one otherwise.

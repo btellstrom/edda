@@ -11,6 +11,6 @@ links:
 - NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
 normative: true
 ref: ''
-reviewed: null
+reviewed: EwNytuZWsOATXNPjSz0SqnL5RxuY-QoG7zlXM17OeAE=
 text: |
   edda shall check the signature of every certificate in a campaign's device list itself.

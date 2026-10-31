@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  At least one monster
+  Adding none of a monster
 justified_by:
 - item: tests::rolling_needs_dice_and_some_must_be_added
   path: crates/edda-types/src/combat/monsters.rs
@@ -11,6 +11,6 @@ links:
 - NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
 normative: true
 ref: ''
-reviewed: null
+reviewed: O3sXwwlmczW6L6kp34DnqO0Noq-zB4EdSkwEyvJQEMY=
 text: |
-  Adding no monsters to a combat shall be refused.
+  A request to add a monster to a combat with a count of zero shall be refused.

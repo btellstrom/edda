@@ -8,9 +8,9 @@ justified_by:
   type: rust-fn
 level: 5.22
 links:
-- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
 normative: true
 ref: ''
-reviewed: null
+reviewed: aiSm0IRpMpZKyWn21m-IdqsYwi4sGj7llHxADKLtEws=
 text: |
   The SRD spells and conditions fetched by `make srd` shall all load and be valid.

@@ -6,6 +6,6 @@ level: 1.8
 links: []
 normative: true
 ref: ''
-reviewed: null
+reviewed: svIafaXqqk_eyW972-xiIYpbBc07b91WILtv9vtnDPE=
 text: |
   Edda shall describe its services' API completely and accurately, so that other frontends can be built on it.

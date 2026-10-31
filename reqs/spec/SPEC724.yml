@@ -11,6 +11,6 @@ links:
 - NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
 normative: true
 ref: ''
-reviewed: null
+reviewed: kal6H27Tf4DsSp4ivAiIqak_gN_baZkEhx4qULV8wBo=
 text: |
   A message on a pairing channel that is changed, reordered or sent back to its sender shall be refused.

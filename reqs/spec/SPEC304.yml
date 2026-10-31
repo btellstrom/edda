@@ -11,6 +11,6 @@ links:
 - NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
 normative: true
 ref: ''
-reviewed: null
+reviewed: lX7zyLrkuxLThM7EOAFBKPO4nKlGu0HRjBvExDTK5Cs=
 text: |
   Undoing a change to hit points shall move them back by what that change did, keeping the changes made since.

@@ -11,6 +11,6 @@ links:
 - NEED008: svIafaXqqk_eyW972-xiIYpbBc07b91WILtv9vtnDPE=
 normative: true
 ref: ''
-reviewed: null
+reviewed: o_RBi4ML-Qp6ehsSuWjLDGTPVoNUne8wEuoPuH2y4IM=
 text: |
   `docs/openapi.json` shall describe every route and type of the services as they are.

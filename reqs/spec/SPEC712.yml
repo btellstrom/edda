@@ -14,6 +14,6 @@ links:
 - NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
 normative: true
 ref: ''
-reviewed: null
+reviewed: ot33bHuCEzpFc1k-monf6Ix4bvTkKvhqsRUqmzMFrYI=
 text: |
   A token shall be valid only when signed with the auth service's key.

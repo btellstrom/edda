@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: 3A1dJ83RN-PSSQH-jOskdYB6zmbZI1L7P5HBSATdgLE=
 text: |
   A sheet file read by edda shall hold either one sheet or a list of sheets.

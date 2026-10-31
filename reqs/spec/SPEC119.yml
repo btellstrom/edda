@@ -14,6 +14,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: ruIjySeLiefuOLyqrOxmToXGqiGYFae6ercqN0ylqa4=
 text: |
   A DELETE of a character shall remove it and answer 204.

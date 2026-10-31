@@ -11,6 +11,6 @@ links:
 - NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
 normative: true
 ref: ''
-reviewed: null
+reviewed: H5znl5xNWFdIpgnUGGwNVtDG69jgK6P8Lt6vtp03Dw4=
 text: |
   A client shall take back the outcome of its commands the server refuses.

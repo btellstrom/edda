@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: 7SxbBIUGLmST2Ndy7KNt7atRMhngyh_LV_abGp1lTh8=
 text: |
   `edda set hp` with a signed number shall add it to the character's hit points.

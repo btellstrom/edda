@@ -17,6 +17,6 @@ links:
 - NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
 normative: true
 ref: ''
-reviewed: null
+reviewed: ojdT2b6j_Mpc2sgDDxYlWIb6S8fDn1LnnEWq9nkjf5c=
 text: |
   An undo shall never take back another device's command.

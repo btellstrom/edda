@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: lvPjhKX6RYU2tnpnsLcnyAVBidgZcLnB6HyhquBQyCU=
 text: |
   A PUT of a character with If-Match `*` shall replace it whatever its version.

@@ -17,6 +17,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: t-5HY49Hi98-2xPQdAA7fC6xr7cwYysre7VNZFHyBRc=
 text: |
   A PUT of a character whose If-Match is not its current version shall be answered with 412, the current character and its ETag.

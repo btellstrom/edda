@@ -14,6 +14,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: -PuSyPNHMObhtlAOnqcvw_jU8IK0wX9eIM7vRGepqBM=
 text: |
   A service given a metrics address shall measure its requests and refusals.

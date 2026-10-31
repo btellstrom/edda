@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: InTBYu6FvzXGWt0YMbRVQe8_MPSB34noMdbA1mV79Nk=
 text: |
   The character service shall answer an action that finds too few uses or slots left with 409, and an action that cannot apply to the sheet with 422.

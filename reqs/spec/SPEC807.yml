@@ -11,6 +11,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: _ATP3E539XTk2ppEmI5_HUp8bAwcdeV5ew9i3og64XI=
 text: |
   Deleting a campaign that is already deleted shall change nothing.

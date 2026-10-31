@@ -6,7 +6,10 @@
 use edda_auth::{DeviceCert, DeviceKey, Role, server::TokenVerifier};
 use edda_client::{ClientError, combat::CombatClient};
 use edda_server::Limits;
-use edda_types::combat::{CombatCommand, Combatant, CommandEnvelope, ServerMessage};
+use edda_types::{
+    combat::{CombatCommand, Combatant, CommandEnvelope, ServerMessage},
+    encounter::EncounterPlan,
+};
 use reqwest::StatusCode;
 
 mod support;
@@ -123,4 +126,40 @@ async fn a_campaign_keeps_only_so_many_combats_events_and_watchers() {
         combats.connect(combat).await.is_err(),
         "one watcher at a time"
     );
+}
+
+#[tokio::test]
+async fn a_campaign_keeps_only_as_many_plans_as_its_limit() {
+    let auth = Auth::start().await;
+    let party = auth.campaign().await;
+    let mut limits = Limits::on();
+    limits.plans = 2;
+    let pool = combat_service::connect(&database_url("combat_test").await)
+        .await
+        .unwrap();
+    let config = combat_service::Config {
+        limits,
+        ..Default::default()
+    };
+    let app = combat_service::app(pool, TokenVerifier::new(auth.key), config)
+        .await
+        .unwrap();
+    let combats = CombatClient::new(support::serve(app).await).with_token(&party.dm.token);
+    let plan = |name: &str| EncounterPlan {
+        name: name.into(),
+        ..Default::default()
+    };
+
+    let ambush = combats.create_encounter(&plan("Ambush")).await.unwrap().id;
+    combats.create_encounter(&plan("Patrol")).await.unwrap();
+    let refused = combats.create_encounter(&plan("Raid")).await.unwrap_err();
+    assert!(
+        matches!(&refused, ClientError::Forbidden(m) if m == "this campaign has reached its limit of 2 planned encounters"),
+        "{refused:?}"
+    );
+    assert_eq!(combats.encounters().await.unwrap().len(), 2);
+
+    // Deleting one makes room again.
+    combats.delete_encounter(ambush).await.unwrap();
+    combats.create_encounter(&plan("Raid")).await.unwrap();
 }

@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: tWiWyguJnsAvA9nwIZpKZY75MvOhaNf-b7oH-Z_oe1Y=
 text: |
   A PUT of a character whose If-Match is neither one version number in double quotes nor `*` shall be answered with 400.

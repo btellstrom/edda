@@ -11,6 +11,6 @@ links:
 - NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
 normative: true
 ref: ''
-reviewed: null
+reviewed: 7ayidvry0YnrhTn78BVVxk6OeRTt0i9uDu8PFBKnp7c=
 text: |
   A change sent over HTTP shall reach the devices connected over WebSocket.

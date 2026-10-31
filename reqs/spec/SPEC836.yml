@@ -11,6 +11,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: kXmaIPGrIlx1CsY8Q75JFThfz5KDAdIT2pWQG41uCnI=
 text: |
   A service given a metrics address shall measure its database connections.

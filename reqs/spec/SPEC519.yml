@@ -8,9 +8,9 @@ justified_by:
   type: rust-fn
 level: 5.19
 links:
-- NEED004: fvEnJ9d5KBEv_dp_Jq67q0ZlepT-6m-SyMqKEFhzcfU=
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
 normative: true
 ref: ''
-reviewed: null
+reviewed: hbrd1XE4GSs1Q67yrgiXLCaroNI80Ztg-d4lT1CFbD4=
 text: |
   A spell given without a source shall be Homebrew, and one with a level above 9 shall be invalid.

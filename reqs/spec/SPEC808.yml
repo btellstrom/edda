@@ -11,6 +11,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: 1_243T5f9gMNGaRBXxlDbFTXhXxeDoQULA0RgKowhRY=
 text: |
   A service shall serve its admin API only when given both an address and a token for it.

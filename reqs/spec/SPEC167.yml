@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: 5JlKXoFzTM2OSZNi75sILmJZo25kU4mJMIfR22ypNnc=
 text: |
   Hit points set on the command line shall be kept between 0 and the character's maximum.

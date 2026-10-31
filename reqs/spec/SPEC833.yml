@@ -11,6 +11,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: LQ3CTME9AypQELxV0PdyY8EHbrzTWvmxyC7Fgm04CCM=
 text: |
   A service shall believe a client's forwarded address only from a trusted proxy.

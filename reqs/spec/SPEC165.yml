@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: uFAX19xyMb_NzvYhtJ_2YX06LVTDRYHD2G1u5E2hvH4=
 text: |
   `edda set hp` with a plain number shall set the character's hit points to it.

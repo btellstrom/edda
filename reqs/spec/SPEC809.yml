@@ -17,6 +17,6 @@ links:
 - NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
 normative: true
 ref: ''
-reviewed: null
+reviewed: 1Q_AyOoAB6IJydmdcT9NuImvUTsG_eiQKqk3EAUfmc4=
 text: |
   The admin API shall answer only requests bearing exactly its token.

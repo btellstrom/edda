@@ -11,6 +11,6 @@ links:
 - NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
 normative: true
 ref: ''
-reviewed: null
+reviewed: PdL6mCIV3EeewLArelzOKeUcNc33LZZIpCid-PZwcGg=
 text: |
   edda shall check a sheet against the character service's validation rules before sending it.
