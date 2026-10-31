@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Checked before sending
+justified_by:
+- item: tests::shared_validation_runs
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+level: '1.10'
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: PdL6mCIV3EeewLArelzOKeUcNc33LZZIpCid-PZwcGg=
+text: |
+  edda shall check a sheet against the character service's validation rules before sending it.

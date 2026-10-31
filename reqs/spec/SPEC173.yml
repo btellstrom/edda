@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Removing a class
+justified_by:
+- item: tests::classes_stack_and_remove
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.73
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: 6ZEWSBuDqbNsHlhTaU7E-yZpXCoAf4r54LSli1a70As=
+text: |
+  Removing a class shall take it off the sheet, matching its name in any case.

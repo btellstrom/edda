@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Unknown fields
+justified_by:
+- item: tests::typos_are_caught
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+- item: tests::files_hold_one_or_many_sheets_each_checked
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+level: 1.11
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: 5yvOhNMtQ6eMyRCv0xgMabzbW5YjxzRBrgdgstk-jws=
+text: |
+  edda shall refuse a sheet with a field it does not know, naming the field by its path within the sheet.

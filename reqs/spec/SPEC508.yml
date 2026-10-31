@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Hit dice give a maximum
+justified_by:
+- item: tests::hit_dice_parse_and_give_their_maximum
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+level: 5.8
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: EG1VnVEJMY6hbAK75n3WQZ-FKU_2gN9i5L-PMrMmwIg=
+text: |
+  Hit dice shall give a maximum of their number times their sides plus their bonus, and never less than 1.

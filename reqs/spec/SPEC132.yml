@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  One pool for multiclass casters
+justified_by:
+- item: tests::multiclass_casters_share_one_pool_from_their_combined_level
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+- item: spell_slots_follow_the_classes_under_the_campaigns_edition
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.32
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: LgmiNdj-32T4vbEmRW33u2-wsgVMiw-ppY6psGpse5s=
+text: |
+  A character with more than one spellcasting class shall have one pool of spell slots, from the multiclass table at their combined caster level.

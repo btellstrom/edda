@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The SRD's spells and conditions
+justified_by:
+- item: srd_spells_and_conditions_load
+  path: crates/edda-types/tests/srd.rs
+  type: rust-fn
+level: 5.22
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: aiSm0IRpMpZKyWn21m-IdqsYwi4sGj7llHxADKLtEws=
+text: |
+  The SRD spells and conditions fetched by `make srd` shall all load and be valid.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Skills and saving throws
+justified_by:
+- item: tests::proficiency_scales_with_level
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+level: 1.23
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: i-KVDlofYEebzrWusy9aICs95YrSMgl6LSJ_J4PKdbQ=
+text: |
+  A skill or saving throw the character is proficient in shall add the proficiency bonus to the ability's modifier.

@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Only one's own
+justified_by:
+- item: tests::undo_steps_back_through_ones_own_commands_only
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+- item: tests::a_specific_command_can_be_undone_if_it_is_ones_own
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+- item: undo_takes_back_only_the_devices_own_commands
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 3.3
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: ojdT2b6j_Mpc2sgDDxYlWIb6S8fDn1LnnEWq9nkjf5c=
+text: |
+  An undo shall never take back another device's command.

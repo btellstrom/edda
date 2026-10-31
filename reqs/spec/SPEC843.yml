@@ -1,0 +1,15 @@
+active: true
+derived: false
+header: |
+  Playing on Kubernetes
+justified_by:
+- path: tools/kind-test.sh
+  type: file
+level: 8.43
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: nRXET2r1vTr18gcroEXTlT2tgKX6NOCNUpsU7vhc1mw=
+text: |
+  A campaign made through the admin API of the Helm chart's services shall be playable with edda.

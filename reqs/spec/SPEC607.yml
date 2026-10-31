@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Players' turns
+justified_by:
+- item: tests::players_end_only_their_own_turn_and_the_dm_runs_the_rest
+  path: crates/edda-types/src/combat/permission.rs
+  type: rust-fn
+- item: players_change_only_their_own_combatants_and_end_only_their_own_turn
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 6.7
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: _0H3hPZy0IQRcO3OYze-QZLMhgQXUZjjp6gcc131-TE=
+text: |
+  A player's device shall end only the turns of the combatants it plays.

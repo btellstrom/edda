@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Hit dice
+justified_by:
+- item: tests::a_monster_needs_a_name_hit_points_and_sane_dice
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+- item: tests::hit_dice_parse_and_give_their_maximum
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+level: 5.4
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: z48YGlbxJP8fqDaR1wfs66sVajygdJYYFRLbNRzPosg=
+text: |
+  A stat block whose hit dice are given but malformed shall be invalid.

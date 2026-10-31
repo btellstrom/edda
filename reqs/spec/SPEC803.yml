@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Deleting a campaign's combats
+justified_by:
+- item: deleting_a_campaign_deletes_its_combats_even_from_memory
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 8.3
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: N8oLzIHJl9rt31zz2Jm0FKWxdQX7_9K0TWZntSR2Zok=
+text: |
+  Deleting a campaign shall delete its combats, from the combat service's memory too.

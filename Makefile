@@ -21,7 +21,7 @@ CARGO     ?= cargo
 PROFILES   = $(if $(HTTPS),--profile https)
 
 .DEFAULT_GOAL := help
-.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore test check coverage coverage-floor deny smoke kind doc openapi clean
+.PHONY: help all server client install srd up down logs campaign delete-campaign backup restore test check coverage coverage-floor deny reqs smoke kind doc openapi clean
 
 help: ## list the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  make %-10s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -91,6 +91,10 @@ coverage-floor:
 
 deny: ## the dependencies' licences, advisories and sources (cargo install cargo-deny)
 	cargo deny check
+
+reqs: ## the requirements, reviewed and still justified (needs uv and emperor)
+	uv run --locked doorstop --error-all
+	emperor check
 
 smoke: client ## end to end: the compose stack, seeded, driven by edda (needs make srd)
 	CONTAINER=$(CONTAINER) tools/smoke-test.sh

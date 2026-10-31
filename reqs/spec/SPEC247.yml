@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Hit points back to the sheet
+justified_by:
+- item: hit_points_are_written_back_to_character_sheets
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::only_changes_after_the_sync_point_count_and_the_latest_wins
+  path: crates/combat-service/src/sync.rs
+  type: rust-fn
+level: 2.47
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: Hf9KVp-_v-XMiItYZ8BKjIgVaO7lp7mWRs5orsAeSJM=
+text: |
+  A character's hit points shall be written back to their sheet after each change to them in a combat.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Entries by number
+justified_by:
+- item: tests::entries_are_changed_by_number
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 4.9
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: sbzaZy634oR6TG-63ZSJUnBM5xJPZYrV50J_8X6dEt8=
+text: |
+  An entry of the plan shall be changed or removed by its number.

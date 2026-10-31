@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Completing in the planning screen
+justified_by:
+- item: tests::completion_offers_monsters_entries_plans_and_the_party
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 4.14
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: VClTDZ0rK1LHqwWP5C8N7mYUqIli6EcjYnKIMxBDpC4=
+text: |
+  Tab in the planning screen shall complete monsters, entries, plans and the party's characters.

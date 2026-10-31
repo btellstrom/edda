@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Undoing an addition
+justified_by:
+- item: tests::undoing_an_addition_takes_it_out_again
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.9
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: oZ9OrJMkNbUFADlX5oDVze2joBs83oFugYA-pbZ_mVU=
+text: |
+  Undoing a command that added a combatant or an effect shall take it out again.

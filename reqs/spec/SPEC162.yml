@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Replacing whatever the version
+justified_by:
+- item: put_requires_a_valid_if_match
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.62
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: lvPjhKX6RYU2tnpnsLcnyAVBidgZcLnB6HyhquBQyCU=
+text: |
+  A PUT of a character with If-Match `*` shall replace it whatever its version.

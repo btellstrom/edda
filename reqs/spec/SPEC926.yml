@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The initiative order on screen
+justified_by:
+- item: tests::the_order_shows_whose_turn_it_is_and_how_everyone_stands
+  path: crates/edda/src/fight/ui.rs
+  type: rust-fn
+level: 9.26
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: r_Cy9vvP1uxjH7xTzMGdFoRU0i-DcVpKsz5jl9LT4RM=
+text: |
+  The fight screen shall show whose turn it is and how everyone stands.

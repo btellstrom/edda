@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Starting once
+justified_by:
+- item: tests::turns_advance_and_wrap_into_new_rounds
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.17
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: RhVdMV9u_DMKj4JDIzWFmM1rdz2wyUdJfh1xpMhGrgY=
+text: |
+  A combat that has started shall refuse to start again.

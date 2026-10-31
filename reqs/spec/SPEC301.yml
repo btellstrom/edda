@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Undoing the latest
+justified_by:
+- item: tests::undo_steps_back_through_ones_own_commands_only
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+- item: undo_takes_back_only_the_devices_own_commands
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 3.1
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: K58C6hHkMhfWgIl3p-Q8tRMfmcP7IjtbEZ3Pn8-bpJc=
+text: |
+  An undo shall take back the sending device's latest command not yet undone.

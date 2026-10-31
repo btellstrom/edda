@@ -542,18 +542,20 @@ impl Emitter {
         if new_round {
             let round = self.state.round + 1;
             self.emit(CombatEvent::RoundStarted { round });
-            // Effects whose source is gone expire at the round boundary.
-            self.expire(|state, expiry| {
+            // Effects timed by no one's turn, or by the turn of someone who
+            // has left and wasn't their source, expire at the round boundary.
+            // A departed source's effects stay until someone removes them.
+            self.expire(|state, effect, expiry| {
                 expiry
                     .at_turn_of
-                    .is_none_or(|id| state.combatant(id).is_none())
+                    .is_none_or(|id| state.combatant(id).is_none() && effect.source != Some(id))
             });
         }
         self.emit(CombatEvent::TurnStarted { combatant: next });
-        self.expire(|_, expiry| expiry.at_turn_of == Some(next));
+        self.expire(|_, _, expiry| expiry.at_turn_of == Some(next));
     }
 
-    fn expire(&mut self, matches: impl Fn(&CombatState, &Expiry) -> bool) {
+    fn expire(&mut self, matches: impl Fn(&CombatState, &Effect, &Expiry) -> bool) {
         let round = self.state.round;
         let expired: Vec<_> = self
             .state
@@ -561,7 +563,7 @@ impl Emitter {
             .iter()
             .filter(|e| {
                 e.expires
-                    .is_some_and(|x| x.round <= round && matches(&self.state, &x))
+                    .is_some_and(|x| x.round <= round && matches(&self.state, e, &x))
             })
             .map(|e| e.id)
             .collect();
@@ -940,7 +942,7 @@ mod tests {
     }
 
     #[test]
-    fn effects_of_departed_sources_expire_at_round_start() {
+    fn effects_of_departed_sources_last_until_the_dm_ends_them() {
         let mut f = Fixture::new();
         let a = f.add("A", 0, 10);
         let b = f.add("B", 0, 10);
@@ -953,7 +955,11 @@ mod tests {
             f.state.effect(web).is_some(),
             "not concentration, so it lingers"
         );
-        f.ok(CombatCommand::NextTurn); // round 2 starts
+        for _ in 0..4 {
+            f.ok(CombatCommand::NextTurn); // on into rounds 2 and 3
+        }
+        assert!(f.state.effect(web).is_some(), "nothing ends it by itself");
+        f.ok(CombatCommand::RemoveEffect { effect: web });
         assert!(f.state.effect(web).is_none());
     }
 

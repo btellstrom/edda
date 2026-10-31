@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Plans for every DM device
+justified_by:
+- item: encounter_plans_are_kept_per_campaign_and_go_with_it
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: '4.20'
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: lfTTWnovtI2T3YVxSpd3bCsyzcKUPoRr6x_-oTT5JoI=
+text: |
+  Every DM device of a campaign shall see its plans.

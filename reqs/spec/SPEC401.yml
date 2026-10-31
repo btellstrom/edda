@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Experience by challenge
+justified_by:
+- item: tests::challenge_ratings_give_experience_points
+  path: crates/edda-types/src/encounter.rs
+  type: rust-fn
+level: 4.1
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: y8WT23cOUanU4DygNDq1n8rQG2mvZjHP0n3z6qnjRQM=
+text: |
+  A monster without experience points of its own shall be worth those of its challenge rating.

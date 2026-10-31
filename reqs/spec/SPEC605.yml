@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Players' spells
+justified_by:
+- item: tests::players_change_only_their_own_combatants
+  path: crates/edda-types/src/combat/permission.rs
+  type: rust-fn
+level: 6.5
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: FaCAd2bqpiz6VDgN1vPWup6Uny-lZHjMjiUVR96UsYY=
+text: |
+  A player's spell shall target only the combatants their device plays, but for concentration.

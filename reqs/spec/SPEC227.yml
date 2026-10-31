@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Casts and uses are logged
+justified_by:
+- item: |
+    tests::spells_and_features_are_recorded_and_concentration_comes_into_play
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.27
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: 5_oaBmsDU8Yuxg8p6b2ePIe8bLZnNyjuQCuQulQvlik=
+text: |
+  Casting a spell or using a feature in a combat shall be recorded in its log, with the spell or feature and its targets.

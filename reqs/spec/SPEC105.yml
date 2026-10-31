@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Ability scores
+justified_by:
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+- item: rejects_invalid_sheets
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.5
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: PauAHdjJwuMRLnkV38TkSxSw0-C1gkyDn0HEV7_YO-g=
+text: |
+  A sheet with an ability score outside 1 to 30 shall be invalid.

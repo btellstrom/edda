@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Ended combats
+justified_by:
+- item: tests::ended_combat_rejects_everything_and_ids_are_unique
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: tests::an_ended_combat_only_undoes_its_ending
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 2.35
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: SPIW7w9h-HEwzcia70-dVRQNqNHr2axKc7f-MRKy4jY=
+text: |
+  An ended combat shall refuse every command but to undo its ending.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  2024: budgets
+justified_by:
+- item: tests::rules_2024_compare_plain_xp_with_the_party_budget
+  path: crates/edda-types/src/encounter.rs
+  type: rust-fn
+level: 4.5
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: QC8rblMRtDgCyFaVua7Xb901rXf8yJSYtDxHVsdU2wM=
+text: |
+  Under the 2024 rules, an encounter's difficulty shall be the highest of the party's Low, Moderate and High budgets its experience points reach, without a multiplier.

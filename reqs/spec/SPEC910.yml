@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Stat blocks
+justified_by:
+- item: tests::a_stat_block_shows_what_a_fight_needs
+  path: crates/edda/src/display.rs
+  type: rust-fn
+level: '9.10'
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: sollDj0rivqxqd9PjnXU2NaNs4ISIlzXHEptfD3ihHs=
+text: |
+  edda shall show in a stat block what a fight needs.

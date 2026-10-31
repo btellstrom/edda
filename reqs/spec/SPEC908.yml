@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Completion escapes spaces
+justified_by:
+- item: tests::candidates_match_any_case_and_escape_spaces_for_bash
+  path: crates/edda/src/complete.rs
+  type: rust-fn
+level: 9.8
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: 8SY2jG7afY9bR3waHrj5iPZfFXAdSmQzz7MVoVq50o4=
+text: |
+  Shell completion shall escape the spaces in a name.

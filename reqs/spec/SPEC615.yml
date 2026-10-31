@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Other campaigns' characters
+justified_by:
+- item: campaigns_only_see_their_own_characters
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 6.15
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: zmOiOvM0nzOHqysUEF80Ru-Gj_0h3YduzeNnxoj2-Bk=
+text: |
+  A character of another campaign shall be answered as not found.

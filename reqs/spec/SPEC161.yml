@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Stale replaces
+justified_by:
+- item: stale_put_cannot_undo_actions
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: put_requires_a_valid_if_match
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: stale_replace_reports_current_and_modify_merges
+  path: crates/edda-client/tests/client.rs
+  type: rust-fn
+level: 1.61
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: t-5HY49Hi98-2xPQdAA7fC6xr7cwYysre7VNZFHyBRc=
+text: |
+  A PUT of a character whose If-Match is not its current version shall be answered with 412, the current character and its ETag.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Replacing a character
+justified_by:
+- item: full_crud_lifecycle
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.18
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: oqrhmHyWxvyNYuzY8B7rVat5TXQdEWTOrgVa9oyIAJ8=
+text: |
+  A PUT of a character shall replace its sheet, add one to its version, and keep the time it was created.

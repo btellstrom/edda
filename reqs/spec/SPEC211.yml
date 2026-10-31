@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Rolls given by players
+justified_by:
+- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: full_encounter_with_complete_log
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.11
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: HuaBj-GcTDhq0yYcQN6RiP-8UdXU0IEnlnF2CwGgMdg=
+text: |
+  A d20 roll given for a combatant shall be from 1 to 20, and add the combatant's initiative modifier.

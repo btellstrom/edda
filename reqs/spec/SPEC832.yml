@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Never what was asked
+justified_by:
+- item: tests::requests_are_logged_with_whose_they_are_and_never_what_was_asked
+  path: crates/edda-server/src/observe.rs
+  type: rust-fn
+level: 8.32
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: LTCBH68FKImLYHCW8kCu8sBMgpr77xeoskLPfD02sHw=
+text: |
+  A service shall never log what a request sent or asked for.

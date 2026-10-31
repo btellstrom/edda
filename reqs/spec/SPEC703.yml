@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  edda checks the device list
+justified_by:
+- item: tests::the_device_table_checks_every_certificate_here
+  path: crates/edda/src/auth.rs
+  type: rust-fn
+level: 7.3
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: EwNytuZWsOATXNPjSz0SqnL5RxuY-QoG7zlXM17OeAE=
+text: |
+  edda shall check the signature of every certificate in a campaign's device list itself.

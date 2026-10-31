@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Concentration comes into play
+justified_by:
+- item: |
+    tests::spells_and_features_are_recorded_and_concentration_comes_into_play
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.24
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: UKTnMu1BwrXXzi4kBphfLRM0szjX3nEJokVChEDXsFA=
+text: |
+  Casting a spell with concentration shall put it into play as an effect with the caster as its source.

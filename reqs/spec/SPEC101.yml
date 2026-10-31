@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  A name is enough
+justified_by:
+- item: tests::minimal_json_fills_defaults
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+level: 1.1
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: HSVloPQU8P7b-zGw_A3BgPAVebfBOaZa-U3lXDJ3wTY=
+text: |
+  A character sheet that gives only a name shall be valid.

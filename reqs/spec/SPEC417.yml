@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The monster being added
+justified_by:
+- item: tests::a_monster_being_added_shows_its_stat_block
+  path: crates/edda/src/plan/ui.rs
+  type: rust-fn
+level: 4.17
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: x6nJOapmAfw_kMBAhw_ZBtV5WYT8RlcFnc1K6f88NBk=
+text: |
+  The planning screen shall show the stat block of the monster being added.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The shared library by edition
+justified_by:
+- item: campaigns_see_the_shared_monsters_of_their_edition
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: '5.10'
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: idVPD3IuTeYsQhbUc-1fJsxEtJlL9b5Ie07eKuqiXuQ=
+text: |
+  A campaign shall see the shared monsters of its own edition only.

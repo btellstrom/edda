@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Tokens expire
+justified_by:
+- item: tests::tokens_verify_only_with_the_right_key_and_until_they_expire
+  path: crates/edda-auth/src/server.rs
+  type: rust-fn
+level: 7.13
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: 7PaDYfOjcmMY2BjkH5-m6QQeH-JYN5GMCWb6o1RFLeU=
+text: |
+  A token shall be valid only until it expires.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Casting at a higher level
+justified_by:
+- item: tests::upcasting_and_pact_slots
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+level: 1.38
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: yCYiKogy8AG4ZmudHTUIhyJEvryDoPoPT5jtA-JB6Hk=
+text: |
+  Casting a spell at a higher level shall spend a slot of that level.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Every section of a sheet
+justified_by:
+- item: tests::the_panel_finds_every_section_a_sheet_draws
+  path: crates/edda/src/display.rs
+  type: rust-fn
+level: 9.9
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: 8Bt4OVtpT7cggIAtyaFC3KMKLoKN6i0EPoTbSgQ95U0=
+text: |
+  edda shall show every section of a character sheet.

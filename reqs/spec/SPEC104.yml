@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Blank names
+justified_by:
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+- item: tests::shared_validation_runs
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+- item: invalid_edits_are_rejected
+  path: crates/edda-client/tests/client.rs
+  type: rust-fn
+level: 1.4
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: tmPVsbfDIicB0q7dOiw7XBEyJEtyY4h8zQmzteRQBxI=
+text: |
+  A sheet whose name is blank shall be invalid.

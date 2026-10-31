@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Third casters in a multiclass
+justified_by:
+- item: tests::multiclass_casters_share_one_pool_from_their_combined_level
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+level: 1.34
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: avhMRMOxuuSlTTeC6xI2uDZ-hZx11hHj9ltVaLrCvT0=
+text: |
+  A third caster's levels shall count a third towards the combined caster level, rounded down.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Nothing overspent
+justified_by:
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+level: 1.8
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: QOohNVlxX8LkQmZ1NSnJJC7hU1CIW7zOwspu2CUrPUI=
+text: |
+  A sheet with more of a pool used than the pool holds shall be invalid.

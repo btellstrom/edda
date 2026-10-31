@@ -11,3 +11,5 @@
 /data/characters/
 __pycache__/
 /backups
+# Doorstop, for the requirements (`uv sync`).
+.venv/

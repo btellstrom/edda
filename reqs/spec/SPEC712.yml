@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Tokens from the auth service
+justified_by:
+- item: tests::tokens_verify_only_with_the_right_key_and_until_they_expire
+  path: crates/edda-auth/src/server.rs
+  type: rust-fn
+- item: requests_need_a_valid_token
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 7.12
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: ot33bHuCEzpFc1k-monf6Ix4bvTkKvhqsRUqmzMFrYI=
+text: |
+  A token shall be valid only when signed with the auth service's key.

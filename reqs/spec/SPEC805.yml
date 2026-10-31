@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Deleting a campaign's library
+justified_by:
+- item: importing_again_updates_and_campaigns_can_be_deleted
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: 8.5
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: adSQtGxtZ_hlKkx2H1K-GnTIhDgAb--JktF1b5szGqs=
+text: |
+  Deleting a campaign shall delete its own monsters, spells and conditions.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Players' combatants
+justified_by:
+- item: tests::players_change_only_their_own_combatants
+  path: crates/edda-types/src/combat/permission.rs
+  type: rust-fn
+- item: players_change_only_their_own_combatants_and_end_only_their_own_turn
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 6.4
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: op0CIp2dNwbvwzK5ibpCHEdjHd2pYnC5CV6jyCOdOcA=
+text: |
+  In a combat, a player's device shall change only the combatants it plays.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Signatures are bound to their purpose
+justified_by:
+- item: tests::signatures_are_bound_to_key_value_and_purpose
+  path: crates/edda-auth/src/keys.rs
+  type: rust-fn
+level: 7.1
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: uXOWOI5nqAuLDPuYiJTGfguLSx-fLJN-RQb-Dx5VVaw=
+text: |
+  A signature shall cover its purpose as well as its value, so that one made for one purpose never passes for another.

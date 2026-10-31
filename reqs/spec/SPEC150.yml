@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  What a short rest leaves
+justified_by:
+- item: tests::recharge_rules
+  path: crates/edda-types/src/resources.rs
+  type: rust-fn
+- item: tests::short_rest_restores_short_rest_resources_and_pact_slots_only
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: '1.50'
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: T-oHkBFklvUdMyS1evvoJ0j_MRgZNRN5j459Pn97B54=
+text: |
+  A short rest shall leave spent the uses of features that recharge on a long rest, and the spell slots outside Pact Magic.

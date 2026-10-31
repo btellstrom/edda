@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Forwarded addresses
+justified_by:
+- item: tests::without_a_trusted_proxy_clients_cant_say_whose_they_are
+  path: crates/edda-server/src/observe.rs
+  type: rust-fn
+level: 8.33
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: LQ3CTME9AypQELxV0PdyY8EHbrzTWvmxyC7Fgm04CCM=
+text: |
+  A service shall believe a client's forwarded address only from a trusted proxy.

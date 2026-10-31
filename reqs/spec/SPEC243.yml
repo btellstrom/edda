@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  A command applies once
+justified_by:
+- item: resent_commands_are_applied_once
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: instances_share_combats
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.43
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: CrzpLa03jE-Vzfh60yUDlq5lx2hnNI-oCEGDyl24mVg=
+text: |
+  A command sent again with the same id shall be applied only once, on any instance.

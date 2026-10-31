@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Features recharged by hand
+justified_by:
+- item: tests::recharge_rules
+  path: crates/edda-types/src/resources.rs
+  type: rust-fn
+level: 1.54
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: hED1trC24lr712fc-REpBy7nOV7MQkEDd13uEWUNyiE=
+text: |
+  No rest shall restore the uses of a feature that recharges by hand.

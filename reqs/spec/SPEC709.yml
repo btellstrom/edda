@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The auth service is pinned
+justified_by:
+- item: devices_refuse_to_log_in_to_an_unexpected_server
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.9
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: PR5zDJuNQmr9sYRr8NDDuMg82-KckbSsVglR5GKW-hk=
+text: |
+  A device shall refuse to log in to an auth service other than the one it first used.

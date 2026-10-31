@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Plans per campaign
+justified_by:
+- item: encounter_plans_are_kept_per_campaign_and_go_with_it
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 4.19
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: p5RXW5DWq8156sv-AQIkoVq8QydKBcGW6HDnfCI1OIs=
+text: |
+  Plans shall be kept per campaign.

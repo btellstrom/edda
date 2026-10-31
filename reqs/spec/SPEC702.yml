@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Tampered certificates
+justified_by:
+- item: tests::tampering_with_any_field_breaks_the_signature
+  path: crates/edda-auth/src/cert.rs
+  type: rust-fn
+level: 7.2
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: gE2q0h8-9WgjBW7SeO3LBI6kfe97o2p3oaVbYiyeN7M=
+text: |
+  A device certificate with any field changed shall fail its signature check.

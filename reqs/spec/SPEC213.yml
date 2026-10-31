@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Starting
+justified_by:
+- item: tests::turns_advance_and_wrap_into_new_rounds
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.13
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: HKvvn-ccMg63d7AEGKkCfHFjkiafgZpX4nq9eh3epTc=
+text: |
+  Starting a combat shall begin round 1 with the turn of the first in the initiative order.

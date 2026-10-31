@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Devices by name or key
+justified_by:
+- item: tests::devices_are_found_by_name_or_key_but_not_once_revoked
+  path: crates/edda/src/auth.rs
+  type: rust-fn
+level: 7.17
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: 0sNzN6Ycg_DqIPsrFz8_W9AEtR84RN8IF-XMrkYPusI=
+text: |
+  edda shall find a device by its name or its key.

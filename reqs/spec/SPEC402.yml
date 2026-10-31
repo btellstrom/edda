@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  2014: numbers multiply
+justified_by:
+- item: tests::rules_2014_multiply_for_numbers_against_the_party_thresholds
+  path: crates/edda-types/src/encounter.rs
+  type: rust-fn
+level: 4.2
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: _fWFyDSQ7bpTxl5_ypeMu6sGfJ3EREfubNNXUb37H8A=
+text: |
+  Under the 2014 rules, an encounter's experience points shall be multiplied by the multiplier for its number of monsters.

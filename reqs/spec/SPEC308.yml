@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  A combat that moved on
+justified_by:
+- item: tests::undoing_a_turn_rewinds_round_turn_and_expiries
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.8
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: FbGLzYxVJaZcS_d4h9ukj-_4fBOrTSIK2Qo_m_nYNiM=
+text: |
+  Undoing a command whose round, turn or status has been moved since shall be refused.

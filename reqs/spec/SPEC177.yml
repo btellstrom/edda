@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Proficiencies once
+justified_by:
+- item: tests::proficiencies_are_deduplicated
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.77
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: UirzMqLlHDqJeKlcoRCgautQjG4zitavZ2BdlF_lJuQ=
+text: |
+  Adding a skill or saving throw proficiency the character has, in any case or spelling edda reads, shall leave a single one.

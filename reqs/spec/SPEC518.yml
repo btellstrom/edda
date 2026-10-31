@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Conditions
+justified_by:
+- item: spells_and_conditions_are_kept_like_monsters
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: 5.18
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: p1jzSv3YRzun8VdrSNPEb9obXzy8Ud4Ah1HyiY6eFrs=
+text: |
+  Conditions shall be shared by edition and kept by campaigns like monsters.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Who plays whom
+justified_by:
+- item: players_change_only_the_characters_their_device_plays
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 6.2
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: QK4gsIno4Wcqfg9U60YerHERJdPQj0htOuLFdxzoHNw=
+text: |
+  Only a DM device shall choose which device plays a character.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Failed actions change nothing
+justified_by:
+- item: tests::failed_actions_leave_sheet_unchanged
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.44
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: KyyzUKW0FS4RD8nk61qGUZT1O5pxmrdGSqZ7fJhrkBc=
+text: |
+  An action on a sheet that is refused shall leave the sheet unchanged.

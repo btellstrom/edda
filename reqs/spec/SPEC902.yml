@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  What each route answers
+justified_by:
+- item: every_route_says_what_it_answers
+  path: crates/edda-client/tests/openapi.rs
+  type: rust-fn
+level: 9.2
+links:
+- NEED008: svIafaXqqk_eyW972-xiIYpbBc07b91WILtv9vtnDPE=
+normative: true
+ref: ''
+reviewed: owXpfx9fKyX8QaEbhXlK2f7-IjSFHobD0w9VpkDsXLE=
+text: |
+  `docs/openapi.json` shall say what each route answers.

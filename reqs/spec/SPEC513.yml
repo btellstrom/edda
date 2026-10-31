@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The shared library stays
+justified_by:
+- item: campaigns_keep_their_own_monsters_and_cannot_change_shared_ones
+  path: crates/monster-service/tests/api.rs
+  type: rust-fn
+level: 5.13
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: 0eYy6YzDh6ogQzB7XjkfoXdzvvhklBiXFOaXnE4c_KE=
+text: |
+  A campaign shall not change a shared monster.

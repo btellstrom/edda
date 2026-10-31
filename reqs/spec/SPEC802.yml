@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Deleting a campaign's devices
+justified_by:
+- item: deleting_a_campaign_locks_out_its_devices_and_leaves_others_alone
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 8.2
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: -CqCWyNryYswQfv1OwaZWIeFAQ7fJCSEOYufCkB6vzA=
+text: |
+  Deleting a campaign shall lock out its devices.

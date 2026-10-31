@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The party
+justified_by:
+- item: tests::the_party_is_everyone_unless_someone_sits_out
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 4.6
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: 1AEdoKElRjayETDYmC5juyvCAp2xrpD6wgJdBqmMYsQ=
+text: |
+  A plan's difficulty shall be worked out for every character in the campaign but those set to sit out.

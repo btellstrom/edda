@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  One feature, one name
+justified_by:
+- item: tests::validation_rejects_bad_sheets
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+- item: tests::resources
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.7
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: Q8zkktGfXK5q9y76-VVOTh6MVZ2vgpTsycdjZRRREiY=
+text: |
+  A sheet with two class features of the same name, ignoring case, shall be invalid.

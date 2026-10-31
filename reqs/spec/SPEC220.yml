@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  One id, one combatant
+justified_by:
+- item: tests::ended_combat_rejects_everything_and_ids_are_unique
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: '2.20'
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: UIPapITsRnsWZg_v3STbK-0wSUE2paUiLLHMTOXiUeg=
+text: |
+  A combatant with the id of one already in the combat shall not join it.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Third casters
+justified_by:
+- item: tests::the_editions_differ_on_when_half_casters_start
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+- item: tests::single_class_casters_use_their_own_table
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+level: 1.31
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: C8CByzwmNLmGETUqm3Nxc-NMASmCpCHsf9Pgha9XxuI=
+text: |
+  An Eldritch Knight or Arcane Trickster shall get spell slots from level 3.

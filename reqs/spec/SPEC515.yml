@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Names in any case
+justified_by:
+- item: tests::names_are_found_in_any_case_the_campaigns_own_first
+  path: crates/edda-types/src/rules_text.rs
+  type: rust-fn
+level: 5.15
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: 8KUi8FC_Z5iaZ4WDf6tJyzN7g215sksw0ip9nPvhvOI=
+text: |
+  A monster, spell or condition shall be found by its name in any case.

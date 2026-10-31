@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Ties by joining
+justified_by:
+- item: tests::initiative_order_breaks_ties_by_modifier_then_join_order
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.7
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: t5D8tk2_-t4oHdqXNOxcohfYUvvL9EOuMjJb3CoyUNU=
+text: |
+  Of combatants tied on initiative and modifier, the one who joined first shall go first.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Ambiguous and unknown names
+justified_by:
+- item: tests::ambiguous_and_missing_are_errors
+  path: crates/edda/src/parse.rs
+  type: rust-fn
+level: 9.5
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: b3aV8O3jps_KJbLrbrqyRyqGC6Yp1PnHrePDT8LYxek=
+text: |
+  edda shall refuse a name that fits none or more than one.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  The admin API's settings
+justified_by:
+- item: tests::it_takes_both_settings_or_neither
+  path: crates/edda-server/src/admin.rs
+  type: rust-fn
+level: 8.8
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: 1_243T5f9gMNGaRBXxlDbFTXhXxeDoQULA0RgKowhRY=
+text: |
+  A service shall serve its admin API only when given both an address and a token for it.

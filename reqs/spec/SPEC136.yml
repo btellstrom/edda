@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Spent slots stay spent
+justified_by:
+- item: tests::spent_slots_stay_spent_up_to_the_new_number
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+- item: spell_slots_follow_the_classes_under_the_campaigns_edition
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.36
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: Z0hoMQo3gGHAxljzCxCiEBow-8w4ouSfrPaY9h-uUh4=
+text: |
+  When a character's slots are worked out again, the slots already spent shall stay spent, up to the new number of slots.

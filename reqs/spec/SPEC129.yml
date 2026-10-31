@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Half casters by edition
+justified_by:
+- item: tests::the_editions_differ_on_when_half_casters_start
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+- item: spell_slots_follow_the_classes_under_the_campaigns_edition
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.29
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: hy8jSaRo6QVI7oQLqO8ArPQIjD0LtvshSHL26MF9IX4=
+text: |
+  A Paladin or Ranger shall get spell slots from level 2 under the 2014 rules and from level 1 under the 2024 rules.

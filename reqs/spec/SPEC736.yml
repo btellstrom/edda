@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Forgetting a campaign
+justified_by:
+- item: tests::forgetting_the_campaign_in_use_leaves_none_chosen
+  path: crates/edda/src/identity.rs
+  type: rust-fn
+level: 7.36
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: XTocjVSZ2-4D2oigW4bwcAGNv92xmqx77mYnc7C-quM=
+text: |
+  Forgetting the campaign in use shall leave none in use.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  What only others may do
+justified_by:
+- item: a_player_is_told_before_sending_what_only_others_may_do
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.23
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: Jp59KgaEAADUs1xCszr40Hm8g27LSCJ_tU67Wi73y7o=
+text: |
+  The fight screen shall tell a player before sending when a command is one only others may give.

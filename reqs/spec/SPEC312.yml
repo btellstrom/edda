@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Undoing a cast
+justified_by:
+- item: tests::undoing_a_cast_ends_its_effect_and_restores_the_one_it_replaced
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.12
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: 975Wb6nuJs8B1jLzaRb3JJYn8mC9GpCjhH0akxylbyY=
+text: |
+  Undoing a cast shall end the effect it put into play and bring back the concentration effect it replaced.

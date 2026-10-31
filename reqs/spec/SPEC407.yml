@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Each at their level
+justified_by:
+- item: tests::the_party_is_everyone_unless_someone_sits_out
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 4.7
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: BHYw992OqIzjyef4beeR42iNlpFNO59NPP6pqN4SbfA=
+text: |
+  Each character in the party shall count at their own level.

@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Every change to every device
+justified_by:
+- item: undos_reach_everyone_and_replicas_wait_for_them
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: changes_are_pushed_to_every_connected_client
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: instances_share_combats
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.37
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: V5k7T8kMSisCXzFKTqgenb5x4ahim2t_F9InAzPkUY8=
+text: |
+  Every change to a combat shall be pushed to every device connected to it.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  One campaign in use
+justified_by:
+- item: tests::joining_adds_a_campaign_and_switches_to_it
+  path: crates/edda/src/identity.rs
+  type: rust-fn
+level: 7.34
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: Airt9gySW4rYu3CoUtqSTX8ZgbaOcn9HewCoIwSIwW0=
+text: |
+  A device shall use one of its campaigns at a time, the one it joined last until another is chosen.

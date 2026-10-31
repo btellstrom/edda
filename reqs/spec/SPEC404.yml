@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  2014: thresholds
+justified_by:
+- item: tests::rules_2014_multiply_for_numbers_against_the_party_thresholds
+  path: crates/edda-types/src/encounter.rs
+  type: rust-fn
+level: 4.4
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: 4QzSkktOBKMQyCeVGNjnKlX5qsH5SIEqBdJWHIJSj70=
+text: |
+  Under the 2014 rules, an encounter's difficulty shall be the highest of the party's Easy, Medium, Hard and Deadly thresholds its multiplied experience points reach.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Setup codes work once
+justified_by:
+- item: setup_codes_work_once_and_make_a_dm
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.4
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: nevBA5RnEvydx2oyZx0_A9lHf0LrMJ6x_l-zQlB8E1g=
+text: |
+  A campaign's setup code shall admit one device only.

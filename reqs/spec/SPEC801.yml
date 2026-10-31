@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Deleting a campaign's characters
+justified_by:
+- item: deleting_a_campaign_deletes_only_its_characters
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 8.1
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: 78LHV4X-9UZa2LGg04ckgOY2xIv9iZklVU57UKso-nI=
+text: |
+  Deleting a campaign shall delete its characters.

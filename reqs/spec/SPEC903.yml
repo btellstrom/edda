@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Exact names first
+justified_by:
+- item: tests::exact_name_beats_prefix
+  path: crates/edda/src/parse.rs
+  type: rust-fn
+level: 9.3
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: Hd8WZ7PDMuMtFZrwQtXlzOiTfPC6LQwtQftXyzwAs7I=
+text: |
+  edda shall take an exact name over a prefix of another.

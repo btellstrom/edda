@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Whose a request was
+justified_by:
+- item: tests::requests_are_logged_with_whose_they_are_and_never_what_was_asked
+  path: crates/edda-server/src/observe.rs
+  type: rust-fn
+level: 8.31
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: xPqz2pINqBbsqR1ySdfROIgIwZU5e-3t2b7f2UZilqU=
+text: |
+  A service shall log each request with whose it was.

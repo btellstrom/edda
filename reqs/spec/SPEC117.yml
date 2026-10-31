@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Fetching a character
+justified_by:
+- item: tests::character_round_trips_through_json
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+- item: full_crud_lifecycle
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.17
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: AL1G9kH7fsvVJuIGdf4N-kZPGX4u8AYqjSWDo20LA-I=
+text: |
+  A GET of a character shall answer the character as it was stored.

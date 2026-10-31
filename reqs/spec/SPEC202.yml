@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  A complete log
+justified_by:
+- item: full_encounter_with_complete_log
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: concurrent_commands_are_serialized
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: instances_share_combats
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.2
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: xwBcgtjbpa5le2l44KELK7b8I6Tsn49WtftypM-KTHM=
+text: |
+  A combat's log shall keep every event, numbered from 1 without gaps.

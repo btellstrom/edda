@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Saying what a line does
+justified_by:
+- item: the_sentence_fills_in_as_you_type
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.15
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: oMUlDtLwCUdNL5Wx4P9PBuzHxhAX3jxOD58RMPRgmno=
+text: |
+  The fight screen shall say in words who does what to whom as a line is typed.

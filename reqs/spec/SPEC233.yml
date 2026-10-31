@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Resuming
+justified_by:
+- item: tests::paused_combat_only_resumes_or_ends
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: paused_combats_resume_days_later_on_any_instance
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.33
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: KuGqYHIFt1a3DxdcOH-4unp4q0f_7eopur9LgZBTzxM=
+text: |
+  Resuming a paused combat shall carry on at the round and turn where it was paused.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Spell save DC
+justified_by:
+- item: tests::proficiency_scales_with_level
+  path: crates/edda-types/src/character.rs
+  type: rust-fn
+level: 1.24
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: vKyvU2tFHmVWmyEpKy3g64EjMPjkCzM1tjLYbTtOhpk=
+text: |
+  A spell save DC shall be 8 + the proficiency bonus + the spellcasting ability's modifier.

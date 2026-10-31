@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Every character in sight
+justified_by:
+- item: players_change_only_the_characters_their_device_plays
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 6.3
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: 6ldJcF4Gn6ZDC-v2SwexGkBEpSizRCEX5yBnpG5vbAU=
+text: |
+  Every device in a campaign shall see every character in it.

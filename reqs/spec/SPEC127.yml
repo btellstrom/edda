@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  One caster's table
+justified_by:
+- item: tests::single_class_casters_use_their_own_table
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+- item: spell_slots_survive_the_round_trip
+  path: crates/edda-client/tests/client.rs
+  type: rust-fn
+level: 1.27
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: p9pvaI4fHErygJJROU0w-MWkG3r360ueBgm86KHKUC0=
+text: |
+  A character with one spellcasting class shall have the spell slots of that class's table at their level.

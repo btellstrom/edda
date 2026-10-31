@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  The part of the sheet a line needs
+justified_by:
+- item: lines_point_at_the_part_of_the_sheet_they_need
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+- item: tests::typing_a_cast_turns_the_panel_to_spellcasting_and_lists_spells
+  path: crates/edda/src/fight/ui.rs
+  type: rust-fn
+level: 9.25
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: VHQoPNVhzTqxBUbqOhAjRV2vnx2_z-0PV9lC3D0yxSg=
+text: |
+  The side panel shall open the acting combatant's sheet at the part the line needs.

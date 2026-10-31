@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Colour
+justified_by:
+- item: tests::colour_is_only_added_when_wanted
+  path: crates/edda/src/styled.rs
+  type: rust-fn
+level: 9.11
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: 60J65eUFEhZHan5rLUekymBA7nh6IyifiBhYG1PBifg=
+text: |
+  edda shall add colour only when it is wanted.

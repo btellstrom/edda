@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Changing hit points
+justified_by:
+- item: tests::hp_accepts_relative_changes
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.66
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: 7SxbBIUGLmST2Ndy7KNt7atRMhngyh_LV_abGp1lTh8=
+text: |
+  `edda set hp` with a signed number shall add it to the character's hit points.

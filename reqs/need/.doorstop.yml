@@ -1,0 +1,8 @@
+settings:
+  digits: 3
+  itemformat: yaml
+  prefix: NEED
+  sep: ''
+attributes:
+  reviewed:
+  - justified_by

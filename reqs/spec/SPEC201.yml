@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  State from the log
+justified_by:
+- item: tests::replaying_the_log_rebuilds_the_state
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: full_encounter_with_complete_log
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.1
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: NVS_yH3YvincYsiwt-VSFkWu4tbYedV4TE6zOrx_934=
+text: |
+  A combat's state shall be the state its events rebuild when replayed from the first.

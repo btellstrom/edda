@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Removing items
+justified_by:
+- item: tests::items_stack_and_partially_remove
+  path: crates/edda/src/edit.rs
+  type: rust-fn
+level: 1.76
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: xIGyfDG0xkXVtcNZS3kqm5cV2QgYzJcFztzcWqf7kSI=
+text: |
+  Removing an item shall take away the quantity given, or the whole item when no quantity is given, matching its name in any case.

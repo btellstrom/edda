@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Own commands at once
+justified_by:
+- item: tests::own_commands_show_immediately_and_are_confirmed
+  path: crates/edda-client/src/combat.rs
+  type: rust-fn
+- item: changes_are_pushed_to_every_connected_client
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.45
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: 0FXs2ZpRoizW2v1EbRhOgLrVq1zDABl3KglIJpph3hk=
+text: |
+  A client shall show the outcome of its own commands before the server confirms them.

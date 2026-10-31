@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Broken concentration comes back
+justified_by:
+- item: tests::concentration_broken_by_damage_comes_back_unless_replaced
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.11
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: LuO_TfklSJdJYYJtqp0yXcOqwJE1DcYYF-hOODeaLfk=
+text: |
+  Undoing damage that broke concentration shall bring the effect back, unless its source has concentrated on something else since.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Single-use challenges
+justified_by:
+- item: challenges_can_be_answered_only_once
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.8
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: o2UMCBnb9bYKl9eXCtbTEMfjGlmw7ybwIscP8hDhEzQ=
+text: |
+  A login challenge shall be answerable only once.

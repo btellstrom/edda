@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Undoing initiative
+justified_by:
+- item: tests::initiative_goes_back_unless_changed_since
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.6
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: kmR3j80jBXYd-FbZqQmDQJCHLACvUmowFwwSLOtpTlo=
+text: |
+  Undoing a change to initiative shall put it back only if it has not changed since, and be refused otherwise.

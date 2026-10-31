@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Slots spent in a combat
+justified_by:
+- item: casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::casts_and_feature_uses_cost_what_they_say_and_give_it_back
+  path: crates/edda-types/src/combat/cost.rs
+  type: rust-fn
+level: 2.51
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: Q_eO9GTOpJ3eN6uvGEEgRUb3WV7ts7pH25Ql05SMJuA=
+text: |
+  Casting a spell with a slot in a combat shall spend the slot on the caster's sheet, once however often the command is sent.

@@ -1,0 +1,11 @@
+active: true
+derived: false
+header: |
+  Live combat
+level: 1.2
+links: []
+normative: true
+ref: ''
+reviewed: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+text: |
+  Edda shall run combats live on every device at the table, keep working through a dropped connection, and carry hit points and spent slots back to the character sheets.

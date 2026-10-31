@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Casting from the line
+justified_by:
+- item: casting_names_the_slot_and_concentration_becomes_an_effect
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.16
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: iaqViIj2TlDiw9Juas92wRewzN_DvD8L6hgXE6YMdns=
+text: |
+  A cast typed in the fight screen shall name the slot it spends, and a concentration spell shall become an effect.

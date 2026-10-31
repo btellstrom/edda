@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Web origins
+justified_by:
+- item: tests::origins_are_a_list_or_any
+  path: crates/edda-server/src/lib.rs
+  type: rust-fn
+level: 8.39
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: _IwFqKgaftCCVy7EpmXxjCYRsWTyD2K-XsZZNpFes-c=
+text: |
+  A service shall allow web pages from the origins it is given, and none when given none.

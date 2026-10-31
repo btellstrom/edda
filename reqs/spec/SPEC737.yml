@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Older profiles
+justified_by:
+- item: tests::a_profile_from_before_several_campaigns_carries_over
+  path: crates/edda/src/identity.rs
+  type: rust-fn
+level: 7.37
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: 0VeNuyYlpWwQ_YZsRI94PZfBP5HvRM5FX-QlYlYkH-Q=
+text: |
+  A device's profile from before it could be in several campaigns shall carry over as its one campaign.

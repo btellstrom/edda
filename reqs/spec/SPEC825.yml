@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Combats per campaign
+justified_by:
+- item: a_campaign_keeps_only_so_many_combats_events_and_watchers
+  path: crates/edda-client/tests/limits.rs
+  type: rust-fn
+level: 8.25
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: XUsurfGm_JhGp1sA5_W5t3p6znmm4LH9f36VENxchcg=
+text: |
+  A campaign shall keep no more combats than its limit.

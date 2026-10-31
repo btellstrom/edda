@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Devices on record
+justified_by:
+- item: only_known_devices_can_log_in_and_only_with_their_key
+  path: crates/edda-client/tests/auth.rs
+  type: rust-fn
+level: 7.6
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: 5UbZeDrQx6HHQeFGMZ1dINp-I3B-8FZYueKzTpiG1H0=
+text: |
+  Only a device on the campaign's record shall log in.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Names
+justified_by:
+- item: tests::a_monster_needs_a_name_hit_points_and_sane_dice
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+level: 5.3
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: sA4EDiKhfzIMRcOPWH7YHCKJJTJEM_Wbn36KejpX59E=
+text: |
+  A stat block without a name shall be invalid.

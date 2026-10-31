@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Characters per campaign
+justified_by:
+- item: a_campaign_keeps_only_as_many_characters_as_its_limit
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+- item: tests::quotas_say_when_a_campaign_is_full
+  path: crates/edda-server/src/limits.rs
+  type: rust-fn
+level: 8.22
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: vdU-Z1fsUSHNfsVVrOp-QhSFpItWqD4UFnwOlnSoXxY=
+text: |
+  A campaign shall keep no more characters than its limit.

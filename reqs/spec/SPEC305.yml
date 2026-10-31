@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Hit points of those who left
+justified_by:
+- item: tests::hit_points_of_someone_who_left_cant_be_put_back
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.5
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: yX8YOZjbTO_09jQj6xBYpt_ef3IQLo4Ecn7J_IU977g=
+text: |
+  Undoing a change to the hit points of a combatant who has left shall be refused.

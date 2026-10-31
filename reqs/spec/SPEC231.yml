@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Effects whose source has left
+justified_by:
+- item: tests::effects_of_departed_sources_last_until_the_dm_ends_them
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.31
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: aGlMrnEUn9XSZvsqKWVj5B0YE_QOIvQFyoioWArL6rY=
+text: |
+  An effect whose source has left the combat, and that is not concentration, shall last until it is removed by hand.

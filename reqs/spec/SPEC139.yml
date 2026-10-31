@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Casting with Pact Magic
+justified_by:
+- item: tests::upcasting_and_pact_slots
+  path: crates/edda-types/src/action.rs
+  type: rust-fn
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.39
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: -k0KCI8Z22XpiZmumNn_VYSVM99UGmkkQgBOqDQlY4M=
+text: |
+  Casting a spell with Pact Magic shall spend a pact slot.

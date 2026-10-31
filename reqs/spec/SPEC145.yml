@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Why an action is refused
+justified_by:
+- item: actions_spend_and_recover_resources
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.45
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: InTBYu6FvzXGWt0YMbRVQe8_MPSB34noMdbA1mV79Nk=
+text: |
+  The character service shall answer an action that finds too few uses or slots left with 409, and an action that cannot apply to the sheet with 422.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  A cramped planning screen
+justified_by:
+- item: tests::a_cramped_terminal_still_has_the_command_line
+  path: crates/edda/src/plan/ui.rs
+  type: rust-fn
+level: 4.18
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: 0rYupn24H2wh8L2bzcq3tfN5k9hhf2b0RbUnT-wtWOw=
+text: |
+  The planning screen shall keep its command line in a terminal too small for the rest.

@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  The admin token
+justified_by:
+- item: tests::only_requests_bearing_the_token_get_through
+  path: crates/edda-server/src/admin.rs
+  type: rust-fn
+- item: tests::comparing_is_exact
+  path: crates/edda-server/src/admin.rs
+  type: rust-fn
+- item: the_admin_api_wants_its_token_and_a_name
+  path: crates/edda-client/tests/admin.rs
+  type: rust-fn
+level: 8.9
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: 1Q_AyOoAB6IJydmdcT9NuImvUTsG_eiQKqk3EAUfmc4=
+text: |
+  The admin API shall answer only requests bearing exactly its token.

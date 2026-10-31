@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Deleting again
+justified_by:
+- item: a_campaign_is_created_set_up_and_deleted_through_the_admin_api
+  path: crates/edda-client/tests/admin.rs
+  type: rust-fn
+level: 8.7
+links:
+- NEED007: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+normative: true
+ref: ''
+reviewed: _ATP3E539XTk2ppEmI5_HUp8bAwcdeV5ew9i3og64XI=
+text: |
+  Deleting a campaign that is already deleted shall change nothing.

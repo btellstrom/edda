@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Adding to an entry
+justified_by:
+- item: tests::adding_counts_and_merges_with_an_entry_of_the_same_monster
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 4.8
+links:
+- NEED003: 6bYQ_HEjO831uQjHmUu5TInjPgTa3c2l69ku00sniSo=
+normative: true
+ref: ''
+reviewed: EPcbrzag4eKZVBbOZdBt2PoTfzGJoESScmPqFON26_M=
+text: |
+  Adding a monster already in the plan shall add to its entry.

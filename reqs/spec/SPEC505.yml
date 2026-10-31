@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Without hit dice
+justified_by:
+- item: tests::a_monster_needs_a_name_hit_points_and_sane_dice
+  path: crates/edda-types/src/monster.rs
+  type: rust-fn
+level: 5.5
+links:
+- NEED004: 2P6pxPaj7i5ESVSeU0j-Z4PE3RhTEOsPFVawDU9LiMY=
+normative: true
+ref: ''
+reviewed: BfTmIaQE43tSux89_YtWcHfyXQIBygWXGRSTtjVHlGg=
+text: |
+  A monster without hit dice shall have the hit points its stat block gives as its maximum.

@@ -1,0 +1,11 @@
+active: true
+derived: false
+header: |
+  The command line
+level: 1.9
+links: []
+normative: true
+ref: ''
+reviewed: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+text: |
+  Edda shall give everyone at the table a command line, `edda`, with full-screen views for fights and for planning them.

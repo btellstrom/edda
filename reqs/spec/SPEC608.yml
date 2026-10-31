@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Players' concentration
+justified_by:
+- item: tests::players_concentrate_on_anyone_but_only_for_themselves
+  path: crates/edda-types/src/combat/permission.rs
+  type: rust-fn
+level: 6.8
+links:
+- NEED005: RWmkq-3IyFv2g8BFae0QCM4GWjkmPJT0_RwDxIFCTZM=
+normative: true
+ref: ''
+reviewed: Cv4tw_yrglE2tz3jLLHk9YBoU_uUSuJ71JgYKpTwTDE=
+text: |
+  A player's concentration effect shall be allowed to name any combatant as its target.

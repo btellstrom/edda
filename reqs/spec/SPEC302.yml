@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Undoing a particular command
+justified_by:
+- item: tests::a_specific_command_can_be_undone_if_it_is_ones_own
+  path: crates/edda-types/src/combat/undo.rs
+  type: rust-fn
+level: 3.2
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: qqrD_KsNK2DzsfQzg60VLI3jMmg7hpvH0w4V4I3-R6U=
+text: |
+  An undo naming a command of the sending device's shall take back that command.

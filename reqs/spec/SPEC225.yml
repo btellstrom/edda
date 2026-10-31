@@ -1,0 +1,20 @@
+active: true
+derived: false
+header: |
+  One concentration at a time
+justified_by:
+- item: tests::concentration_is_replaced_and_broken
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: |
+    tests::spells_and_features_are_recorded_and_concentration_comes_into_play
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.25
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: Mjm9tPshpnW_D1OH2vgt9RY2Dz9EBYkQOsxt9YPYcqM=
+text: |
+  A combatant's new concentration effect shall end the one they were concentrating on.

@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Starting needs initiative
+justified_by:
+- item: tests::turns_advance_and_wrap_into_new_rounds
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+level: 2.12
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: p92rf-j0uhn77mcrqON7cK178jvQJUzGJHhWeV2P0qU=
+text: |
+  A combat in which nobody has initiative shall not start.

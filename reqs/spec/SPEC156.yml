@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Idempotency keys
+justified_by:
+- item: an_action_with_an_idempotency_key_is_applied_once
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.56
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: TlYA37sNQIQD56hUdF7oxWiXNoWZYyqQnMzxPPFw_VY=
+text: |
+  An action sent again with the same idempotency key shall be applied only once.

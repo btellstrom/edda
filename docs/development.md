@@ -109,12 +109,34 @@ checks the same locally. Raise the floor as coverage rises. `deny.toml` allows o
 licences. Release builds use fat LTO and strip symbols, which makes them
 about 40% smaller.
 
+## Requirements
+
+What Edda must do is kept with [Doorstop](https://github.com/doorstop-dev/doorstop)
+in `reqs/`: `NEED` items say what it is for, and `SPEC` items refine
+them. Each `SPEC` names the tests that show it is met, in its
+`justified_by`, and the scenarios in `features/` name theirs with
+`@justifies:SPECxxx` tags. Those scenarios are `@pending`: nothing runs
+them yet.
+
+[emperor](https://github.com/btellstrom/emperor) keeps the two in step:
+`emperor.lock` holds a fingerprint of every justification as it was when
+someone last read it and agreed it shows its requirement is met, and
+`emperor check` fails when one has changed since, gone, or never been
+accepted. So a changed test is read again, not just run again:
+
+```sh
+uv sync                        # Doorstop, once
+uv run doorstop review SPEC213 # after reading a changed requirement
+emperor accept SPEC213         # after reading its changed justifications
+make reqs                      # both checks, as CI runs them
+```
+
 ## CI and releases
 
 `.github/workflows/ci.yml` runs on every push to master and every pull
 request: formatting, lints and the docs; the tests against a Postgres service, the
 SRD ones included, with a coverage report and floor; cargo-deny and cargo-machete
-(unused dependencies); the smoke test; and the Helm chart, linted,
+(unused dependencies); the requirements, reviewed and still justified; the smoke test; and the Helm chart, linted,
 validated by kubeconform and installed in kind. Dependabot opens weekly pull
 requests for newer crates, base images and actions.
 

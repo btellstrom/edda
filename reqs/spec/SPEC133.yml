@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Half casters in a multiclass
+justified_by:
+- item: tests::multiclass_casters_share_one_pool_from_their_combined_level
+  path: crates/edda-types/src/slots.rs
+  type: rust-fn
+level: 1.33
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: XZiDUxV3N4QMpuDhz0AuCrTWVuwdf19fDeQiF2BuMUo=
+text: |
+  A half caster's levels shall count half towards the combined caster level, rounded down under the 2014 rules and up under the 2024 rules.

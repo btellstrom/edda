@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Features on oneself
+justified_by:
+- item: features_are_used_on_oneself_only
+  path: crates/edda/src/fight/command/tests.rs
+  type: rust-fn
+level: 9.17
+links:
+- NEED009: ZXEFYsd4dDNR2tAuOFXsV4rQAQw1mHD2mw2cn_nqTes=
+normative: true
+ref: ''
+reviewed: I5ed0Di_idxV6uuNLX1faROtYcU2KGHJiRYkQOgYiVA=
+text: |
+  A feature used from the fight screen shall be used by the one acting, on themselves.

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  The server's dice
+justified_by:
+- item: tests::server_rolls_use_dice_and_clients_cannot_predict_them
+  path: crates/edda-types/src/combat/rules.rs
+  type: rust-fn
+- item: full_encounter_with_complete_log
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.9
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: S3TNQT6xPsTgODjtOgMjAxJQf6FcNK3JXb3ivu00DhI=
+text: |
+  Initiative rolled for a combatant shall be a d20 from the server's dice plus the combatant's initiative modifier.

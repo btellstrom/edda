@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Invalid sheets refused
+justified_by:
+- item: rejects_invalid_sheets
+  path: crates/character-service/tests/api.rs
+  type: rust-fn
+level: 1.9
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: wwyzYhs9-WN9SUIC0S6TzAGrhBZ6PKGUctQBHlWgU34=
+text: |
+  The character service shall answer an invalid sheet with 422 and an error naming what is wrong.

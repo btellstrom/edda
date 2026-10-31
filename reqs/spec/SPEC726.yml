@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Typos in codes
+justified_by:
+- item: tests::codes_parse_forgivingly_and_reject_typos
+  path: crates/edda-auth/src/pairing.rs
+  type: rust-fn
+level: 7.26
+links:
+- NEED006: HMEXWaTcDL3-wP6H0rOaego9PWD8EFnOT7qDhyHnILg=
+normative: true
+ref: ''
+reviewed: sjWPaK-EfEwcCRVtiKgC1U08GB65PIU5doNuEQevpsw=
+text: |
+  A pairing code with a word that isn't in the word list shall be refused, naming the word.

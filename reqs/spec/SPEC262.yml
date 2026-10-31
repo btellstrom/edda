@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  A plan with a monster gone
+justified_by:
+- item: a_fight_starts_from_a_plan_with_its_monsters_or_not_at_all
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::a_fight_needs_monsters
+  path: crates/edda/src/plan/command.rs
+  type: rust-fn
+level: 2.62
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: T0ooMs6oPWOc1UWI8JkQVDnhC1UORJnGuUf5G0yw1hM=
+text: |
+  A combat from a plan with a monster no longer in the library shall not be started, and the monster shall be named.

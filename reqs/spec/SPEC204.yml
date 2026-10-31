@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Listing combats
+justified_by:
+- item: full_encounter_with_complete_log
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: paused_combats_resume_days_later_on_any_instance
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+level: 2.4
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: 5-KOK8QBdo2KoqGtXbQB8RpU_EnZZuMOWtXCyCD0B5g=
+text: |
+  Listing a campaign's combats shall give each one's status and round, and only those of a status when one is asked for.

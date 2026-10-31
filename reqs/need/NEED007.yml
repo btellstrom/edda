@@ -1,0 +1,11 @@
+active: true
+derived: false
+header: |
+  Running the servers
+level: 1.7
+links: []
+normative: true
+ref: ''
+reviewed: 1NloIXnT2Hrqbclm9y7IsVI2AJUJlHhbNMjcpNJW4h8=
+text: |
+  Edda shall be runnable safely by whoever hosts it, alone or for others: with limits, an admin API, backups, moving campaigns between servers, and what it takes to see that it is healthy.

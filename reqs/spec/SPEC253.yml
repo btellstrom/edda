@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Refused casts cost nothing
+justified_by:
+- item: casting_spends_the_slot_on_the_sheet_and_refusals_and_undo_give_it_back
+  path: crates/edda-client/tests/combat.rs
+  type: rust-fn
+- item: tests::casts_and_feature_uses_cost_what_they_say_and_give_it_back
+  path: crates/edda-types/src/combat/cost.rs
+  type: rust-fn
+level: 2.53
+links:
+- NEED002: 03w--l5NQ0pHQBWHsGtUP5P3wJt1CIzsVwGtr99QC9E=
+normative: true
+ref: ''
+reviewed: M1L797zndyXn0GY964ESEozoAzwuIfVfEELiPczlsIw=
+text: |
+  A cast refused by the rules of the combat shall give back the slot it spent.

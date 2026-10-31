@@ -1,0 +1,16 @@
+active: true
+derived: false
+header: |
+  Fields left empty
+justified_by:
+- item: tests::omitted_empty_values_are_fine
+  path: crates/edda/src/editor.rs
+  type: rust-fn
+level: 1.3
+links:
+- NEED001: aIR-0PQfVGI1Xf1KGzdKAvoQlkvB0LTd5OIBoFA_0dU=
+normative: true
+ref: ''
+reviewed: TB91bF0Yg9sS5pEFfgXecDiiWdiWEUvea_h4AgO43eo=
+text: |
+  edda shall read a field given as null as one left out.
